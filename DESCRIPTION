@@ -1,0 +1,24 @@
+Package: ads
+Title: internal hdlm project
+Version: 0.0.0.9000
+Authors@R: "Michael Braun <braunm@smu.edu> [aut, cre], Andre Bonfrer
+    <andre.bonfrer@anu.edu.au> [aut, cre]"
+Description: What the package does (one paragraph)
+Depends:
+    R (>= 3.1.2),
+    Rcpp (>= 0.11.3),
+    RcppEigen (>= 0.3.2.3),
+    methods,
+    CppADutils
+License: file LICENSE
+LazyData: true
+LinkingTo: Rcpp, RcppEigen, CppADutils
+RcppModules: ads
+Roxygen: list(wrap=TRUE)
+Suggests:
+    knitr,
+    plyr,
+    testthat,
+    numDeriv
+VignetteBuilder: knitr
+SystemRequirements: C++11

@@ -1,0 +1,7 @@
+exportPattern("^[^\\.]")
+import(Rcpp)
+import(RcppEigen)
+import(methods)
+useDynLib(ads)
+
+
