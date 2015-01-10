@@ -1,1 +1,3 @@
-a testing note, edited in branch michael
+a testing note, edited in branch michael at first,
+and then edited in devel
+
