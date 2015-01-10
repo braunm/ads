@@ -2,3 +2,4 @@ data/*.rda
 data-raw/fetch_data.R
 *.o
 *.so
+.Rhistory
