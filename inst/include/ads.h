@@ -180,6 +180,7 @@ private:
   bool include_H;
   bool add_prior;
   bool include_X;
+  bool include_cu;
   AScalar A_scale;
 }; // end class definition
 
@@ -205,6 +206,7 @@ ads::ads(const List& params)
   include_H = as<bool>(flags["include.H"]);
   add_prior = as<bool>(flags["add.prior"]);
   include_X = as<bool>(flags["include.X"]);
+  include_cu = as<bool>(flags["include.cu"]);
   A_scale = as<double>(flags["A.scale"]);
 
   List Xlist;
@@ -321,6 +323,7 @@ ads::ads(const List& params)
     delta_a = as<double>(priors_delta["a"]);
     delta_b = as<double>(priors_delta["b"]);
     
+  if (include_cu) {
     const List priors_c = as<List>(priors["c"]);
     c_mean_pmean = as<double>(priors_c["mean.mean"]);
     c_mean_psd = as<double>(priors_c["mean.sd"]);
@@ -332,6 +335,7 @@ ads::ads(const List& params)
     u_mean_psd = as<double>(priors_u["mean.sd"]);
     u_sd_pmean = as<double>(priors_u["sd.mean"]);
     u_sd_psd = as<double>(priors_u["sd.sd"]);
+  }
 
     if (include_X) {
       const List priors_theta12 = as<List>(priors["theta12"]);
@@ -403,8 +407,10 @@ ads::ads(const List& params)
     W2_log_diag.resize(W2_dim);
   }
   
-  c.resize(J);
-  u.resize(J);
+  if(include_cu) {
+        c.resize(J);
+        u.resize(J);
+  }
  
   if (include_H) {
     phi.resize(J,J);
@@ -446,20 +452,21 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
 
   // for c and u, the parameter is an offset agains the 
   // mean.  So c_j = c_mean + par[ind+j]
-  c_mean = par(ind++); //ind increments after pull
-  c_log_sd = par(ind++); // ind increments after pull
-  c_sd = exp(c_log_sd);
-  c_off = par.segment(ind,J); // N(0,1) prior
-  ind += J;
-  c.array() = c_sd * c_off.array() + c_mean;
-
+  if (include_cu) {
+      c_mean = par(ind++); //ind increments after pull
+      c_log_sd = par(ind++); // ind increments after pull
+      c_sd = exp(c_log_sd);
+      c_off = par.segment(ind,J); // N(0,1) prior
+      ind += J;
+      c.array() = c_sd * c_off.array() + c_mean;
  
-  u_mean = par(ind++); //ind increments after pull
-  u_log_sd = par(ind++); // ind increments after pull
-  u_sd = exp(u_log_sd);
-  u_off = par.segment(ind,J); // N(0,1) prior
-  ind += J;
-  u.array() = u_sd * u_off.array() + u_mean;
+      u_mean = par(ind++); //ind increments after pull
+      u_log_sd = par(ind++); // ind increments after pull
+      u_sd = exp(u_log_sd);
+      u_off = par.segment(ind,J); // N(0,1) prior
+      ind += J;
+      u.array() = u_sd * u_off.array() + u_mean;
+  }
  
   if (include_H) {
     phi = MatrixXA::Map(par.derived().data() + ind, J, J);
@@ -703,18 +710,23 @@ AScalar ads::eval_hyperprior() {
   
   // Priors on c and u
 
-  const AScalar prior_c_mean = dnorm_log(c_mean, c_mean_pmean, c_mean_psd);
-  AScalar prior_c_log_sd = dnormTrunc0_log(c_sd, c_sd_pmean, c_sd_psd);
-  prior_c_log_sd += c_log_sd; // Jacobian
-  const AScalar prior_c_off = -J*M_LN_SQRT_2PI - 0.5*c_off.squaredNorm(); // N(0,1)
-  const AScalar prior_c = prior_c_mean + prior_c_log_sd + prior_c_off;
+  AScalar prior_u = 0;
+  AScalar prior_c = 0;
+  
+    if (include_cu) {
+        const AScalar prior_c_mean = dnorm_log(c_mean, c_mean_pmean, c_mean_psd);
+        AScalar prior_c_log_sd = dnormTrunc0_log(c_sd, c_sd_pmean, c_sd_psd);
+        prior_c_log_sd += c_log_sd; // Jacobian
+        const AScalar prior_c_off = -J*M_LN_SQRT_2PI - 0.5*c_off.squaredNorm(); // N(0,1)
+        const AScalar prior_c = prior_c_mean + prior_c_log_sd + prior_c_off;
 
-  const AScalar prior_u_mean = dnorm_log(u_mean, u_mean_pmean, u_mean_psd);
-  AScalar prior_u_log_sd = dnormTrunc0_log(u_sd, u_sd_pmean, u_sd_psd);
-  prior_u_log_sd += u_log_sd; // Jacobian  
+        const AScalar prior_u_mean = dnorm_log(u_mean, u_mean_pmean, u_mean_psd);
+        AScalar prior_u_log_sd = dnormTrunc0_log(u_sd, u_sd_pmean, u_sd_psd);
+        prior_u_log_sd += u_log_sd; // Jacobian
  
-  const AScalar prior_u_off = -J*M_LN_SQRT_2PI - 0.5*u_off.squaredNorm(); // N(0,1)
-  const AScalar prior_u = prior_u_mean + prior_u_log_sd + prior_u_off;
+        const AScalar prior_u_off = -J*M_LN_SQRT_2PI - 0.5*u_off.squaredNorm(); // N(0,1)
+        const AScalar prior_u = prior_u_mean + prior_u_log_sd + prior_u_off;
+  }
 
   // Prior on phi
   // J x J matrix normal, diagonal (sparse) covariance matrices
@@ -735,7 +747,7 @@ AScalar ads::eval_hyperprior() {
 
 // Afunc
 AScalar ads::Afunc(const AScalar& aT, const AScalar& A_scale) {
-  AScalar res = aT / A_scale;
+  AScalar res = log( 1.0 + aT );
   return(res);
 }
 
@@ -746,7 +758,8 @@ void ads::set_Gt(const int& tt) {
   Gt(0,0) = 1.0 - delta;
   for (int j=0; j<J; j++) {
     Gt(0, j+1) = Afunc(A[tt](j), A_scale);
-    Gt(j+1, j+1) = 1.0 - c(j) - u(j)*A[tt](j) / A_scale - delta * AjIsZero[tt](j); 
+    if (include_cu) Gt(j+1, j+1) = 1.0 - c(j) - u(j)*A[tt](j) / A_scale - delta * AjIsZero[tt](j);
+    else Gt(j+1, j+1) = 1.0;
   }
   if (P>0)
     Gt.bottomRightCorner(P,P).setIdentity();

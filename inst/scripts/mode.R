@@ -21,6 +21,7 @@ save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rd
 
 
 flags <- list(include.H=FALSE,
+              include.cu=FALSE,
               add.prior=TRUE,
               include.X=TRUE,
               standardize=FALSE,
@@ -129,7 +130,7 @@ C20 <- 500*diag(1+P+J,1+P+J)
 
 E.Sigma <- 0.1 * diag(J) ## expected covariance across brands
 nu0 <- P + 2*J + 6  ## must be greater than theta2 rows+cols
-Omega0 <- (nu0-J-1)*E.Sigma
+Omega0 <- (nu0-J-1)*E.Sigma*0.001
 
 ## The following priors are optional
 
@@ -176,6 +177,7 @@ if (flags$add.prior) {
   ## prior on c.mean and u.mean:  normal
   ## prior on c.sd and u.sd:  truncated normal
 
+if (flags$include.cu) {
   prior.c.mean <- 0
   
   
@@ -190,6 +192,10 @@ if (flags$add.prior) {
                   mean.sd=1,
                   sd.mean=.1,
                   sd.sd=.5)
+} else {
+    prior.u <- NULL;
+    prior.c <- NULL;
+}
   
   ## For V1, V2, and W2:   T or half-T priors
   
@@ -248,17 +254,26 @@ if (flags$include.X) {
 }
 
 if (start.true.pars) {
-    c.mean.log.sd.start <- true.pars$c.mean.log.sd
-    c.off.start <- true.pars$c.off
-    u.mean.log.sd.start <- true.pars$u.mean.log.sd
-    u.off.start <- true.pars$u.off
-    logit.delta.start <- true.pars$logit.delta   
+    if(flags$include.cu) {
+        c.mean.log.sd.start <- true.pars$c.mean.log.sd
+        c.off.start <- true.pars$c.off
+        u.mean.log.sd.start <- true.pars$u.mean.log.sd
+        u.off.start <- true.pars$u.off
+    } else {
+        c.mean.log.sd.start <- c.off.start <- u.mean.log.sd.start <- u.off.start <- NULL
+    }
+    logit.delta.start <- true.pars$logit.delta
 } else {
-    c.mean.log.sd.start <- c(0,0)
-    c.off.start <- rep(0,J)
-    u.mean.log.sd.start <- c(0,0)
-    u.off.start <- rep(0,J)
-    logit.delta.start <- 0
+    if(flags$include.cu) {
+        c.mean.log.sd.start <- c(0,0)
+        c.off.start <- rep(0,J)
+        u.mean.log.sd.start <- c(0,0)
+        u.off.start <- rep(0,J)
+    } else {
+         c.mean.log.sd.start <- c.off.start <- u.mean.log.sd.start <- u.off.start <- NULL
+    }
+        logit.delta.start <- 0
+    
 }
 
 
@@ -325,7 +340,6 @@ cat("gradient\n")
 tg <- system.time(df <- get.df(start))
 print(tg)
 
-stop()
 
 opt2 <- optim(start,
              fn=get.f,
@@ -443,12 +457,15 @@ recover.corr.mat <- function(v, d) {
  
 sol <- sol.vec
 sol$delta <- exp(sol$logit.delta)/(1+exp(sol$logit.delta))
-sol$cj <- exp(sol$c.mean.log.sd[2]) * sol$c.off + sol$c.mean.log.sd[1]
-sol$uj <- exp(sol$u.mean.log.sd[2]) * sol$u.off + sol$u.mean.log.sd[1]
 sol$V1 <- recover.cov.mat(sol.vec$V1,dim.V1,nfact.V1)
 sol$V2 <- recover.cov.mat(sol.vec$V2,dim.V2,nfact.V2)
 sol$W2 <- recover.cov.mat(sol.vec$W2,dim.W2,nfact.W2)
 sol$W1 <- recover.corr.mat(sol.vec$W1,dim.W1)
+
+if(flags$include.cu){
+    sol$cj <- exp(sol$c.mean.log.sd[2]) * sol$c.off + sol$c.mean.log.sd[1]
+    sol$uj <- exp(sol$u.mean.log.sd[2]) * sol$u.off + sol$u.mean.log.sd[1]
+}
 
 hs <- get.hessian(opt$par)
 cv <- solve(-hs)
