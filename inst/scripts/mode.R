@@ -15,8 +15,10 @@ set.seed(1234)
 start.true.pars <- FALSE
 
 mod.name <- "hdlm"
-data.name <- "tti"
-##data.file <- paste0("~/Documents/hdlm/data/mcmod",data.name,".Rdata")
+data.name <- "sim"
+data.file <- paste0("~/Documents/hdlm/data/mcmod",data.name,".Rdata")
+
+data.file <- paste0("~/Dropbox/Competitive\ Clutter/Analysis/Code/Hierarchical/MC/",paste0("mcmod",data.name),".Rdata")
 save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
 
 
@@ -42,11 +44,11 @@ get.f.direct <- function(P, ...) return(cl$get.f.direct(P))
 get.LL <- function(P, ...) return(cl$get.f.direct(P))
 get.hyperprior <- function(P, ...) return(cl$get.hyperprior(P))
 
-##load(data.file)
-print("hello")
-dn <- paste0("mcmod",data.name) 
-data(list=dn)
-mcmod <- eval(parse(text=dn))
+load(data.file)
+#print("hello")
+#dn <- paste0("mcmod",data.name) 
+#data(list=dn)
+#mcmod <- eval(parse(text=dn))
 
 
 N <- mcmod$dimensions$N
