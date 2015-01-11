@@ -105,6 +105,12 @@ private:
   AScalar W1_eta;
   AScalar corr_W1_const; // normalizing const for lkj prior
 
+  // the following for W1 only used if W1_LKJ is off
+  AScalar diag_scale_W1;
+  AScalar diag_df_W1;
+  AScalar fact_scale_W1;
+  AScalar fact_df_W1;
+    
   AScalar diag_scale_W2;
   AScalar diag_df_W2;
   AScalar fact_scale_W2;
@@ -117,7 +123,8 @@ private:
   int P; // covariates with nonstationary parameters
   int nfact_V1; // factors to estimate V1
   int nfact_V2; // factors to estimate V2
-  int nfact_W2; // factors to estimate W2
+  int nfact_W1; // factors to estimate W1 (if active)
+  int nfact_W2; // factors to estimate W2 (if active)
 
   int V1_dim, V2_dim, W_dim, W1_dim, W2_dim;
 
@@ -138,6 +145,8 @@ private:
   VectorXA V1_log_diag;
   VectorXA V2_log_diag;
   AScalar W1_scale;
+  AScalar W2_scale;
+  VectorXA W1_log_diag;
   VectorXA W2_log_diag;
   MatrixXA V1; 
   MatrixXA V2; 
@@ -181,7 +190,10 @@ private:
   bool add_prior;
   bool include_X;
   bool include_cu;
+  bool W1_LKJ;
+
   AScalar A_scale;
+    
 }; // end class definition
 
 
@@ -207,6 +219,7 @@ ads::ads(const List& params)
   add_prior = as<bool>(flags["add.prior"]);
   include_X = as<bool>(flags["include.X"]);
   include_cu = as<bool>(flags["include.cu"]);
+  W1_LKJ = as<bool>(flags["W1.LKJ"]);
   A_scale = as<double>(flags["A.scale"]);
 
   List Xlist;
@@ -244,6 +257,12 @@ ads::ads(const List& params)
   } else {
     nfact_W2 = 0;
   }
+
+    if (W1_LKJ) {
+        nfact_W1 = as<int>(dimensions["nfact.W1"]);
+    } else {
+        nfact_W1 = 0;
+    }
 
   V1_dim = N;
   V2_dim = N*(P+1);
@@ -362,21 +381,29 @@ ads::ads(const List& params)
     fact_scale_V2 = as<double>(priors_V2["fact.scale"]);
     fact_df_V2 = as<double>(priors_V2["fact.df"]);
 
-    const List priors_W1 = as<List>(priors["W1"]); 
-    df_scale_W1 = as<double>(priors_W1["scale.df"]);
-    s_scale_W1 = as<double>(priors_W1["scale.s"]);
-    const double eta = as<double>(priors_W1["eta"]);
-    W1_eta = eta;
+      if(W1_LKJ) {
+          const List priors_W1 = as<List>(priors["W1"]);
+          df_scale_W1 = as<double>(priors_W1["scale.df"]);
+          s_scale_W1 = as<double>(priors_W1["scale.s"]);
+          const double eta = as<double>(priors_W1["eta"]);
+          W1_eta = eta;
 
-    // from LKJ, Eq. 16
-    double t1 = 0;
-    double t2 = 0;
-    for (int i=1; i<=(W1_dim-1); i++) {
-      t1 += (2.0 * eta - 2.0 + W1_dim) * (W1_dim - i);
-      double tmp = eta + 0.5 * (W1_dim - i - 1.0);
-      t2 += (W1_dim-i) * (2.0 * lgamma(tmp) - lgamma(2.0 * tmp));
-    }
-    corr_W1_const = t1 * M_LN2 + t2;
+          // from LKJ, Eq. 16
+          double t1 = 0;
+          double t2 = 0;
+          for (int i=1; i<=(W1_dim-1); i++) {
+              t1 += (2.0 * eta - 2.0 + W1_dim) * (W1_dim - i);
+              double tmp = eta + 0.5 * (W1_dim - i - 1.0);
+              t2 += (W1_dim-i) * (2.0 * lgamma(tmp) - lgamma(2.0 * tmp));
+          }
+          corr_W1_const = t1 * M_LN2 + t2;
+      } else {
+          const List priors_W1 = as<List>(priors["W1"]);
+          diag_scale_W1 = as<double>(priors_W1["diag.scale"]);
+          diag_df_W1 = as<double>(priors_W1["diag.df"]);
+          fact_scale_W1 = as<double>(priors_W1["fact.scale"]);
+          fact_df_W1 = as<double>(priors_W1["fact.df"]);
+      }
 
     if (P>0) {
       const List priors_W2 = as<List>(priors["W2"]); 
@@ -405,6 +432,10 @@ ads::ads(const List& params)
   if (P>0) {
     LW2.resize(W2_dim, W2_dim);
     W2_log_diag.resize(W2_dim);
+  }
+  if(!W1_LKJ) {
+      LW1.resize(W1_dim,W1_dim);
+      W1_log_diag.resize(W1_dim);
   }
   
   if(include_cu) {
@@ -518,19 +549,21 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
   // triangle of the correlation matrix.
  
   W.setZero();
-  W1_scale = exp(par(ind++));
-  LW1.setZero();
-  // copy terms to lower triangle
-  logdet_W1_corr = 0;
-  log_W1_jac = 0;
-  for (int j=0; j<W1_dim-1; j++) {
-    for (int i=j+1; i<W1_dim; i++) {
-      LW1(i,j) = tanh(par(ind++));
-      AScalar tmp = log1p(-pow(LW1(i, j), 2));
-      logdet_W1_corr += tmp;
-      log_W1_jac += 0.5 * (W1_dim-j) * tmp;
-    }
-  }
+    
+    if (W1_LKJ) {
+        W1_scale = exp(par(ind++));
+        LW1.setZero();
+        // copy terms to lower triangle
+        logdet_W1_corr = 0;
+        log_W1_jac = 0;
+        for (int j=0; j<W1_dim-1; j++) {
+            for (int i=j+1; i<W1_dim; i++) {
+                LW1(i,j) = tanh(par(ind++));
+                AScalar tmp = log1p(-pow(LW1(i, j), 2));
+                logdet_W1_corr += tmp;
+                log_W1_jac += 0.5 * (W1_dim-j) * tmp;
+            }
+        }
 
   Eigen::Block<MatrixXA> W1 = W.topLeftCorner(1+J,1+J);
   W1(0,0)=1;
@@ -546,6 +579,27 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
   W1 = W1.triangularView<Lower>() * W1.transpose();
   W1.array() = W1_scale * W1.array();
 
+    } else {
+        
+        Eigen::Block<MatrixXA> W1 = W.topLeftCorner(1+J,1+J);
+    
+        W1_log_diag = par.segment(ind,W1_dim);
+        ind += W1_dim;
+        W1.diagonal() = W1_log_diag.array().exp().matrix();
+        
+        if (nfact_W1 > 0) {
+            LW1.setZero();
+            for (int j=0; j<nfact_W1; j++) {
+                LW1.block(j,j,W1_dim-j,1) = par.segment(ind,W1_dim-j);
+                ind += W1_dim - j;
+                LW1(j,j) = exp(LW1(j,j));
+            }
+            W1.template selfadjointView<Eigen::Lower>().rankUpdate(LW1);
+        }
+        
+    }
+
+    // work on W2 now
   if (P>0) {
 
     Eigen::Block<MatrixXA> W2 = W.bottomRightCorner(P,P);
@@ -673,14 +727,20 @@ AScalar ads::eval_hyperprior() {
     }
   }
 
-  AScalar prior_scale_W1 = dhalft_log(W1_scale, df_scale_W1, s_scale_W1);
-  prior_scale_W1 += log(W1_scale); // Jacobian
+    AScalar prior_scale_W1 = 0;
+    AScalar prior_corr_W1 = 0;
+    if(W1_LKJ) {
+        prior_scale_W1 = dhalft_log(W1_scale, df_scale_W1, s_scale_W1);
+        prior_scale_W1 += log(W1_scale); // Jacobian
 
-  // LKJ prior, including Jacobian (from unwrap_params)
-  AScalar prior_corr_W1 = corr_W1_const + (W1_eta-1)*logdet_W1_corr + log_W1_jac;
+        // LKJ prior, including Jacobian (from unwrap_params)
+        prior_corr_W1 = corr_W1_const + (W1_eta-1)*logdet_W1_corr + log_W1_jac;
+    }
+    AScalar prior_diag_W1 = 0;
+    AScalar prior_fact_W1 = 0;
 
-  AScalar prior_diag_W2 = 0;
-  AScalar prior_fact_W2 = 0;
+    AScalar prior_diag_W2 = 0;
+    AScalar prior_fact_W2 = 0;
 
   if (P>0) {
 
@@ -688,21 +748,34 @@ AScalar ads::eval_hyperprior() {
       prior_diag_W2 += dhalft_log(exp(W2_log_diag(i)), diag_df_W2, diag_scale_W2);
       prior_diag_W2 += W2_log_diag(i); // Jacobian (check this)
     }
-    
+
     if (nfact_W2 > 0) {
       for (int j=0; j < nfact_W2; j++) {
-	prior_fact_W2 += dhalft_log(LW2(j,j), fact_df_W2, fact_scale_W2);
-	prior_fact_W2 += log(LW2(j,j)); // Jacobian (check this)
-	for (int i=j+1; i<W2_dim; i++) {
-	  prior_fact_W2 += dt_log(LW2(i,j), fact_df_W2, fact_scale_W2);
-	}
-      }
+          prior_fact_W2 += dhalft_log(LW2(j,j), fact_df_W2, fact_scale_W2);
+          prior_fact_W2 += log(LW2(j,j)); // Jacobian (check this)
+          for (int i=j+1; i<W2_dim; i++) {
+                prior_fact_W2 += dt_log(LW2(i,j), fact_df_W2, fact_scale_W2);
+                }
+            }
+        }
     }
+    
+  if(!W1_LKJ) {
+        if (nfact_W1 > 0) {
+            for (int j=0; j < nfact_W1; j++) {
+                prior_fact_W1 += dhalft_log(LW1(j,j), fact_df_W1, fact_scale_W1);
+                prior_fact_W1 += log(LW1(j,j)); // Jacobian (check this)
+                for (int i=j+1; i<W1_dim; i++) {
+                    prior_fact_W1 += dt_log(LW1(i,j), fact_df_W1, fact_scale_W1);
+                }
+            }
+        }
   }
 
   AScalar prior_mats = prior_diag_V1 + prior_fact_V1;
   prior_mats += prior_diag_V2 + prior_fact_V2;
-  prior_mats += prior_scale_W1 + prior_corr_W1;
+  if(W1_LKJ) prior_mats += prior_scale_W1 + prior_corr_W1;
+  else prior_mats += prior_diag_W1 + prior_fact_W1;
 
   if (P>0) {
     prior_mats += prior_diag_W2 + prior_fact_W2;

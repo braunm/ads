@@ -25,12 +25,14 @@ flags <- list(include.H=FALSE,
               add.prior=TRUE,
               include.X=TRUE,
               standardize=FALSE,
-              A.scale = 1000000
-              )
+              A.scale = 1000000,
+              W1.LKJ = FALSE 
+              ) # W1.LKJ true means we do LKJ, otherwise same as W2
 
 nfact.V1 <- 0
-nfact.V2 <- 1
-nfact.W2 <- 1
+nfact.V2 <- 0
+nfact.W1 <- 0
+nfact.W2 <- 0
 
 
 get.f <- function(P, ...) return(cl$get.f(P))
@@ -102,15 +104,18 @@ dim.W <- dim.W1+dim.W2
 dimensions <- c(N=N,T=T,J=J,K=K,P=P,
                 nfact.V1=nfact.V1,
                 nfact.V2=nfact.V2,
+                nfact.W1=nfact.W1,
                 nfact.W2=nfact.W2
                 )
 
 max.nfact.V1 <- 1+2*dim.V1-sqrt(1+8*dim.V1)
 max.nfact.V2 <- 1+2*dim.V2-sqrt(1+8*dim.V2)
-max.nfact.W2 <- 1+2*dim.V2-sqrt(1+8*dim.W2)
+max.nfact.W1 <- 1+2*dim.W1-sqrt(1+8*dim.W1)
+max.nfact.W2 <- 1+2*dim.W2-sqrt(1+8*dim.W2)
 
 if (nfact.V1 > max.nfact.V1) stop("Too many factors for V1")
 if (nfact.V2 > max.nfact.V2) stop("Too many factors for V2")
+if (nfact.W2 > max.nfact.W2) stop("Too many factors for W1")
 if (nfact.W2 > max.nfact.W2) stop("Too many factors for W2")
 
 
@@ -130,7 +135,7 @@ C20 <- 500*diag(1+P+J,1+P+J)
 
 E.Sigma <- 0.1 * diag(J) ## expected covariance across brands
 nu0 <- P + 2*J + 6  ## must be greater than theta2 rows+cols
-Omega0 <- (nu0-J-1)*E.Sigma*0.001
+Omega0 <- (nu0-J-1)*E.Sigma
 
 ## The following priors are optional
 
@@ -197,18 +202,20 @@ if (flags$include.cu) {
     prior.c <- NULL;
 }
   
-  ## For V1, V2, and W2:   T or half-T priors
+  ## For V1, V2, and W1, W2:   T or half-T priors (if needed)
   
   prior.V1 <- list(diag.scale=.01, diag.df=4,
                    fact.scale=.01, fact.df=4)
   prior.V2 <- list(diag.scale=.01, diag.df=4,
+                   fact.scale=.01, fact.df=4)
+  prior.W1 <- list(diag.scale=.01, diag.df=4,
                    fact.scale=.01, fact.df=4)
   prior.W2 <- list(diag.scale=.01, diag.df=4,
                    fact.scale=.01, fact.df=4)
 
   ## LKJ prior on W1.  Scale parameter has half-T prior
   
-  prior.W1 <- list(scale.df=4, scale.s=1, eta=1)
+  if(flags$W1.LKJ) prior.W1 <- list(scale.df=4, scale.s=1, eta=1)
   
 } else {
   
@@ -286,7 +293,7 @@ if (flags$include.H) {
 
 V1.length <- N + N*nfact.V1 - nfact.V1*(nfact.V1-1)/2
 V2.length <- N*(P+1) + N*(P+1)*nfact.V2 - nfact.V2*(nfact.V2-1)/2
-W1.length <- dim.W1*(dim.W1-1)/2 + 1
+if(flags$W1.LKJ) W1.length <- dim.W1*(dim.W1-1)/2 + 1 else W1.length <- (J+1) + (J+1)*nfact.W1 - nfact.W1*(nfact.W1-1)/2
 W2.length <- P + P*nfact.W2 - nfact.W2*(nfact.W2-1)/2
 
 ##V1.start <- (1:V1.length)/10
@@ -460,13 +467,14 @@ sol$delta <- exp(sol$logit.delta)/(1+exp(sol$logit.delta))
 sol$V1 <- recover.cov.mat(sol.vec$V1,dim.V1,nfact.V1)
 sol$V2 <- recover.cov.mat(sol.vec$V2,dim.V2,nfact.V2)
 sol$W2 <- recover.cov.mat(sol.vec$W2,dim.W2,nfact.W2)
-sol$W1 <- recover.corr.mat(sol.vec$W1,dim.W1)
+if(flags$W1.LKJ) sol$W1 <- recover.corr.mat(sol.vec$W1,dim.W1) else sol$W1 <- recover.cov.mat(sol.vec$W1,dim.W1,nfact.W1)
 
 if(flags$include.cu){
     sol$cj <- exp(sol$c.mean.log.sd[2]) * sol$c.off + sol$c.mean.log.sd[1]
     sol$uj <- exp(sol$u.mean.log.sd[2]) * sol$u.off + sol$u.mean.log.sd[1]
 }
 
+stop("Not getting the hessian")
 hs <- get.hessian(opt$par)
 cv <- solve(-hs)
 se <- sqrt(diag(cv))
