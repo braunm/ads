@@ -86,7 +86,7 @@ Sigma <- matrix(0, nrow = J, ncol = J)
 diag(Sigma) <- 0.1
 
 V[[1]] <- diag(3, nrow = N)
-# for(i in 1:(ncol(V[[1]])-1)) V[[1]][i,i+1]<-V[[1]][i+1,i]<-0.02
+## for(i in 1:(ncol(V[[1]])-1)) V[[1]][i,i+1]<-V[[1]][i+1,i] <- 0.02
 
 V[[2]] <- diag(N * (1 + P)) * 1
 
