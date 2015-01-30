@@ -16,9 +16,8 @@ start.true.pars <- FALSE
 
 mod.name <- "hdlm"
 data.name <- "sim"
-data.file <- paste0("~/Documents/hdlm/data/mcmod",data.name,".Rdata")
+data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 
-data.file <- paste0("~/Dropbox/Competitive\ Clutter/Analysis/Code/Hierarchical/MC/",paste0("mcmod",data.name),".Rdata")
 save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
 
 
@@ -36,7 +35,6 @@ nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
 
-
 get.f <- function(P, ...) return(cl$get.f(P))
 get.df <- function(P, ...) return(cl$get.fdf(P)$grad)
 get.hessian <- function(P, ...) return(cl$get.hessian(P))
@@ -49,7 +47,6 @@ load(data.file)
 #dn <- paste0("mcmod",data.name) 
 #data(list=dn)
 #mcmod <- eval(parse(text=dn))
-
 
 N <- mcmod$dimensions$N
 T <- mcmod$dimensions$T
@@ -126,13 +123,13 @@ if (nfact.W2 > max.nfact.W2) stop("Too many factors for W2")
 ## We have to include these prior parameters
 
 M20 <- matrix(0,1+P+J,J)
-## M20[1,] <- 15
-## M20[2:(J+1),] <- -.005
-## M20[(J+2):(1+P+J),] <- 1
-## for (j in 1:J) {
-##     M20[J+1+j,j] <- -2
-##     M20[j+1,j] <- .25
-## }
+ M20[1,] <- 15
+ M20[2:(J+1),] <- -.005
+ M20[(J+2):(1+P+J),] <- 1
+ for (j in 1:J) {
+     M20[J+1+j,j] <- -2
+     M20[j+1,j] <- .25
+ }
 C20 <- 500*diag(1+P+J,1+P+J)
 
 E.Sigma <- 0.1 * diag(J) ## expected covariance across brands
@@ -476,7 +473,6 @@ if(flags$include.cu){
     sol$uj <- exp(sol$u.mean.log.sd[2]) * sol$u.off + sol$u.mean.log.sd[1]
 }
 
-stop("Not getting the hessian")
 hs <- get.hessian(opt$par)
 cv <- solve(-hs)
 se <- sqrt(diag(cv))
