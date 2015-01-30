@@ -25,6 +25,7 @@ RCPP_MODULE(ads){
     .method( "get.f.direct", & MB_Base<ads>::get_f_direct)
     .method( "get.LL", & MB_Base<ads>::get_LL)
     .method( "get.hyperprior", & MB_Base<ads>::get_hyperprior)
+    .method( "get.hessian.test", & MB_Base<ads>::get_hessian_test)
 
     ;
 }

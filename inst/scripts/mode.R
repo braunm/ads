@@ -18,8 +18,9 @@ mod.name <- "hdlm"
 data.name <- "sim"
 data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 
-save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
+## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
 
+save.file <- paste0("inst/results/",mod.name,"_",data.name,"_mode.Rdata")
 
 flags <- list(include.H=FALSE,
               include.cu=FALSE,

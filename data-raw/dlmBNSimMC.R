@@ -27,12 +27,12 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 }
 
 # create Y
-N <- 10  # number of 'sites'
+N <- 4  # number of 'sites'
 T <- 55  # number of time periods
 Tb <- 1  # number of burnin periods
-J <- 3  # number of equations
+J <- 2  # number of equations
 P <- J  # number of time varying covariates per city (excluding intercept)
-K1 <- 2  # number of non time varying covariates per city at top level (including intercept)
+K1 <- 1  # number of non time varying covariates per city at top level (including intercept)
 Cvec <- rnorm(J, mean = 0.1, sd = 0.03)  # wearout per period
 Uvec <- rnorm(J, mean = 0.15, sd = 0.05)  # wearout due to repetition
 # parameters
@@ -90,7 +90,7 @@ W <- 1e-04 * diag(1 + J + P)
 Sigma <- matrix(0, nrow = J, ncol = J)
 diag(Sigma) <- 0.1
 
-V[[1]] <- diag(3, nrow = N)
+V[[1]] <- diag(1, nrow = N)
 ## for(i in 1:(ncol(V[[1]])-1)) V[[1]][i,i+1]<-V[[1]][i+1,i] <- 0.02
 
 V[[2]] <- diag(N * (1 + P)) * 1
