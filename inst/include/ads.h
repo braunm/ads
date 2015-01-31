@@ -244,6 +244,9 @@ ads::ads(const List& params)
   W1_LKJ = as<bool>(flags["W1.LKJ"]);
   A_scale = as<double>(flags["A.scale"]);
 
+  Rcout << "Constructing data\n";
+
+  
   List Xlist;
   if (include_X) {
     Xlist = as<List>(data["X"]);
@@ -292,6 +295,8 @@ ads::ads(const List& params)
   W2_dim = P;
   W_dim = W1_dim + W2_dim;
 
+  Rcout << "Constructor: Starting loop\n";
+  
   for (int i=0; i<T; i++) {
 
     check_interrupt();
@@ -360,6 +365,8 @@ ads::ads(const List& params)
       chol_cov_col_phi = chol_cov_col_phi_d.cast<AScalar>();
     }
 
+    Rcout << "Constructor: Prior delta\n";
+    
     const List priors_delta = as<List>(priors["delta"]);
     delta_a = as<double>(priors_delta["a"]);
     delta_b = as<double>(priors_delta["b"]);
@@ -403,30 +410,30 @@ ads::ads(const List& params)
     fact_scale_V2 = as<double>(priors_V2["fact.scale"]);
     fact_df_V2 = as<double>(priors_V2["fact.df"]);
 
-      if(W1_LKJ) {
-          const List priors_W1 = as<List>(priors["W1"]);
-          df_scale_W1 = as<double>(priors_W1["scale.df"]);
-          s_scale_W1 = as<double>(priors_W1["scale.s"]);
-          const double eta = as<double>(priors_W1["eta"]);
-          W1_eta = eta;
-
-          // from LKJ, Eq. 16
-          double t1 = 0;
-          double t2 = 0;
-          for (int i=1; i<=(W1_dim-1); i++) {
-              t1 += (2.0 * eta - 2.0 + W1_dim) * (W1_dim - i);
-              double tmp = eta + 0.5 * (W1_dim - i - 1.0);
-              t2 += (W1_dim-i) * (2.0 * lgamma(tmp) - lgamma(2.0 * tmp));
-          }
-          corr_W1_const = t1 * M_LN2 + t2;
-      } else {
-          const List priors_W1 = as<List>(priors["W1"]);
-          diag_scale_W1 = as<double>(priors_W1["diag.scale"]);
-          diag_df_W1 = as<double>(priors_W1["diag.df"]);
-          fact_scale_W1 = as<double>(priors_W1["fact.scale"]);
-          fact_df_W1 = as<double>(priors_W1["fact.df"]);
+    if(W1_LKJ) {
+      const List priors_W1 = as<List>(priors["W1"]);
+      df_scale_W1 = as<double>(priors_W1["scale.df"]);
+      s_scale_W1 = as<double>(priors_W1["scale.s"]);
+      const double eta = as<double>(priors_W1["eta"]);
+      W1_eta = eta;
+      
+      // from LKJ, Eq. 16
+      double t1 = 0;
+      double t2 = 0;
+      for (int i=1; i<=(W1_dim-1); i++) {
+	t1 += (2.0 * eta - 2.0 + W1_dim) * (W1_dim - i);
+	double tmp = eta + 0.5 * (W1_dim - i - 1.0);
+	t2 += (W1_dim-i) * (2.0 * lgamma(tmp) - lgamma(2.0 * tmp));
       }
-
+      corr_W1_const = t1 * M_LN2 + t2;
+    } else {
+      const List priors_W1 = as<List>(priors["W1"]);
+      diag_scale_W1 = as<double>(priors_W1["diag.scale"]);
+      diag_df_W1 = as<double>(priors_W1["diag.df"]);
+      fact_scale_W1 = as<double>(priors_W1["fact.scale"]);
+      fact_df_W1 = as<double>(priors_W1["fact.df"]);
+    }
+    
     if (P>0) {
       const List priors_W2 = as<List>(priors["W2"]); 
       diag_scale_W2 = as<double>(priors_W2["diag.scale"]);

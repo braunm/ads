@@ -27,12 +27,12 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 }
 
 # create Y
-N <- 4  # number of 'sites'
-T <- 55  # number of time periods
-Tb <- 1  # number of burnin periods
+N <- 20  # number of 'sites'
+T <- 202  # number of time periods
+Tb <- 2  # number of burnin periods
 J <- 2  # number of equations
 P <- J  # number of time varying covariates per city (excluding intercept)
-K1 <- 1  # number of non time varying covariates per city at top level (including intercept)
+K1 <- 2  # number of non time varying covariates per city at top level (including intercept)
 Cvec <- rnorm(J, mean = 0.1, sd = 0.03)  # wearout per period
 Uvec <- rnorm(J, mean = 0.15, sd = 0.05)  # wearout due to repetition
 # parameters
@@ -90,10 +90,10 @@ W <- 1e-04 * diag(1 + J + P)
 Sigma <- matrix(0, nrow = J, ncol = J)
 diag(Sigma) <- 0.1
 
-V[[1]] <- diag(1, nrow = N)
+V[[1]] <- diag(.5, nrow = N)
 ## for(i in 1:(ncol(V[[1]])-1)) V[[1]][i,i+1]<-V[[1]][i+1,i] <- 0.02
 
-V[[2]] <- diag(N * (1 + P)) * 1
+V[[2]] <- diag(N * (1 + P)) * 3
 
 Theta2.0 <- matrix(rep(0, 1 + J + P), nrow = (1 + J + P), ncol = J)
 Theta2.0[1, ] <- 25
@@ -221,5 +221,7 @@ for (t in 1:T) {
 mcmod <- list(dimensions = dimensions, Y = Y, E = El, A = Al, X = F12, 
     F1 = F1m, F2 = F2)
 
+truevals <- list(T1=T1true, T2=T2true, Theta12=Theta12, V=V, Sigma=Sigma, W=W)
+
 ### saving for mcmod object
-save(mcmod, file = "./data/mcmodsim.RData")
+save(mcmod, truevals, file = "./data/mcmodsim.RData")

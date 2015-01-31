@@ -29,7 +29,7 @@ flags <- list(include.H=FALSE,
               include.X=TRUE,
               standardize=FALSE,
               A.scale = 1000000,
-              W1.LKJ = FALSE 
+              W1.LKJ = TRUE
               ) # W1.LKJ true means we do LKJ, otherwise same as W2
 
 nfact.V1 <- 0
@@ -140,97 +140,97 @@ Omega0 <- (nu0-J-1)*E.Sigma
 
 ## The following priors are optional
 
-if (flags$add.prior) {
-
-   
-  if (flags$include.H) {
-    ## prior on phi:  matrix normal with sparse covariances
-    mean.phi <- matrix(0,J,J)
-    cov.row.phi <- 10*diag(J)
-    cov.col.phi <- 10*diag(J)
-    chol.cov.row.phi <- t(chol(cov.row.phi))
-    chol.cov.col.phi <- t(chol(cov.col.phi))
-    
-    prior.phi <- list(mean=mean.phi,      
-                      chol.row = chol.cov.row.phi,      
-                      chol.col = chol.cov.col.phi
-                      )
-  } else {
-    prior.phi <- NULL
-  }
-
-  if (flags$include.X) {
-    ## prior on theta12:  matrix normal with sparse covariances
-    mean.theta12 <- matrix(0,K,J)
-    cov.row.theta12 <- 500*diag(K) ## across covariates within brand
-    cov.col.theta12 <- 500*diag(J) ## across brand within covariates
-    chol.cov.row.theta12 <- t(chol(cov.row.theta12))
-    chol.cov.col.theta12 <- t(chol(cov.col.theta12))
-    
-    prior.theta12 <- list(mean=mean.theta12,
-                          chol.row = chol.cov.row.theta12,
-                          chol.col = chol.cov.col.theta12
+if (flags$add.prior) { 
+    if (flags$include.H) {
+        ## prior on phi:  matrix normal with sparse covariances
+        mean.phi <- matrix(0,J,J)
+        cov.row.phi <- 10*diag(J)
+        cov.col.phi <- 10*diag(J)
+        chol.cov.row.phi <- t(chol(cov.row.phi))
+        chol.cov.col.phi <- t(chol(cov.col.phi))
+        
+        prior.phi <- list(mean=mean.phi,      
+                          chol.row = chol.cov.row.phi,      
+                          chol.col = chol.cov.col.phi
                           )
-  } else {
+    } else {
+        prior.phi <- NULL
+    } ## end include.H
+    
+    if (flags$include.X) {
+        ## prior on theta12:  matrix normal with sparse covariances
+        mean.theta12 <- matrix(0,K,J)
+        cov.row.theta12 <- 500*diag(K) ## across covariates within brand
+        cov.col.theta12 <- 500*diag(J) ## across brand within covariates
+        chol.cov.row.theta12 <- t(chol(cov.row.theta12))
+        chol.cov.col.theta12 <- t(chol(cov.col.theta12))
+        
+        prior.theta12 <- list(mean=mean.theta12,
+                              chol.row = chol.cov.row.theta12,
+                              chol.col = chol.cov.col.theta12
+                              )
+    } else {
+        prior.theta12 <- NULL
+    }
+    
+    ## prior on logit.delta.  transformed beta with 2 parameters
+    
+    ##  prior.delta <- list(a=1,b=5)
+    prior.delta <- list(a=1,b=1)
+    
+    ## prior on c.mean and u.mean:  normal
+    ## prior on c.sd and u.sd:  truncated normal
+    
+    if (flags$include.cu) {
+        prior.c.mean <- 0
+        
+        
+        prior.c <- list(mean.mean=prior.c.mean,
+                        mean.sd=1,
+                        sd.mean=.1,
+                        sd.sd=.5)
+        
+        prior.u.mean <- 0           
+        
+        prior.u <- list(mean.mean=prior.u.mean,
+                        mean.sd=1,
+                        sd.mean=.1,
+                        sd.sd=.5)
+    } else {
+        prior.u <- NULL;
+        prior.c <- NULL;
+    }
+    
+    ## For V1, V2, and W1, W2:   T or half-T priors (if needed)
+    
+    prior.V1 <- list(diag.scale=.01, diag.df=4,
+                     fact.scale=.01, fact.df=4)
+    prior.V2 <- list(diag.scale=.01, diag.df=4,
+                     fact.scale=.01, fact.df=4)
+    prior.W1 <- list(diag.scale=.01, diag.df=4,
+                     fact.scale=.01, fact.df=4)
+    prior.W2 <- list(diag.scale=.01, diag.df=4,
+                     fact.scale=.01, fact.df=4)
+    
+    ## LKJ prior on W1.  Scale parameter has half-T prior
+    
+    if (flags$W1.LKJ) {
+        prior.W1 <- list(scale.df=4, scale.s=1, eta=1)
+    }
+    
+} else {
+    
+    prior.phi <- NULL
+    prior.V1 <- NULL
+    prior.V2 <- NULL
+    prior.W1 <- NULL
+    prior.W2 <- NULL
+    prior.delta <- NULL
+    prior.c <- NULL
+    prior.u <- NULL
     prior.theta12 <- NULL
-  }
-  
-  ## prior on logit.delta.  transformed beta with 2 parameters
-  
-##  prior.delta <- list(a=1,b=5)
-  prior.delta <- list(a=1,b=1)
-  
-  ## prior on c.mean and u.mean:  normal
-  ## prior on c.sd and u.sd:  truncated normal
-
-if (flags$include.cu) {
-  prior.c.mean <- 0
-  
-  
-  prior.c <- list(mean.mean=prior.c.mean,
-                  mean.sd=1,
-                  sd.mean=.1,
-                  sd.sd=.5)
-
-  prior.u.mean <- 0           
-                 
-  prior.u <- list(mean.mean=prior.u.mean,
-                  mean.sd=1,
-                  sd.mean=.1,
-                  sd.sd=.5)
-} else {
-    prior.u <- NULL;
-    prior.c <- NULL;
 }
-  
-  ## For V1, V2, and W1, W2:   T or half-T priors (if needed)
-  
-  prior.V1 <- list(diag.scale=.01, diag.df=4,
-                   fact.scale=.01, fact.df=4)
-  prior.V2 <- list(diag.scale=.01, diag.df=4,
-                   fact.scale=.01, fact.df=4)
-  prior.W1 <- list(diag.scale=.01, diag.df=4,
-                   fact.scale=.01, fact.df=4)
-  prior.W2 <- list(diag.scale=.01, diag.df=4,
-                   fact.scale=.01, fact.df=4)
 
-  ## LKJ prior on W1.  Scale parameter has half-T prior
-  
-  if(flags$W1.LKJ) prior.W1 <- list(scale.df=4, scale.s=1, eta=1)
-  
-} else {
-  
-  prior.phi <- NULL
-  prior.V1 <- NULL
-  prior.V2 <- NULL
-  prior.W1 <- NULL
-  prior.W2 <- NULL
-  prior.delta <- NULL
-  prior.c <- NULL
-  prior.u <- NULL
-  prior.theta12 <- NULL
-}
-  
 tmp <- list(M20=M20,
             C20=C20,
             Omega0=Omega0,
@@ -294,7 +294,11 @@ if (flags$include.H) {
 
 V1.length <- N + N*nfact.V1 - nfact.V1*(nfact.V1-1)/2
 V2.length <- N*(P+1) + N*(P+1)*nfact.V2 - nfact.V2*(nfact.V2-1)/2
-if(flags$W1.LKJ) W1.length <- dim.W1*(dim.W1-1)/2 + 1 else W1.length <- (J+1) + (J+1)*nfact.W1 - nfact.W1*(nfact.W1-1)/2
+if(flags$W1.LKJ) {
+    W1.length <- dim.W1*(dim.W1-1)/2 + 1
+} else {
+    W1.length <- (J+1) + (J+1)*nfact.W1 - nfact.W1*(nfact.W1-1)/2
+}
 W2.length <- P + P*nfact.W2 - nfact.W2*(nfact.W2-1)/2
 
 ##V1.start <- (1:V1.length)/10
@@ -468,7 +472,11 @@ sol$delta <- exp(sol$logit.delta)/(1+exp(sol$logit.delta))
 sol$V1 <- recover.cov.mat(sol.vec$V1,dim.V1,nfact.V1)
 sol$V2 <- recover.cov.mat(sol.vec$V2,dim.V2,nfact.V2)
 sol$W2 <- recover.cov.mat(sol.vec$W2,dim.W2,nfact.W2)
-if(flags$W1.LKJ) sol$W1 <- recover.corr.mat(sol.vec$W1,dim.W1) else sol$W1 <- recover.cov.mat(sol.vec$W1,dim.W1,nfact.W1)
+if(flags$W1.LKJ) {
+    sol$W1 <- recover.corr.mat(sol.vec$W1,dim.W1)
+} else {
+    sol$W1 <- recover.cov.mat(sol.vec$W1,dim.W1,nfact.W1)
+}
 
 if(flags$include.cu){
     sol$cj <- exp(sol$c.mean.log.sd[2]) * sol$c.off + sol$c.mean.log.sd[1]
