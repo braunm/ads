@@ -222,4 +222,4 @@ mcmod <- list(dimensions = dimensions, Y = Y, E = El, A = Al, X = F12,
     F1 = F1m, F2 = F2)
 
 ### saving for mcmod object
-save(mcmod, file = "~/Documents/hdlm/ads/data/mcmodsim.RData")
+save(mcmod, file = "./data/mcmodsim.RData")

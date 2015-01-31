@@ -23,6 +23,29 @@ using Rcpp::NumericVector;
 using Rcpp::IntegerVector;
 using Rcpp::as;
 
+typedef CppAD::AD<double> AScalar;
+
+AScalar logT(const AScalar& z,
+	     const AScalar& v,
+	     const AScalar& s) {
+  
+  AScalar res = lgamma(0.5*(v+1)) - lgamma(0.5*v);
+  res -= 0.5 * ((v+1) * log1p(z*z/(s*s*v)) + log(v));
+  res -= log(s) + M_LN_SQRT_PI;
+  return(res);
+}
+
+AScalar logHalfT(const AScalar& z,
+	     const AScalar& v,
+	     const AScalar& s) {
+  
+  AScalar res = M_LN2 + logT(z, v, s);
+  return(res);
+}
+
+
+
+
 class ads {
 
   typedef CppAD::AD<double> AScalar;
@@ -38,7 +61,6 @@ class ads {
   AScalar eval_f(const Eigen::Ref<VectorXA>&);
   AScalar eval_LL(const Eigen::Ref<VectorXA>&);
   AScalar eval_hyperprior(const Eigen::Ref<VectorXA>&);
-
 
   
 private:
@@ -550,58 +572,57 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
  
   W.setZero();
     
-    if (W1_LKJ) {
-        W1_scale = exp(par(ind++));
-        LW1.setZero();
-        // copy terms to lower triangle
-        logdet_W1_corr = 0;
-        log_W1_jac = 0;
-        for (int j=0; j<W1_dim-1; j++) {
-            for (int i=j+1; i<W1_dim; i++) {
-                LW1(i,j) = tanh(par(ind++));
-                AScalar tmp = log1p(-pow(LW1(i, j), 2));
-                logdet_W1_corr += tmp;
-                log_W1_jac += 0.5 * (W1_dim-j) * tmp;
-            }
-        }
-
-  Eigen::Block<MatrixXA> W1 = W.topLeftCorner(1+J,1+J);
-  W1(0,0)=1;
-  W1.bottomLeftCorner(W1_dim-1,1) = LW1.bottomLeftCorner(W1_dim-1,1);
-    
-  for (int j=1; j<W1_dim; j++) {
-    W1(j,j) = (1-LW1.block(j,0,1,j).array().square()).sqrt().prod();  
-    for (int i=j+1; i<W1_dim; i++) {
-      W1(i,j) = W1(j,j)*LW1(i,j);
+  if (W1_LKJ) {
+    W1_scale = exp(par(ind++));
+    LW1.setZero();
+    // copy terms to lower triangle
+    logdet_W1_corr = 0;
+    log_W1_jac = 0;
+    for (int j=0; j<W1_dim-1; j++) {
+      for (int i=j+1; i<W1_dim; i++) {
+	LW1(i,j) = tanh(par(ind++));
+	AScalar tmp = log1p(-pow(LW1(i, j), 2));
+	logdet_W1_corr += tmp;
+	log_W1_jac += 0.5 * (W1_dim-j) * tmp;
+      }
     }
+    
+    Eigen::Block<MatrixXA> W1 = W.topLeftCorner(1+J,1+J);
+    W1(0,0)=1;
+    W1.bottomLeftCorner(W1_dim-1,1) = LW1.bottomLeftCorner(W1_dim-1,1);
+    
+    for (int j=1; j<W1_dim; j++) {
+      W1(j,j) = (1-LW1.block(j,0,1,j).array().square()).sqrt().prod();  
+      for (int i=j+1; i<W1_dim; i++) {
+	W1(i,j) = W1(j,j)*LW1(i,j);
+      }
+    }
+    
+    W1 = W1.triangularView<Lower>() * W1.transpose();
+    W1.array() = W1_scale * W1.array();
+    
+  } else {
+    
+    Eigen::Block<MatrixXA> W1 = W.topLeftCorner(1+J,1+J);
+    
+    W1_log_diag = par.segment(ind,W1_dim);
+    ind += W1_dim;
+    W1.diagonal() = W1_log_diag.array().exp().matrix();
+    
+    if (nfact_W1 > 0) {
+      LW1.setZero();
+      for (int j=0; j<nfact_W1; j++) {
+	LW1.block(j,j,W1_dim-j,1) = par.segment(ind,W1_dim-j);
+	ind += W1_dim - j;
+	LW1(j,j) = exp(LW1(j,j));
+      }
+      W1.template selfadjointView<Eigen::Lower>().rankUpdate(LW1);
+    }    
   }
-
-  W1 = W1.triangularView<Lower>() * W1.transpose();
-  W1.array() = W1_scale * W1.array();
-
-    } else {
-        
-        Eigen::Block<MatrixXA> W1 = W.topLeftCorner(1+J,1+J);
-    
-        W1_log_diag = par.segment(ind,W1_dim);
-        ind += W1_dim;
-        W1.diagonal() = W1_log_diag.array().exp().matrix();
-        
-        if (nfact_W1 > 0) {
-            LW1.setZero();
-            for (int j=0; j<nfact_W1; j++) {
-                LW1.block(j,j,W1_dim-j,1) = par.segment(ind,W1_dim-j);
-                ind += W1_dim - j;
-                LW1(j,j) = exp(LW1(j,j));
-            }
-            W1.template selfadjointView<Eigen::Lower>().rankUpdate(LW1);
-        }
-        
-    }
-
-    // work on W2 now
+  
+  // work on W2 now
   if (P>0) {
-
+    
     Eigen::Block<MatrixXA> W2 = W.bottomRightCorner(P,P);
     
     W2_log_diag = par.segment(ind,W2_dim);
@@ -695,23 +716,27 @@ AScalar ads::eval_hyperprior() {
 
   AScalar prior_diag_V1 = 0;
   for (size_t i=0; i<V1_dim; i++) {
-    prior_diag_V1 += dhalft_log(V1(i,i), diag_df_V1, diag_scale_V1);
+    //    prior_diag_V1 += dhalft_log(V1(i,i), diag_df_V1, diag_scale_V1);
+    prior_diag_V1 += logHalfT(V1(i,i), diag_df_V1, diag_scale_V1);
     prior_diag_V1 += V1_log_diag(i); // Jacobian (check this)
   }
 
   AScalar prior_diag_V2 = 0;
   for (size_t i=0; i<V2_dim; i++) {
-    prior_diag_V2 += dhalft_log(V2(i,i), diag_df_V2, diag_scale_V2);
+    //   prior_diag_V2 += dhalft_log(V2(i,i), diag_df_V2, diag_scale_V2);
+    prior_diag_V2 += logHalfT(V2(i,i), diag_df_V2, diag_scale_V2);
     prior_diag_V2 += V2_log_diag(i); // Jacobian (check this)
   }
   
   AScalar prior_fact_V1 = 0;
   if (nfact_V1 > 0) {
     for (int j=0; j < nfact_V1; j++) {
-      prior_fact_V1 += dhalft_log(LV1(j,j), fact_df_V1, fact_scale_V1);
+      //   prior_fact_V1 += dhalft_log(LV1(j,j), fact_df_V1, fact_scale_V1);
+      prior_fact_V1 += logHalfT(LV1(j,j), fact_df_V1, fact_scale_V1);      
       prior_fact_V1 += log(LV1(j,j)); // Jacobian (check this)
       for (int i=j+1; i<V1_dim; i++) {
-	prior_fact_V1 += dt_log(LV1(i,j), fact_df_V1, fact_scale_V1);
+	//	prior_fact_V1 += dt_log(LV1(i,j), fact_df_V1, fact_scale_V1);
+	prior_fact_V1 += logT(LV1(i,j), fact_df_V1, fact_scale_V1);
       }
     }
   }
@@ -719,10 +744,12 @@ AScalar ads::eval_hyperprior() {
   AScalar prior_fact_V2 = 0;
   if (nfact_V2 > 0) {
     for (int j=0; j < nfact_V2; j++) {
-      prior_fact_V2 += dhalft_log(LV2(j,j), fact_df_V2, fact_scale_V2);
+      //   prior_fact_V2 += dhalft_log(LV2(j,j), fact_df_V2, fact_scale_V2);
+      prior_fact_V2 += logHalfT(LV2(j,j), fact_df_V2, fact_scale_V2);
       prior_fact_V2 += log(LV2(j,j)); // Jacobian (check this)
       for (int i=j+1; i<V2_dim; i++) {
-	prior_fact_V2 += dt_log(LV2(i,j), fact_df_V2, fact_scale_V2);
+	//   prior_fact_V2 += dt_log(LV2(i,j), fact_df_V2, fact_scale_V2);
+	prior_fact_V2 += logT(LV2(i,j), fact_df_V2, fact_scale_V2);
       }
     }
   }
@@ -730,7 +757,8 @@ AScalar ads::eval_hyperprior() {
     AScalar prior_scale_W1 = 0;
     AScalar prior_corr_W1 = 0;
     if(W1_LKJ) {
-        prior_scale_W1 = dhalft_log(W1_scale, df_scale_W1, s_scale_W1);
+      // prior_scale_W1 = dhalft_log(W1_scale, df_scale_W1, s_scale_W1);
+	prior_scale_W1 = logHalfT(W1_scale, df_scale_W1, s_scale_W1);
         prior_scale_W1 += log(W1_scale); // Jacobian
 
         // LKJ prior, including Jacobian (from unwrap_params)
@@ -745,16 +773,19 @@ AScalar ads::eval_hyperprior() {
   if (P>0) {
 
     for (size_t i=0; i<W2_dim; i++) {
-      prior_diag_W2 += dhalft_log(exp(W2_log_diag(i)), diag_df_W2, diag_scale_W2);
+      //     prior_diag_W2 += dhalft_log(exp(W2_log_diag(i)), diag_df_W2, diag_scale_W2);
+      prior_diag_W2 += logHalfT(exp(W2_log_diag(i)), diag_df_W2, diag_scale_W2);
       prior_diag_W2 += W2_log_diag(i); // Jacobian (check this)
     }
 
     if (nfact_W2 > 0) {
       for (int j=0; j < nfact_W2; j++) {
-          prior_fact_W2 += dhalft_log(LW2(j,j), fact_df_W2, fact_scale_W2);
+	//    prior_fact_W2 += dhalft_log(LW2(j,j), fact_df_W2, fact_scale_W2);
+	prior_fact_W2 += logHalfT(LW2(j,j), fact_df_W2, fact_scale_W2);
           prior_fact_W2 += log(LW2(j,j)); // Jacobian (check this)
           for (int i=j+1; i<W2_dim; i++) {
-                prior_fact_W2 += dt_log(LW2(i,j), fact_df_W2, fact_scale_W2);
+	    // prior_fact_W2 += dt_log(LW2(i,j), fact_df_W2, fact_scale_W2);
+	    prior_fact_W2 += logT(LW2(i,j), fact_df_W2, fact_scale_W2);
                 }
             }
         }
@@ -763,10 +794,12 @@ AScalar ads::eval_hyperprior() {
   if(!W1_LKJ) {
         if (nfact_W1 > 0) {
             for (int j=0; j < nfact_W1; j++) {
-                prior_fact_W1 += dhalft_log(LW1(j,j), fact_df_W1, fact_scale_W1);
+	      //     prior_fact_W1 += dhalft_log(LW1(j,j), fact_df_W1, fact_scale_W1);
+		prior_fact_W1 += logHalfT(LW1(j,j), fact_df_W1, fact_scale_W1);
                 prior_fact_W1 += log(LW1(j,j)); // Jacobian (check this)
                 for (int i=j+1; i<W1_dim; i++) {
-                    prior_fact_W1 += dt_log(LW1(i,j), fact_df_W1, fact_scale_W1);
+		  //    prior_fact_W1 += dt_log(LW1(i,j), fact_df_W1, fact_scale_W1);
+		  prior_fact_W1 += logT(LW1(i,j), fact_df_W1, fact_scale_W1);
                 }
             }
         }

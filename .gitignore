@@ -3,3 +3,6 @@ data-raw/fetch_data.R
 *.o
 *.so
 .Rhistory
+*~
+.*~
+.DS_Store
