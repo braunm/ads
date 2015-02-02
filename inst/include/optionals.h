@@ -31,3 +31,12 @@ double get_hyperprior(const NumericVector& P_) {
 }
 
 
+
+Rcpp::List par_check_(const NumericVector& P_) {
+
+    VectorXA P = VectorXd::Map(P_.begin(), nvars()).template cast<AScalar>();
+    Rcpp::List res = model->par_check(P);
+    return(res);
+}
+
+

@@ -61,6 +61,7 @@ class ads {
   AScalar eval_f(const Eigen::Ref<VectorXA>&);
   AScalar eval_LL(const Eigen::Ref<VectorXA>&);
   AScalar eval_hyperprior(const Eigen::Ref<VectorXA>&);
+  List par_check(const Eigen::Ref<VectorXA>&);
 
   
 private:
@@ -155,14 +156,18 @@ private:
   MatrixXA theta12;
   AScalar logit_delta;
   AScalar delta;
-  AScalar c_mean;
-  AScalar c_log_sd;
-  AScalar c_sd;
-  VectorXA c_off; // J copy wearout parameters offset
-  AScalar u_mean;
-  AScalar u_log_sd;
-  AScalar u_sd;
-  VectorXA u_off; // J ad wearout parameters offset
+  //  AScalar c_mean;
+  // AScalar c_log_sd;
+  // AScalar c_sd;
+  //  VectorXA c_off; // J copy wearout parameters offset
+  // AScalar u_mean;
+  // AScalar u_log_sd;
+  // AScalar u_sd;
+  // VectorXA u_off; // J ad wearout parameters offset
+
+  AScalar c_a, c_b, u_a, u_b;
+
+  
   MatrixXA phi; // J x J
   VectorXA V1_log_diag;
   VectorXA V2_log_diag;
@@ -203,10 +208,12 @@ private:
 
   VectorXA c;
   VectorXA u;
+  VectorXA logit_c;
+  VectorXA logit_u;
 
   AScalar log_mvgamma_prior;
   AScalar log_mvgamma_post;
-
+  
   // flags for model specification
   bool include_H;
   bool add_prior;
@@ -226,11 +233,15 @@ ads::ads(const List& params)
 
   const List & pars = static_cast<const List&>(const_cast<List &>(params));
 
+  Rcout << "break 1\n";
+  
   const List data = as<const List>(pars["data"]);
   const List priors = as<const List>(pars["priors"]);
   const List dimensions = as<const List>(pars["dimensions"]);
   const List flags = as<const List>(pars["flags"]);
 
+  Rcout << "break 2\n";
+  
   T = as<int>(dimensions["T"]);
   N = as<int>(dimensions["N"]);
   J = as<int>(dimensions["J"]);
@@ -333,6 +344,8 @@ ads::ads(const List& params)
     Ybar[i].resize(N,J);
   }
 
+
+  
   // These priors are required
   const Map<MatrixXd> M20_d(as<Map<MatrixXd> >(priors["M20"]));
   M20 = M20_d.cast<AScalar>();
@@ -368,21 +381,32 @@ ads::ads(const List& params)
     const List priors_delta = as<List>(priors["delta"]);
     delta_a = as<double>(priors_delta["a"]);
     delta_b = as<double>(priors_delta["b"]);
+
+
     
   if (include_cu) {
     const List priors_c = as<List>(priors["c"]);
-    c_mean_pmean = as<double>(priors_c["mean.mean"]);
-    c_mean_psd = as<double>(priors_c["mean.sd"]);
-    c_sd_pmean = as<double>(priors_c["sd.mean"]);
-    c_sd_psd = as<double>(priors_c["sd.sd"]);
+    c_a = as<double>(priors_c["a"]);
+    c_b = as<double>(priors_c["b"]);
 
+ 
     const List priors_u = as<List>(priors["u"]);
-    u_mean_pmean = as<double>(priors_u["mean.mean"]);
-    u_mean_psd = as<double>(priors_u["mean.sd"]);
-    u_sd_pmean = as<double>(priors_u["sd.mean"]);
-    u_sd_psd = as<double>(priors_u["sd.sd"]);
+    u_a = as<double>(priors_u["a"]);
+    u_b = as<double>(priors_u["b"]);
+
+    /* c_mean_pmean = as<double>(priors_c["mean.mean"]); */
+    /* c_mean_psd = as<double>(priors_c["mean.sd"]); */
+    /* c_sd_pmean = as<double>(priors_c["sd.mean"]); */
+    /* c_sd_psd = as<double>(priors_c["sd.sd"]); */
+    
+    /* u_mean_pmean = as<double>(priors_u["mean.mean"]); */
+    /* u_mean_psd = as<double>(priors_u["mean.sd"]); */
+    /* u_sd_pmean = as<double>(priors_u["sd.mean"]); */
+    /* u_sd_psd = as<double>(priors_u["sd.sd"]); */
   }
 
+  Rcout << "break 3\n";
+  
     if (include_X) {
       const List priors_theta12 = as<List>(priors["theta12"]);
       
@@ -469,6 +493,8 @@ ads::ads(const List& params)
   if(include_cu) {
     c.resize(J);
     u.resize(J);
+    logit_c.resize(J);
+    logit_u.resize(J);
   }
  
   if (include_H) {
@@ -488,6 +514,9 @@ ads::ads(const List& params)
   S2t.resize(1+J+P,N);
   OmegaT.resize(J,J);
   QYf.resize(N,J);
+
+  Rcout << "End constructor\n";
+  
 }
 
 template<typename Tpars>
@@ -512,21 +541,32 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
   // for c and u, the parameter is an offset agains the 
   // mean.  So c_j = c_mean + par[ind+j]
   if (include_cu) {
-      c_mean = par(ind++); //ind increments after pull
-      c_log_sd = par(ind++); // ind increments after pull
-      c_sd = exp(c_log_sd);
-      c_off = par.segment(ind,J); // N(0,1) prior
-      ind += J;
-      c.array() = c_sd * c_off.array() + c_mean;
- 
-      u_mean = par(ind++); //ind increments after pull
-      u_log_sd = par(ind++); // ind increments after pull
-      u_sd = exp(u_log_sd);
-      u_off = par.segment(ind,J); // N(0,1) prior
-      ind += J;
-      u.array() = u_sd * u_off.array() + u_mean;
+
+    logit_c = par.segment(ind, J);
+    ind += J;
+    logit_u = par.segment(ind, J);
+    ind += J;
+
+
+    
+    /* c_mean = par(ind++); //ind increments after pull */
+    /* c_log_sd = par(ind++); // ind increments after pull */
+    /* c_sd = exp(c_log_sd); */
+    /* c_off = par.segment(ind,J); // N(0,1) prior */
+    /* ind += J; */
+    /* logit_c.array() = c_sd * c_off.array() + c_mean; */
+
+    /* u_mean = par(ind++); //ind increments after pull */
+    /* u_log_sd = par(ind++); // ind increments after pull */
+    /* u_sd = exp(u_log_sd); */
+    /* u_off = par.segment(ind,J); // N(0,1) prior */
+    /* ind += J; */
+    /* logit_u.array() = u_sd * u_off.array() + u_mean; */
+
+    c.array() = logit_c.array().exp()/(1+logit_c.array().exp()); 
+    u.array() = logit_u.array().exp()/(1+logit_u.array().exp());
   }
- 
+  
   if (include_H) {
     phi = MatrixXA::Map(par.derived().data() + ind, J, J);
     ind += J*J;
@@ -837,18 +877,24 @@ AScalar ads::eval_hyperprior() {
   AScalar prior_c = 0;
   
     if (include_cu) {
-        const AScalar prior_c_mean = dnorm_log(c_mean, c_mean_pmean, c_mean_psd);
-        AScalar prior_c_log_sd = dnormTrunc0_log(c_sd, c_sd_pmean, c_sd_psd);
-        prior_c_log_sd += c_log_sd; // Jacobian
-        const AScalar prior_c_off = -J*M_LN_SQRT_2PI - 0.5*c_off.squaredNorm(); // N(0,1)
-        const AScalar prior_c = prior_c_mean + prior_c_log_sd + prior_c_off;
+        /* const AScalar prior_c_mean = dnorm_log(c_mean, c_mean_pmean, c_mean_psd); */
+        /* AScalar prior_c_log_sd = dnormTrunc0_log(c_sd, c_sd_pmean, c_sd_psd); */
+        /* prior_c_log_sd += c_log_sd; // Jacobian */
+        /* const AScalar prior_c_off = -J*M_LN_SQRT_2PI - 0.5*c_off.squaredNorm(); // N(0,1) */
+        /* const AScalar prior_c = prior_c_mean + prior_c_log_sd + prior_c_off; */
 
-        const AScalar prior_u_mean = dnorm_log(u_mean, u_mean_pmean, u_mean_psd);
-        AScalar prior_u_log_sd = dnormTrunc0_log(u_sd, u_sd_pmean, u_sd_psd);
-        prior_u_log_sd += u_log_sd; // Jacobian
+        /* const AScalar prior_u_mean = dnorm_log(u_mean, u_mean_pmean, u_mean_psd); */
+        /* AScalar prior_u_log_sd = dnormTrunc0_log(u_sd, u_sd_pmean, u_sd_psd); */
+        /* prior_u_log_sd += u_log_sd; // Jacobian */
  
-        const AScalar prior_u_off = -J*M_LN_SQRT_2PI - 0.5*u_off.squaredNorm(); // N(0,1)
-        const AScalar prior_u = prior_u_mean + prior_u_log_sd + prior_u_off;
+        /* const AScalar prior_u_off = -J*M_LN_SQRT_2PI - 0.5*u_off.squaredNorm(); // N(0,1) */
+        /* const AScalar prior_u = prior_u_mean + prior_u_log_sd + prior_u_off; */
+
+      for (int jj=0; jj<J; jj++) {      
+	prior_c += dlogitbeta_log(logit_c(jj), c_a, c_b);
+	prior_u += dlogitbeta_log(logit_u(jj), u_a, u_b);
+      }
+      
   }
 
   // Prior on phi
@@ -879,15 +925,27 @@ AScalar ads::Afunc(const AScalar& aT, const AScalar& A_scale) {
 // set_Gt
 void ads::set_Gt(const int& tt) {
 
+  // Logit specification for decay of effectiveness
+
+  
   Gt.setZero();
   Gt(0,0) = 1.0 - delta;
   for (int j=0; j<J; j++) {
     Gt(0, j+1) = Afunc(A[tt](j), A_scale);
-    if (include_cu) Gt(j+1, j+1) = 1.0 - c(j) - u(j)*A[tt](j) / A_scale - delta * AjIsZero[tt](j);
-    else Gt(j+1, j+1) = 1.0;
+    if (include_cu) {
+      //     Gt(j+1, j+1) = 1.0 - c(j) - u(j)*A[tt](j) / A_scale - delta * AjIsZero[tt](j);
+      //    Gt(j+1, j+1) = 1/(1+exp(c(j) + u(j)*A[tt](j) / A_scale));
+      //  Gt(j+1, j+1) = 1-c(j)*(1-exp(A[tt](j)*log(u(j))));
+      Gt(j+1, j+1) = 1.0 - c(j)*exp(A[tt](j)*log(u(j)));
+    } else {
+      Gt(j+1, j+1) = 1.0;
+    }
   }
-  if (P>0)
+
+  if (P>0) {
     Gt.bottomRightCorner(P,P).setIdentity();
+  }
+
 }  // end set_Gt
 
 
@@ -951,6 +1009,57 @@ AScalar ads::eval_f(const Eigen::Ref<VectorXA>& P) {
     f += eval_hyperprior();
   }
   return f;
+}
+
+
+List ads::par_check(const Eigen::Ref<VectorXA>& P) {
+
+  using Rcpp::Named;
+  using Rcpp::wrap;
+  using Rcpp::as;
+
+  NumericVector LC(logit_c.size());
+  NumericVector LU(logit_u.size());
+  double Ldelta = CppAD::Value(logit_delta);
+  NumericMatrix MV1(V1.rows(), V1.cols());
+  NumericMatrix MV2(V2.rows(), V2.cols());
+  NumericMatrix MW(W.rows(), W.cols());
+
+  for (size_t i=0; i<logit_c.size(); i++) {
+    LC(i) = Value(logit_c(i));
+  }
+  for (size_t i=0; i<logit_u.size(); i++) {
+    LU(i) = Value(logit_u(i));
+  }
+
+  for (size_t i=0; i<V1.rows(); i++) {
+    for (size_t j=0; j<V1.cols(); j++) {
+      MV1(i,j) = Value(V1(i,j));
+    }
+  }
+
+  for (size_t i=0; i<V2.rows(); i++) {
+    for (size_t j=0; j<V2.cols(); j++) {
+      MV2(i,j) = Value(V2(i,j));
+    }
+  }
+
+  for (size_t i=0; i<W.rows(); i++) {
+    for (size_t j=0; j<W.cols(); j++) {
+      MW(i,j) = Value(W(i,j));
+    }
+  }
+  
+
+  List res = List::create(Named("logit_c") = wrap(LC),
+			  Named("logit_u") = wrap(LU),
+			  Named("logit_delta") = wrap(Ldelta),
+			  Named("V1") = wrap(MV1),
+			  Named("V2") = wrap(MV2),
+			  Named("W") = wrap(MW)
+			  );
+  return(res);
+			  			  
 }
 
 #endif

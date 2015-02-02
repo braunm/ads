@@ -15,7 +15,7 @@ set.seed(1234)
 start.true.pars <- FALSE
 
 mod.name <- "hdlm"
-data.name <- "sim"
+data.name <- "tti"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
@@ -24,12 +24,12 @@ data.file <- paste0("data/mcmod",data.name,".RData")
 save.file <- paste0("inst/results/",mod.name,"_",data.name,"_mode.Rdata")
 
 flags <- list(include.H=FALSE,
-              include.cu=FALSE,
+              include.cu=TRUE,
               add.prior=TRUE,
-              include.X=TRUE,
+              include.X=FALSE,
               standardize=FALSE,
               A.scale = 1000000,
-              W1.LKJ = FALSE
+              W1.LKJ = TRUE
               ) # W1.LKJ true means we do LKJ, otherwise same as W2
 
 nfact.V1 <- 0
@@ -182,20 +182,21 @@ if (flags$add.prior) {
     ## prior on c.sd and u.sd:  truncated normal
     
     if (flags$include.cu) {
-        prior.c.mean <- 0
+
+        prior.c <- list(a=2, b=2)
+        prior.u <- list(a=1, b=2)
+
+        ## prior.c.mean <- 0       
+        ## prior.c <- list(mean.mean=prior.c.mean,
+        ##                 mean.sd=1,
+        ##                 sd.mean=.1,
+        ##                 sd.sd=.5)
         
-        
-        prior.c <- list(mean.mean=prior.c.mean,
-                        mean.sd=1,
-                        sd.mean=.1,
-                        sd.sd=.5)
-        
-        prior.u.mean <- 0           
-        
-        prior.u <- list(mean.mean=prior.u.mean,
-                        mean.sd=1,
-                        sd.mean=.1,
-                        sd.sd=.5)
+        ## prior.u.mean <- 0           
+        ## prior.u <- list(mean.mean=prior.u.mean,
+        ##                 mean.sd=1,
+        ##                 sd.mean=.1,
+        ##                 sd.sd=.5)
     } else {
         prior.u <- NULL;
         prior.c <- NULL;
@@ -264,25 +265,29 @@ if (flags$include.X) {
 
 if (start.true.pars) {
     if(flags$include.cu) {
-        c.mean.log.sd.start <- true.pars$c.mean.log.sd
-        c.off.start <- true.pars$c.off
-        u.mean.log.sd.start <- true.pars$u.mean.log.sd
-        u.off.start <- true.pars$u.off
-    } else {
-        c.mean.log.sd.start <- c.off.start <- u.mean.log.sd.start <- u.off.start <- NULL
+    ##     c.mean.log.sd.start <- true.pars$c.mean.log.sd
+    ##     c.off.start <- true.pars$c.off
+    ##     u.mean.log.sd.start <- true.pars$u.mean.log.sd
+    ##     u.off.start <- true.pars$u.off
+    ## } else {
+    ##     c.mean.log.sd.start <- c.off.start <- u.mean.log.sd.start <- u.off.start <- NULL
+        ## }
     }
     logit.delta.start <- true.pars$logit.delta
 } else {
     if(flags$include.cu) {
-        c.mean.log.sd.start <- c(0,0)
-        c.off.start <- rep(0,J)
-        u.mean.log.sd.start <- c(0,0)
-        u.off.start <- rep(0,J)
+        logit.c.start <- seq(-3,-1,length=J)
+        logit.u.start <- seq(-2,-.1, length=J)
+        ## c.mean.log.sd.start <- c(0,0)
+        ## c.off.start <- rep(0,J)
+        ## u.mean.log.sd.start <- c(0,0)
+        ## u.off.start <- rep(0,J)
     } else {
-         c.mean.log.sd.start <- c.off.start <- u.mean.log.sd.start <- u.off.start <- NULL
+##        c.mean.log.sd.start <- c.off.start <- u.mean.log.sd.start <- u.off.start <- NULL
+        logit.c.start <- NULL
+        logit.u.start <- NULL
     }
-        logit.delta.start <- 0
-    
+        logit.delta.start <- 0    
 }
 
 
@@ -319,10 +324,13 @@ W2.length <- P + P*nfact.W2 - nfact.W2*(nfact.W2-1)/2
 
 tmp <- list(
     theta12=theta12.start,
-    c.mean.log.sd=c.mean.log.sd.start,
-    c.off=c.off.start,
-    u.mean.log.sd=u.mean.log.sd.start,
-    u.off=u.off.start,
+    logit.c = logit.c.start,
+    logit.u = logit.u.start,
+
+##    c.mean.log.sd=c.mean.log.sd.start,
+##    c.off=c.off.start,
+##    u.mean.log.sd=u.mean.log.sd.start,
+##    u.off=u.off.start,
     phi=phi.start,
     logit.delta=logit.delta.start,
     V1=V1.start,
@@ -354,6 +362,8 @@ tg <- system.time(df <- get.df(start))
 print(tg)
 
 
+
+
 opt2 <- optim(start,
              fn=get.f,
              gr=get.df,
@@ -363,7 +373,7 @@ opt2 <- optim(start,
                fnscale=-1,
                REPORT=1,
                trace=3,
-               maxit=1000
+               maxit=30
                )
              )
 
@@ -479,10 +489,16 @@ if(flags$W1.LKJ) {
     sol$W1 <- recover.cov.mat(sol.vec$W1,dim.W1,nfact.W1)
 }
 
-if(flags$include.cu){
-    sol$cj <- exp(sol$c.mean.log.sd[2]) * sol$c.off + sol$c.mean.log.sd[1]
-    sol$uj <- exp(sol$u.mean.log.sd[2]) * sol$u.off + sol$u.mean.log.sd[1]
+if (flags$include.cu){
+    sol$cj <- exp(sol$logit.c)/(1+exp(sol$logit.c))
+    sol$uj <- exp(sol$logit.u)/(1+exp(sol$logit.u))
+
+    ##    sol$cj <- exp(sol$c.mean.log.sd[2]) * sol$c.off + sol$c.mean.log.sd[1]
+    ##    sol$uj <- exp(sol$u.mean.log.sd[2]) * sol$u.off + sol$u.mean.log.sd[1]
 }
+
+parcheck <- cl$par.check(sol.vec)
+
 
 hs <- get.hessian(opt$par)
 cv <- solve(-hs)

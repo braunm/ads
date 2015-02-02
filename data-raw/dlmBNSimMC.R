@@ -12,7 +12,7 @@ set.seed(10503)
 # set.seed(105)
 
 include.H <- FALSE
-include.cu <- FALSE
+include.cu <- TRUE
 
 rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
     ## set.seed(153)
@@ -27,15 +27,19 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 }
 
 # create Y
-N <- 42  # number of 'sites'
+N <- 20  # number of 'sites'
 T <- 202  # number of time periods
 Tb <- 2  # number of burnin periods
 J <- 2  # number of equations
 P <- J  # number of time varying covariates per city (excluding intercept)
 K1 <- 2  # number of non time varying covariates per city at top level (including intercept)
-Cvec <- rnorm(J, mean = 0.1, sd = 0.03)  # wearout per period
-Uvec <- rnorm(J, mean = 0.15, sd = 0.05)  # wearout due to repetition
-# parameters
+##Cvec <- rnorm(J, mean = 0.1, sd = 0.03)  # wearout per period
+##Uvec <- rnorm(J, mean = 0.15, sd = 0.05)  # wearout due to repetition
+
+Cvec <- seq(-2,-1,length=J)
+Uvec <- seq(1, 2, length=J)
+
+## parameters
 delta <- 0.2
 Theta12 <- rnorm(K1 * J, sd = 0.3)
 dim(Theta12) <- c(K1, J)
@@ -50,11 +54,16 @@ A <- (matrix(runif(J * T), nr = T, nc = J) > 0.5) *
 # scale/center A Ac<-scale(A)
 Ac <- A / 1e+06
 
-aA <- matrix(0, nr = T, nc = J)
-colnames(aA) <- paste("aA", 1:J, sep = ".")
-for (j in 1:J) {
-    aA[, j] <- 1 - Cvec[j] - Uvec[j] * Ac[,j] - delta * (1-(A[,j] > 0))
-}
+
+## WHAT IS aA?
+
+## aA <- matrix(0, nr = T, nc = J)
+## colnames(aA) <- paste("aA", 1:J, sep = ".")
+## for (j in 1:J) {
+##     aA[, j] <- 1 - Cvec[j] - Uvec[j] * Ac[,j] - delta * (1-(A[,j] > 0))
+## }
+
+
 gA <- log(1+A)
 
 E <- rpois(T * J, 0.5)  # incidence of new creatives
@@ -131,7 +140,8 @@ for (t in 1:T) {
     Gt[1, 1 + 1:J] <- gA[t, ]
     if (include.cu) {
         for (j in 1:J) {
-            Gt[1+j, 1+j] <- (1-Cvec[j]-Uvec[j]*Ac[t,j]) - delta*(1-(A[t,j] > 0))
+            ##            Gt[1+j, 1+j] <- (1-Cvec[j]-Uvec[j]*Ac[t,j]) - delta*(1-(A[t,j] > 0))
+            Gt[1+j, 1+j] <- 1/(1+exp(Cvec[j] + Uvec[j]*Ac[t,j]))
         }
     } else {
         diag(Gt)[2:(1 + J)] <- 1
@@ -191,7 +201,7 @@ for (i in (Tb + 1):T) {
 
 
 gA <- gA[-(1:Tb), ]
-aA <- aA[-(1:Tb), ]
+## aA <- aA[-(1:Tb), ]
 A <- A[-(1:Tb), ]
 Ac <- Ac[-(1:Tb), ]
 T <- (T - Tb)
@@ -221,7 +231,8 @@ for (t in 1:T) {
 mcmod <- list(dimensions = dimensions, Y = Y, E = El, A = Al, X = F12, 
     F1 = F1m, F2 = F2)
 
-truevals <- list(T1=T1true, T2=T2true, Theta12=Theta12, V=V, Sigma=Sigma, W=W)
+truevals <- list(T1=T1true, T2=T2true, Theta12=Theta12, V=V, Sigma=Sigma, W=W,
+                 Cvec=Cvec, Uvec=Uvec)
 
 ### saving for mcmod object
 save(mcmod, truevals, file = "./data/mcmodsim.RData")

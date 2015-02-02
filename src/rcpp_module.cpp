@@ -26,6 +26,6 @@ RCPP_MODULE(ads){
     .method( "get.LL", & MB_Base<ads>::get_LL)
     .method( "get.hyperprior", & MB_Base<ads>::get_hyperprior)
     .method( "get.hessian.test", & MB_Base<ads>::get_hessian_test)
-
+    .method( "par.check", & MB_Base<ads>::par_check_)
     ;
 }
