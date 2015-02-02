@@ -29,7 +29,7 @@ flags <- list(include.H=FALSE,
               include.X=TRUE,
               standardize=FALSE,
               A.scale = 1000000,
-              W1.LKJ = TRUE
+              W1.LKJ = FALSE
               ) # W1.LKJ true means we do LKJ, otherwise same as W2
 
 nfact.V1 <- 0
@@ -203,12 +203,10 @@ if (flags$add.prior) {
     
     ## For V1, V2, and W1, W2:   T or half-T priors (if needed)
     
-    prior.V1 <- list(diag.scale=.01, diag.df=4,
-                     fact.scale=.01, fact.df=4)
-    prior.V2 <- list(diag.scale=.01, diag.df=4,
-                     fact.scale=.01, fact.df=4)
-    prior.W1 <- list(diag.scale=.01, diag.df=4,
-                     fact.scale=.01, fact.df=4)
+    prior.V1 <- list(diag.scale=1, diag.df=3,
+                     fact.scale=1, fact.df=4)
+    prior.V2 <- list(diag.scale=1, diag.df=3,
+                     fact.scale=1, fact.df=4)
     prior.W2 <- list(diag.scale=.01, diag.df=4,
                      fact.scale=.01, fact.df=4)
     
@@ -216,6 +214,9 @@ if (flags$add.prior) {
     
     if (flags$W1.LKJ) {
         prior.W1 <- list(scale.df=4, scale.s=1, eta=1)
+    } else {
+        prior.W1 <- list(diag.scale=.01, diag.df=4,
+                         fact.scale=.01, fact.df=4)
     }
     
 } else {

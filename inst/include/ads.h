@@ -283,19 +283,17 @@ ads::ads(const List& params)
     nfact_W2 = 0;
   }
 
-    if (W1_LKJ) {
-        nfact_W1 = as<int>(dimensions["nfact.W1"]);
-    } else {
-        nfact_W1 = 0;
-    }
-
+  if (W1_LKJ) {
+    nfact_W1 = as<int>(dimensions["nfact.W1"]);
+  } else {
+    nfact_W1 = 0;
+  }
+  
   V1_dim = N;
   V2_dim = N*(P+1);
   W1_dim = 1+J;
   W2_dim = P;
   W_dim = W1_dim + W2_dim;
-
-  Rcout << "Constructor: Starting loop\n";
   
   for (int i=0; i<T; i++) {
 
@@ -410,7 +408,7 @@ ads::ads(const List& params)
     fact_scale_V2 = as<double>(priors_V2["fact.scale"]);
     fact_df_V2 = as<double>(priors_V2["fact.df"]);
 
-    if(W1_LKJ) {
+    if (W1_LKJ) {
       const List priors_W1 = as<List>(priors["W1"]);
       df_scale_W1 = as<double>(priors_W1["scale.df"]);
       s_scale_W1 = as<double>(priors_W1["scale.s"]);
@@ -462,14 +460,15 @@ ads::ads(const List& params)
     LW2.resize(W2_dim, W2_dim);
     W2_log_diag.resize(W2_dim);
   }
+  
   if(!W1_LKJ) {
-      LW1.resize(W1_dim,W1_dim);
-      W1_log_diag.resize(W1_dim);
+    LW1.resize(W1_dim,W1_dim);
+    W1_log_diag.resize(W1_dim);
   }
   
   if(include_cu) {
-        c.resize(J);
-        u.resize(J);
+    c.resize(J);
+    u.resize(J);
   }
  
   if (include_H) {
@@ -763,6 +762,11 @@ AScalar ads::eval_hyperprior() {
 
     AScalar prior_scale_W1 = 0;
     AScalar prior_corr_W1 = 0;
+    AScalar prior_diag_W1 = 0;
+    AScalar prior_fact_W1 = 0;
+    AScalar prior_W1 = 0;
+
+
     if(W1_LKJ) {
       // prior_scale_W1 = dhalft_log(W1_scale, df_scale_W1, s_scale_W1);
 	prior_scale_W1 = logHalfT(W1_scale, df_scale_W1, s_scale_W1);
@@ -770,10 +774,32 @@ AScalar ads::eval_hyperprior() {
 
         // LKJ prior, including Jacobian (from unwrap_params)
         prior_corr_W1 = corr_W1_const + (W1_eta-1)*logdet_W1_corr + log_W1_jac;
-    }
-    AScalar prior_diag_W1 = 0;
-    AScalar prior_fact_W1 = 0;
 
+	prior_W1 = prior_scale_W1 + prior_corr_W1;
+	
+    } else {
+
+      // NEED PRIOR ON DIAG_W1!
+
+      for (size_t i=0; i<W1_dim; i++) {
+	prior_diag_W1 += logHalfT(exp(W1_log_diag(i)), diag_df_W1, diag_scale_W1);
+	prior_diag_W1 += W1_log_diag(i); // Jacobian (check this)
+      }
+      
+      if (nfact_W1 > 0) {
+	for (int j=0; j < nfact_W1; j++) {
+	  //     prior_fact_W1 += dhalft_log(LW1(j,j), fact_df_W1, fact_scale_W1);
+	  prior_fact_W1 += logHalfT(LW1(j,j), fact_df_W1, fact_scale_W1);
+	  prior_fact_W1 += log(LW1(j,j)); // Jacobian (check this)
+	  for (int i=j+1; i<W1_dim; i++) {
+	    //    prior_fact_W1 += dt_log(LW1(i,j), fact_df_W1, fact_scale_W1);
+	    prior_fact_W1 += logT(LW1(i,j), fact_df_W1, fact_scale_W1);
+	  }
+	}
+      }
+      prior_W1 = prior_diag_W1 + prior_fact_W1; 
+    }
+     
     AScalar prior_diag_W2 = 0;
     AScalar prior_fact_W2 = 0;
 
@@ -797,29 +823,13 @@ AScalar ads::eval_hyperprior() {
             }
         }
     }
-    
-  if(!W1_LKJ) {
-        if (nfact_W1 > 0) {
-            for (int j=0; j < nfact_W1; j++) {
-	      //     prior_fact_W1 += dhalft_log(LW1(j,j), fact_df_W1, fact_scale_W1);
-		prior_fact_W1 += logHalfT(LW1(j,j), fact_df_W1, fact_scale_W1);
-                prior_fact_W1 += log(LW1(j,j)); // Jacobian (check this)
-                for (int i=j+1; i<W1_dim; i++) {
-		  //    prior_fact_W1 += dt_log(LW1(i,j), fact_df_W1, fact_scale_W1);
-		  prior_fact_W1 += logT(LW1(i,j), fact_df_W1, fact_scale_W1);
-                }
-            }
-        }
-  }
 
+  AScalar prior_W2 = prior_diag_W2 + prior_fact_W2;
+    
   AScalar prior_mats = prior_diag_V1 + prior_fact_V1;
   prior_mats += prior_diag_V2 + prior_fact_V2;
-  if(W1_LKJ) prior_mats += prior_scale_W1 + prior_corr_W1;
-  else prior_mats += prior_diag_W1 + prior_fact_W1;
+  prior_mats += prior_W1 + prior_W2;
 
-  if (P>0) {
-    prior_mats += prior_diag_W2 + prior_fact_W2;
-  }
   
   // Priors on c and u
 
@@ -864,6 +874,8 @@ AScalar ads::Afunc(const AScalar& aT, const AScalar& A_scale) {
   return(res);
 }
 
+
+
 // set_Gt
 void ads::set_Gt(const int& tt) {
 
@@ -877,6 +889,9 @@ void ads::set_Gt(const int& tt) {
   if (P>0)
     Gt.bottomRightCorner(P,P).setIdentity();
 }  // end set_Gt
+
+
+
 
 // set_Ht
 void ads::set_Ht(const int& tt) {

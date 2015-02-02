@@ -27,7 +27,7 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 }
 
 # create Y
-N <- 20  # number of 'sites'
+N <- 42  # number of 'sites'
 T <- 202  # number of time periods
 Tb <- 2  # number of burnin periods
 J <- 2  # number of equations
