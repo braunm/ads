@@ -12,7 +12,8 @@ set.seed(10503)
 # set.seed(105)
 
 include.H <- FALSE
-include.cu <- TRUE
+include.c <- TRUE
+include.u <- TRUE
 
 rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
     ## set.seed(153)
@@ -27,17 +28,17 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 }
 
 # create Y
-N <- 20  # number of 'sites'
-T <- 202  # number of time periods
+N <- 42  # number of 'sites'
+T <- 200  # number of time periods
 Tb <- 2  # number of burnin periods
-J <- 2  # number of equations
+J <- 3  # number of equations
 P <- J  # number of time varying covariates per city (excluding intercept)
 K1 <- 2  # number of non time varying covariates per city at top level (including intercept)
 ##Cvec <- rnorm(J, mean = 0.1, sd = 0.03)  # wearout per period
 ##Uvec <- rnorm(J, mean = 0.15, sd = 0.05)  # wearout due to repetition
 
-Cvec <- seq(-2,-1,length=J)
-Uvec <- seq(1, 2, length=J)
+Cvec <- seq(.2,.6,length=J)
+Uvec <- seq(.4, .7, length=J)
 
 ## parameters
 delta <- 0.2
@@ -52,8 +53,8 @@ A <- (matrix(runif(J * T), nr = T, nc = J) > 0.5) *
     matrix(runif(J * T, max = exp(9)), nrow = T, ncol = J)  # total 'advertising' across all sites, for each equation 
 
 # scale/center A Ac<-scale(A)
-Ac <- A / 1e+06
-
+ Ac <- A / 1e+06
+##Ac <- log1p(A)
 
 ## WHAT IS aA?
 
@@ -94,7 +95,7 @@ for (t in 1:T) {
     F1ml[[t]] <- t(as(F1ml[[t]], "dgCMatrix"))  ## make sparse
 }
 
-W <- 1e-04 * diag(1 + J + P)
+W <- .01 * diag(1 + J + P)
 # W[1]<-0.01 diag(W)[(2+J):(1+J+P)]<-0.001
 Sigma <- matrix(0, nrow = J, ncol = J)
 diag(Sigma) <- 0.1
@@ -136,17 +137,23 @@ for (t in 1:T) {
     FF[[2]] <- F2t
     
     Gt <- diag(1 + J + P)
-    Gt[1] <- (1 - delta)
-    Gt[1, 1 + 1:J] <- gA[t, ]
-    if (include.cu) {
-        for (j in 1:J) {
-            ##            Gt[1+j, 1+j] <- (1-Cvec[j]-Uvec[j]*Ac[t,j]) - delta*(1-(A[t,j] > 0))
-            Gt[1+j, 1+j] <- 1/(1+exp(Cvec[j] + Uvec[j]*Ac[t,j]))
+    Gt[1,1] <- (1 - delta)
+    Gt[1, 1 + (1:J)] <- gA[t, ]
+    for (j in 1:J) {
+        if (include.c) {
+            if (include.u) {
+                Gt[j+1, j+1] <- exp(-Cvec[j]-Uvec[j]*Ac[t,j])
+            } else {
+                Gt[j+1, j+1] <- exp(-Cvec[j])
+            }
+        } else {
+            if (include.u) {
+                Gt[j+1, j+1] <- exp(-Uvec[j]*Ac[t,j])
+            } else {
+                Gt[j+1, j+1] <- 1
+            }
         }
-    } else {
-        diag(Gt)[2:(1 + J)] <- 1
     }
-
         
     ## innovation component which switches signs if the underlying state
     ## variable does (simplified here)

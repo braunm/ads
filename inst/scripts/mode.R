@@ -15,7 +15,7 @@ set.seed(1234)
 start.true.pars <- FALSE
 
 mod.name <- "hdlm"
-data.name <- "tti"
+data.name <- "sim"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
@@ -24,13 +24,18 @@ data.file <- paste0("data/mcmod",data.name,".RData")
 save.file <- paste0("inst/results/",mod.name,"_",data.name,"_mode.Rdata")
 
 flags <- list(include.H=FALSE,
-              include.cu=TRUE,
+              include.c=TRUE,
+              include.u=TRUE,
               add.prior=TRUE,
-              include.X=FALSE,
+              include.X=TRUE,
               standardize=FALSE,
               A.scale = 1000000,
-              W1.LKJ = TRUE
-              ) # W1.LKJ true means we do LKJ, otherwise same as W2
+              ##A.scale = 1,
+              W1.LKJ = TRUE,  # W1.LKJ true means we do LKJ, otherwise same as W2
+              fix.V1 = FALSE,
+              fix.V2 = FALSE,
+              fix.W = FALSE
+              )
 
 nfact.V1 <- 0
 nfact.V2 <- 0
@@ -181,17 +186,22 @@ if (flags$add.prior) {
     ## prior on c.mean and u.mean:  normal
     ## prior on c.sd and u.sd:  truncated normal
     
-    if (flags$include.cu) {
+    if (flags$include.c) {
 
-        prior.c <- list(a=2, b=2)
-        prior.u <- list(a=1, b=2)
-
+        prior.c <- list(a=1, b=1)
+ 
         ## prior.c.mean <- 0       
         ## prior.c <- list(mean.mean=prior.c.mean,
         ##                 mean.sd=1,
         ##                 sd.mean=.1,
         ##                 sd.sd=.5)
-        
+    } else {
+        prior.c <- NULL;
+    }
+
+
+    if (flags$include.u) {
+        prior.u <- list(a=.3, b=.7)
         ## prior.u.mean <- 0           
         ## prior.u <- list(mean.mean=prior.u.mean,
         ##                 mean.sd=1,
@@ -199,25 +209,40 @@ if (flags$add.prior) {
         ##                 sd.sd=.5)
     } else {
         prior.u <- NULL;
-        prior.c <- NULL;
     }
     
     ## For V1, V2, and W1, W2:   T or half-T priors (if needed)
-    
-    prior.V1 <- list(diag.scale=1, diag.df=3,
-                     fact.scale=1, fact.df=4)
-    prior.V2 <- list(diag.scale=1, diag.df=3,
-                     fact.scale=1, fact.df=4)
-    prior.W2 <- list(diag.scale=.01, diag.df=4,
-                     fact.scale=.01, fact.df=4)
-    
-    ## LKJ prior on W1.  Scale parameter has half-T prior
-    
-    if (flags$W1.LKJ) {
-        prior.W1 <- list(scale.df=4, scale.s=1, eta=1)
+
+    if (!flags$fix.V1) {        
+        prior.V1 <- list(diag.scale=1, diag.df=3,
+                         fact.scale=1, fact.df=4)
     } else {
-        prior.W1 <- list(diag.scale=.01, diag.df=4,
+        prior.V1 <-  NULL
+    }
+
+
+    if (!flags$fix.V2) {
+        prior.V2 <- list(diag.scale=1, diag.df=3,
+                         fact.scale=1, fact.df=4)
+    } else {
+        prior.V2 = NULL
+    }
+
+    if (!flags$fix.W) {
+        prior.W2 <- list(diag.scale=.01, diag.df=4,
                          fact.scale=.01, fact.df=4)
+        
+        ## LKJ prior on W1.  Scale parameter has half-T prior
+        
+        if (flags$W1.LKJ) {
+            prior.W1 <- list(scale.df=10, scale.s=.5, eta=5)
+        } else {
+            prior.W1 <- list(diag.scale=.01, diag.df=4,
+                             fact.scale=.01, fact.df=4)
+        }
+    } else {
+        prior.W1 <- NULL
+        prior.W2 <- NULL
     }
     
 } else {
@@ -248,9 +273,6 @@ tmp <- list(M20=M20,
 
 priors <- Filter(function(x) !is.null(x), tmp)
 
-DL <- list(data=data, priors=priors,
-           dimensions=dimensions,
-           flags=flags)
 
 ## starting parameters
 if (flags$include.X) {
@@ -264,30 +286,42 @@ if (flags$include.X) {
 }
 
 if (start.true.pars) {
-    if(flags$include.cu) {
+    if(flags$include.c) {
     ##     c.mean.log.sd.start <- true.pars$c.mean.log.sd
     ##     c.off.start <- true.pars$c.off
+    ## } else {
+    ##     c.mean.log.sd.start <- c.off.start  <- NULL
+        ## }
+    }
+
+    if(flags$include.u) {
     ##     u.mean.log.sd.start <- true.pars$u.mean.log.sd
     ##     u.off.start <- true.pars$u.off
     ## } else {
-    ##     c.mean.log.sd.start <- c.off.start <- u.mean.log.sd.start <- u.off.start <- NULL
+        ##      u.mean.log.sd.start <- u.off.start <- NULL
         ## }
     }
+
     logit.delta.start <- true.pars$logit.delta
 } else {
-    if(flags$include.cu) {
+    if (flags$include.c) {
         logit.c.start <- seq(-3,-1,length=J)
-        logit.u.start <- seq(-2,-.1, length=J)
-        ## c.mean.log.sd.start <- c(0,0)
+         ## c.mean.log.sd.start <- c(0,0)
         ## c.off.start <- rep(0,J)
-        ## u.mean.log.sd.start <- c(0,0)
-        ## u.off.start <- rep(0,J)
     } else {
-##        c.mean.log.sd.start <- c.off.start <- u.mean.log.sd.start <- u.off.start <- NULL
+##        c.mean.log.sd.start <- c.off.start <- NULL
         logit.c.start <- NULL
-        logit.u.start <- NULL
     }
-        logit.delta.start <- 0    
+
+ if (flags$include.u) {
+         logit.u.start <- seq(-2,-.1, length=J)
+        ## u.mean.log.sd.start <- c(0,0)
+        ## u.off.start <- rep(0,J)        
+    } else {
+##       u.mean.log.sd.start <- u.off.start <- NULL
+        logit.u.start <- NULL
+    } 
+    logit.delta.start <- 0    
 }
 
 
@@ -298,29 +332,54 @@ if (flags$include.H) {
 }
 
 
-V1.length <- N + N*nfact.V1 - nfact.V1*(nfact.V1-1)/2
-V2.length <- N*(P+1) + N*(P+1)*nfact.V2 - nfact.V2*(nfact.V2-1)/2
-if(flags$W1.LKJ) {
-    W1.length <- dim.W1*(dim.W1-1)/2 + 1
+if (flags$fix.V1 | flags$fix.V2 | flags$fix.W) {
+    fixed.cov <- list(V1=NULL, V2=NULL, W=NULL)
 } else {
-    W1.length <- (J+1) + (J+1)*nfact.W1 - nfact.W1*(nfact.W1-1)/2
+    fixed.cov <- NULL
 }
-W2.length <- P + P*nfact.W2 - nfact.W2*(nfact.W2-1)/2
 
-##V1.start <- (1:V1.length)/10
-##V2.start <- (1:V2.length)/20
-##W1.start <- (1:W1.length)/20
-##W2.start <- (2:(W2.length+1))/30
+if (flags$fix.V1) {
+    fixed.cov$V1 <- 0.5*diag(N);
+    V1.start <- NULL
+} else {
+    V1.length <- N + N*nfact.V1 - nfact.V1*(nfact.V1-1)/2
+    ##V1.start <- (1:V1.length)/10
+    ## V1.start <- rnorm(V1.length) - 3  
+    V1.start <- rep(0,V1.length)
+}
 
- ## V1.start <- rnorm(V1.length) - 3
- ## V2.start <- rnorm(V2.length) - 3
- ## W1.start <- rnorm(W1.length) - 3
- ## W2.start <- rnorm(W2.length) - 3
+if (flags$fix.V2) {
+    fixed.cov$V2 <- 3*diag(N*(P+1))
+    V2.start <- NULL    
+} else {
+    V2.length <- N*(P+1) + N*(P+1)*nfact.V2 - nfact.V2*(nfact.V2-1)/2
+    ##V2.start <- (1:V2.length)/20
+    ## V2.start <- rnorm(V2.length) - 3
+    V2.start <- rep(0,V2.length)
+}
 
- V1.start <- rep(0,V1.length)
- V2.start <- rep(0,V2.length)
- W1.start <- rep(0,W1.length)
- W2.start <- rep(0,W2.length)
+
+if (flags$fix.W) {
+    fixed.cov$W <- .01*diag(1+J+P)
+    W1.start <- NULL
+    W2.start <- NULL    
+} else {
+    if (flags$W1.LKJ) {
+        W1.length <- dim.W1*(dim.W1-1)/2 + 1
+    } else {
+        W1.length <- (J+1) + (J+1)*nfact.W1 - nfact.W1*(nfact.W1-1)/2
+    }
+    ## W1.start <- (1:W1.length)/20
+    ## W1.start <- rnorm(W1.length) - 3
+    W1.start <- rep(0,W1.length)
+
+    W2.length <- P + P*nfact.W2 - nfact.W2*(nfact.W2-1)/2
+    ## W2.start <- (2:(W2.length+1))/30
+    ## W2.start <- rnorm(W2.length) - 3
+    W2.start <- rep(0,W2.length)
+}
+
+
 
 tmp <- list(
     theta12=theta12.start,
@@ -344,6 +403,12 @@ start.list <- as.relistable(Filter(function(x) !is.null(x), tmp))
 start <- unlist(start.list)
 
 
+DL <- list(data=data, priors=priors,
+           dimensions=dimensions,
+           flags=flags,
+           fixed.cov=fixed.cov)
+
+
 cat("Setting up\n")
 tset <- system.time(cl <- new("ads", DL))
 print(tset)
@@ -360,8 +425,6 @@ print(tf)
 cat("gradient\n")
 tg <- system.time(df <- get.df(start))
 print(tg)
-
-
 
 
 opt2 <- optim(start,
@@ -395,7 +458,7 @@ opt3 <- trust.optim(opt2$par,
                     )
 
 
-tmp <- trust.optim(opt3$solution,
+opt <- trust.optim(opt3$solution,
                    fn=get.f,
                    gr=get.df,
                    method="BFGS",
@@ -409,22 +472,6 @@ tmp <- trust.optim(opt3$solution,
                        contract.factor=.7
                      )
                    )
-
-opt <- trust.optim(tmp$solution,
-                   fn=get.f,
-                   gr=get.df,
-                   method="BFGS",
-                   control=list(
-                       report.level=5L,
-                       report.precision=3L,
-                       maxit=3000L,
-                       function.scale.factor=-1,
-                       preconditioner=0,
-                       stop.trust.radius=1e-12,
-                       contract.factor=.7
-                     )
-                   )
-
 
 
 
@@ -480,24 +527,37 @@ recover.corr.mat <- function(v, d) {
  
 sol <- sol.vec
 sol$delta <- exp(sol$logit.delta)/(1+exp(sol$logit.delta))
-sol$V1 <- recover.cov.mat(sol.vec$V1,dim.V1,nfact.V1)
-sol$V2 <- recover.cov.mat(sol.vec$V2,dim.V2,nfact.V2)
-sol$W2 <- recover.cov.mat(sol.vec$W2,dim.W2,nfact.W2)
-if(flags$W1.LKJ) {
-    sol$W1 <- recover.corr.mat(sol.vec$W1,dim.W1)
-} else {
-    sol$W1 <- recover.cov.mat(sol.vec$W1,dim.W1,nfact.W1)
+
+if (!flags$fix.V1) {
+    sol$V1 <- recover.cov.mat(sol.vec$V1,dim.V1,nfact.V1)
 }
 
-if (flags$include.cu){
-    sol$cj <- exp(sol$logit.c)/(1+exp(sol$logit.c))
-    sol$uj <- exp(sol$logit.u)/(1+exp(sol$logit.u))
+if (!flags$fix.V2) {
+    sol$V2 <- recover.cov.mat(sol.vec$V2,dim.V2,nfact.V2)
+}
 
+if (!flags$fix.W) {
+    sol$W2 <- recover.cov.mat(sol.vec$W2,dim.W2,nfact.W2)
+    if(flags$W1.LKJ) {
+        sol$W1 <- recover.corr.mat(sol.vec$W1,dim.W1)
+    } else {
+        sol$W1 <- recover.cov.mat(sol.vec$W1,dim.W1,nfact.W1)
+    }
+}
+
+if (flags$include.c){
+    sol$cj <- exp(sol$logit.c)/(1+exp(sol$logit.c))
     ##    sol$cj <- exp(sol$c.mean.log.sd[2]) * sol$c.off + sol$c.mean.log.sd[1]
+ }
+
+if (flags$include.u){
+    sol$uj <- exp(sol$logit.u)/(1+exp(sol$logit.u))
     ##    sol$uj <- exp(sol$u.mean.log.sd[2]) * sol$u.off + sol$u.mean.log.sd[1]
 }
 
-parcheck <- cl$par.check(sol.vec)
+
+
+parcheck <- cl$par.check(opt$par)
 
 
 hs <- get.hessian(opt$par)
