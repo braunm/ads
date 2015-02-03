@@ -15,7 +15,7 @@ set.seed(1234)
 start.true.pars <- FALSE
 
 mod.name <- "hdlm"
-data.name <- "sim"
+data.name <- "tti"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
@@ -25,7 +25,7 @@ save.file <- paste0("inst/results/",mod.name,"_",data.name,"_mode.Rdata")
 
 flags <- list(include.H=FALSE,
               include.c=TRUE,
-              include.u=TRUE,
+              include.u=FALSE,
               add.prior=TRUE,
               include.X=TRUE,
               standardize=FALSE,
@@ -130,7 +130,7 @@ if (nfact.W2 > max.nfact.W2) stop("Too many factors for W2")
 ## We have to include these prior parameters
 
 M20 <- matrix(0,1+P+J,J)
- M20[1,] <- 15
+ M20[1,] <- 25
  M20[2:(J+1),] <- -.005
  M20[(J+2):(1+P+J),] <- 1
  for (j in 1:J) {
@@ -201,7 +201,7 @@ if (flags$add.prior) {
 
 
     if (flags$include.u) {
-        prior.u <- list(a=.3, b=.7)
+        prior.u <- list(a=1, b=1)
         ## prior.u.mean <- 0           
         ## prior.u <- list(mean.mean=prior.u.mean,
         ##                 mean.sd=1,
@@ -235,7 +235,7 @@ if (flags$add.prior) {
         ## LKJ prior on W1.  Scale parameter has half-T prior
         
         if (flags$W1.LKJ) {
-            prior.W1 <- list(scale.df=10, scale.s=.5, eta=5)
+            prior.W1 <- list(scale.df=10, scale.s=.5, eta=1)
         } else {
             prior.W1 <- list(diag.scale=.01, diag.df=4,
                              fact.scale=.01, fact.df=4)
@@ -434,7 +434,7 @@ opt2 <- optim(start,
              method="BFGS",
              control=list(
                fnscale=-1,
-               REPORT=1,
+               REPORT=5,
                trace=3,
                maxit=30
                )
@@ -453,7 +453,8 @@ opt3 <- trust.optim(opt2$par,
                         stop.trust.radius=1e-12,
                         contract.factor=.4,
                         expand.factor=2,
-                        expand.threshold.radius=.85
+                        expand.threshold.radius=.85,
+                        report.freq = 5L
                         )
                     )
 
@@ -469,7 +470,8 @@ opt <- trust.optim(opt3$solution,
                        function.scale.factor=-1,
                        preconditioner=0,
                        stop.trust.radius=1e-12,
-                       contract.factor=.7
+                       contract.factor=.7,
+                       report.freq=5L
                      )
                    )
 

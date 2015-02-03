@@ -13,7 +13,7 @@ set.seed(10503)
 
 include.H <- FALSE
 include.c <- TRUE
-include.u <- TRUE
+include.u <- FALSE
 
 rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
     ## set.seed(153)
@@ -28,17 +28,17 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 }
 
 # create Y
-N <- 42  # number of 'sites'
-T <- 200  # number of time periods
-Tb <- 2  # number of burnin periods
-J <- 3  # number of equations
+N <- 22  # number of 'sites'
+T <- 300  # number of time periods
+Tb <- 0  # number of burnin periods
+J <- 2  # number of equations
 P <- J  # number of time varying covariates per city (excluding intercept)
 K1 <- 2  # number of non time varying covariates per city at top level (including intercept)
 ##Cvec <- rnorm(J, mean = 0.1, sd = 0.03)  # wearout per period
 ##Uvec <- rnorm(J, mean = 0.15, sd = 0.05)  # wearout due to repetition
 
-Cvec <- seq(.2,.6,length=J)
-Uvec <- seq(.4, .7, length=J)
+Cvec <- seq(.1,.5,length=J)
+Uvec <- seq(.6, .1, length=J)
 
 ## parameters
 delta <- 0.2
@@ -95,15 +95,15 @@ for (t in 1:T) {
     F1ml[[t]] <- t(as(F1ml[[t]], "dgCMatrix"))  ## make sparse
 }
 
-W <- .01 * diag(1 + J + P)
+W <- .001 * diag(1 + J + P)
 # W[1]<-0.01 diag(W)[(2+J):(1+J+P)]<-0.001
 Sigma <- matrix(0, nrow = J, ncol = J)
 diag(Sigma) <- 0.1
 
-V[[1]] <- diag(.5, nrow = N)
+V[[1]] <- diag(.1, nrow = N)
 ## for(i in 1:(ncol(V[[1]])-1)) V[[1]][i,i+1]<-V[[1]][i+1,i] <- 0.02
 
-V[[2]] <- diag(N * (1 + P)) * 3
+V[[2]] <- diag(N * (1 + P)) * 0.1
 
 Theta2.0 <- matrix(rep(0, 1 + J + P), nrow = (1 + J + P), ncol = J)
 Theta2.0[1, ] <- 25
@@ -142,13 +142,14 @@ for (t in 1:T) {
     for (j in 1:J) {
         if (include.c) {
             if (include.u) {
-                Gt[j+1, j+1] <- exp(-Cvec[j]-Uvec[j]*Ac[t,j])
+                Gt[j+1, j+1] <- exp(-Cvec[j] - Ac[t,j] * log(Uvec[j]))              
             } else {
                 Gt[j+1, j+1] <- exp(-Cvec[j])
             }
         } else {
             if (include.u) {
-                Gt[j+1, j+1] <- exp(-Uvec[j]*Ac[t,j])
+##                Gt[j+1, j+1] <- exp(-Uvec[j]*Ac[t,j])
+                Gt[j+1, j+1] <- exp(-Ac[t,j] * log(Uvec[j]))              
             } else {
                 Gt[j+1, j+1] <- 1
             }
@@ -206,13 +207,14 @@ for (i in (Tb + 1):T) {
     Y[[i - Tb]] <- Yl[[i]]
 }
 
-
-gA <- gA[-(1:Tb), ]
-## aA <- aA[-(1:Tb), ]
-A <- A[-(1:Tb), ]
-Ac <- Ac[-(1:Tb), ]
-T <- (T - Tb)
-E <- E[-(1:Tb), ]
+if (Tb > 0) { ## if there is burnin
+    gA <- gA[-(1:Tb), ]
+    ## aA <- aA[-(1:Tb), ]
+    A <- A[-(1:Tb), ]
+    Ac <- Ac[-(1:Tb), ]
+    T <- (T - Tb)
+    E <- E[-(1:Tb), ]
+}
 
 Al <- El <- list()
 for (t in 1:T) {

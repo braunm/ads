@@ -1081,7 +1081,7 @@ void ads::set_Gt(const int& tt) {
       if (include_u) {
 	// c and u	
 	// Gt(j+1, j+1) = 1.0 - c(j) - u(j)*A[tt](j)/A_scale-delta * AjIsZero[tt](j);
-	Gt(j+1, j+1) = exp(-(c(j) + u(j)*A[tt](j)/A_scale));
+	Gt(j+1, j+1) = exp(-c(j) - A[tt](j) * log(u(j)) / A_scale);
       } else {
 	// c, not u
 	Gt(j+1, j+1) = exp(-c(j));	
@@ -1090,6 +1090,7 @@ void ads::set_Gt(const int& tt) {
       if (include_u) {
 	// u, not c
 	Gt(j+1, j+1) = exp(-u(j)*A[tt](j)/A_scale);
+	Gt(j+1, j+1) = exp(-A[tt](j) * log(u(j)) / A_scale);
 	//Gt(j+1, j+1) = exp(-u(j)*log1p(A[tt](j)));
 
       } else {
