@@ -25,26 +25,6 @@ using Rcpp::as;
 
 typedef CppAD::AD<double> AScalar;
 
-AScalar logT(const AScalar& z,
-	     const AScalar& v,
-	     const AScalar& s) {
-  
-  AScalar res = lgamma(0.5*(v+1)) - lgamma(0.5*v);
-  res -= 0.5 * ((v+1) * log1p(z*z/(s*s*v)) + log(v));
-  res -= log(s) + M_LN_SQRT_PI;
-  return(res);
-}
-
-AScalar logHalfT(const AScalar& z,
-	     const AScalar& v,
-	     const AScalar& s) {
-  
-  AScalar res = M_LN2 + logT(z, v, s);
-  return(res);
-}
-
-
-
 
 class ads {
 
@@ -114,30 +94,30 @@ private:
   AScalar delta_b;
 
   AScalar diag_scale_V1;
-  AScalar diag_df_V1;
+  AScalar diag_mode_V1;
   AScalar fact_scale_V1;
-  AScalar fact_df_V1;
+  AScalar fact_mode_V1;
 
   AScalar diag_scale_V2;
-  AScalar diag_df_V2;
+  AScalar diag_mode_V2;
   AScalar fact_scale_V2;
-  AScalar fact_df_V2;
+  AScalar fact_mode_V2;
 
-  AScalar df_scale_W1;
+  AScalar mode_scale_W1;
   AScalar s_scale_W1;
   AScalar W1_eta;
   AScalar corr_W1_const; // normalizing const for lkj prior
 
   // the following for W1 only used if W1_LKJ is off
   AScalar diag_scale_W1;
-  AScalar diag_df_W1;
+  AScalar diag_mode_W1;
   AScalar fact_scale_W1;
-  AScalar fact_df_W1;
+  AScalar fact_mode_W1;
     
   AScalar diag_scale_W2;
-  AScalar diag_df_W2;
+  AScalar diag_mode_W2;
   AScalar fact_scale_W2;
-  AScalar fact_df_W2;
+  AScalar fact_mode_W2;
 
   int J; // number of brands
   int N; // number of cities
@@ -478,9 +458,7 @@ ads::ads(const List& params)
     const List priors_delta = as<List>(priors["delta"]);
     delta_a = as<double>(priors_delta["a"]);
     delta_b = as<double>(priors_delta["b"]);
-
-
-    
+  
     if (include_c) {
 
       Rcout << "priors for c\n";
@@ -548,9 +526,9 @@ ads::ads(const List& params)
       Rcout << "V1 is estimated\n";
       const List priors_V1 = as<List>(priors["V1"]); 
       diag_scale_V1 = as<double>(priors_V1["diag.scale"]);
-      diag_df_V1 = as<double>(priors_V1["diag.df"]);
+      diag_mode_V1 = as<double>(priors_V1["diag.mode"]);
       fact_scale_V1 = as<double>(priors_V1["fact.scale"]);
-      fact_df_V1 = as<double>(priors_V1["fact.df"]);
+      fact_mode_V1 = as<double>(priors_V1["fact.mode"]);
     }
     
     if (fix_V2) {
@@ -563,9 +541,9 @@ ads::ads(const List& params)
       Rcout << "V2 is estimated\n";
       const List priors_V2 = as<List>(priors["V2"]); 
       diag_scale_V2 = as<double>(priors_V2["diag.scale"]);
-      diag_df_V2 = as<double>(priors_V2["diag.df"]);
+      diag_mode_V2 = as<double>(priors_V2["diag.mode"]);
       fact_scale_V2 = as<double>(priors_V2["fact.scale"]);
-      fact_df_V2 = as<double>(priors_V2["fact.df"]);
+      fact_mode_V2 = as<double>(priors_V2["fact.mode"]);
     }
     
     if (fix_W) {
@@ -578,12 +556,12 @@ ads::ads(const List& params)
       Rcout << "W is estimated\n";
       if (W1_LKJ) {
 	const List priors_W1 = as<List>(priors["W1"]);
-	df_scale_W1 = as<double>(priors_W1["scale.df"]);
+	mode_scale_W1 = as<double>(priors_W1["scale.mode"]);
 	s_scale_W1 = as<double>(priors_W1["scale.s"]);
 	const double eta = as<double>(priors_W1["eta"]);
 	W1_eta = eta;
 	
-	// from LKJ, Eq. 16
+	Rcout << "\tLKJ prior, Eq. 16\n";
 	double t1 = 0;
 	double t2 = 0;
 	for (int i=1; i<=(W1_dim-1); i++) {
@@ -595,17 +573,18 @@ ads::ads(const List& params)
       } else {
 	const List priors_W1 = as<List>(priors["W1"]);
 	diag_scale_W1 = as<double>(priors_W1["diag.scale"]);
-	diag_df_W1 = as<double>(priors_W1["diag.df"]);
+	diag_mode_W1 = as<double>(priors_W1["diag.mode"]);
 	fact_scale_W1 = as<double>(priors_W1["fact.scale"]);
-	fact_df_W1 = as<double>(priors_W1["fact.df"]);
+	fact_mode_W1 = as<double>(priors_W1["fact.mode"]);
       }
       
       if (P>0) {
+	Rcout << "W2 priors\n";
 	const List priors_W2 = as<List>(priors["W2"]); 
 	diag_scale_W2 = as<double>(priors_W2["diag.scale"]);
-	diag_df_W2 = as<double>(priors_W2["diag.df"]);
+	diag_mode_W2 = as<double>(priors_W2["diag.mode"]);
 	fact_scale_W2 = as<double>(priors_W2["fact.scale"]);
-	fact_df_W2 = as<double>(priors_W2["fact.df"]);
+	fact_mode_W2 = as<double>(priors_W2["fact.mode"]);
       }
     }
   }
@@ -701,15 +680,15 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
 	ind += V1_dim - j;
 	LV1(j, j) = exp(LV1(j, j));      
       }
-      V1.template selfadjointView<Eigen::Lower>().rankUpdate(LV1);
+      V1.template selfadjointView<Eigen::Lower>().rankUpdate(LV1);      
     }
   }
 
   if (!fix_V2) {
-  
-    V2_log_diag = par.segment(ind, V2_dim);
-    ind += V2_dim;
+
     V2.setZero();
+    V2_log_diag = par.segment(ind, V2_dim);
+    ind += V2_dim; 
     V2.diagonal() = V2_log_diag.array().exp().matrix();
     
     if (nfact_V2 > 0) {
@@ -844,8 +823,10 @@ AScalar ads::eval_LL()
     R1t = F2[t] * R2t * F2[t].transpose(); 
     R1t += V2.selfadjointView<Lower>();      
     Qt = F1[t] * R1t * F1[t].transpose();
-    Qt +=  V1.selfadjointView<Lower>();
-  
+    //    Qt +=  V1.selfadjointView<Lower>();
+    Qt += V1;
+
+    
     chol_Qt.compute(Qt); // Cholesky of Qt
     log_det_Qt += chol_Qt.vectorD().array().log().sum();
   
@@ -889,19 +870,16 @@ AScalar ads::eval_hyperprior() {
   if (!fix_V1) {
   
     for (size_t i=0; i<V1_dim; i++) {
-      //    prior_diag_V1 += dhalft_log(V1(i,i), diag_df_V1, diag_scale_V1);
-      prior_diag_V1 += logHalfT(V1(i,i), diag_df_V1, diag_scale_V1);
+      prior_diag_V1 += dnormTrunc0_log(V1(i,i), diag_mode_V1, diag_scale_V1);      
       prior_diag_V1 += V1_log_diag(i); // Jacobian (check this)
     }
     
     if (nfact_V1 > 0) {
       for (int j=0; j < nfact_V1; j++) {
-	//   prior_fact_V1 += dhalft_log(LV1(j,j), fact_df_V1, fact_scale_V1);
-	prior_fact_V1 += logHalfT(LV1(j,j), fact_df_V1, fact_scale_V1);      
+	prior_fact_V1 += dnormTrunc0_log(LV1(j,j), fact_mode_V1, fact_scale_V1);
 	prior_fact_V1 += log(LV1(j,j)); // Jacobian (check this)
 	for (int i=j+1; i<V1_dim; i++) {
-	//	prior_fact_V1 += dt_log(LV1(i,j), fact_df_V1, fact_scale_V1);
-	  prior_fact_V1 += logT(LV1(i,j), fact_df_V1, fact_scale_V1);
+	  prior_fact_V1 += dnorm_log(LV1(i,j), fact_mode_V1, fact_scale_V1);	
 	}
       }
     }
@@ -914,20 +892,17 @@ AScalar ads::eval_hyperprior() {
   if (!fix_V2) {
   
     for (size_t i=0; i<V2_dim; i++) {
-      //   prior_diag_V2 += dhalft_log(V2(i,i), diag_df_V2, diag_scale_V2);
-      prior_diag_V2 += logHalfT(V2(i,i), diag_df_V2, diag_scale_V2);
+      prior_diag_V2 += dnormTrunc0_log(V2(i,i), diag_mode_V2, diag_scale_V2);
       prior_diag_V2 += V2_log_diag(i); // Jacobian (check this)
     }
     
     
     if (nfact_V2 > 0) {
       for (int j=0; j < nfact_V2; j++) {
-	//   prior_fact_V2 += dhalft_log(LV2(j,j), fact_df_V2, fact_scale_V2);
-	prior_fact_V2 += logHalfT(LV2(j,j), fact_df_V2, fact_scale_V2);
+	prior_fact_V2 += dnormTrunc0_log(LV2(j,j), fact_mode_V2, fact_scale_V2);
 	prior_fact_V2 += log(LV2(j,j)); // Jacobian (check this)
 	for (int i=j+1; i<V2_dim; i++) {
-	  //   prior_fact_V2 += dt_log(LV2(i,j), fact_df_V2, fact_scale_V2);
-	  prior_fact_V2 += logT(LV2(i,j), fact_df_V2, fact_scale_V2);
+	  prior_fact_V2 += dnorm_log(LV2(i,j), fact_mode_V2, fact_scale_V2);	  
 	}
       }
     }
@@ -947,13 +922,11 @@ AScalar ads::eval_hyperprior() {
   if (!fix_W) {
   
     if(W1_LKJ) {
-      // prior_scale_W1 = dhalft_log(W1_scale, df_scale_W1, s_scale_W1);
-      prior_scale_W1 = logHalfT(W1_scale, df_scale_W1, s_scale_W1);
+      prior_scale_W1 = dnormTrunc0_log(W1_scale, mode_scale_W1, s_scale_W1);      
       prior_scale_W1 += log(W1_scale); // Jacobian
       
       // LKJ prior, including Jacobian (from unwrap_params)
-      prior_corr_W1 = corr_W1_const + (W1_eta-1)*logdet_W1_corr + log_W1_jac;
-      
+      prior_corr_W1 = corr_W1_const + (W1_eta-1)*logdet_W1_corr + log_W1_jac;      
       prior_W1 = prior_scale_W1 + prior_corr_W1;
       
     } else {
@@ -961,18 +934,16 @@ AScalar ads::eval_hyperprior() {
       // NEED PRIOR ON DIAG_W1!
       
       for (size_t i=0; i<W1_dim; i++) {
-	prior_diag_W1 += logHalfT(exp(W1_log_diag(i)), diag_df_W1, diag_scale_W1);
+	prior_diag_W1 += dnormTrunc0_log(exp(W1_log_diag(i)), diag_mode_W1, diag_scale_W1);
 	prior_diag_W1 += W1_log_diag(i); // Jacobian (check this)
       }
       
       if (nfact_W1 > 0) {
 	for (int j=0; j < nfact_W1; j++) {
-	  //     prior_fact_W1 += dhalft_log(LW1(j,j), fact_df_W1, fact_scale_W1);
-	  prior_fact_W1 += logHalfT(LW1(j,j), fact_df_W1, fact_scale_W1);
+	  prior_fact_W1 += dnormTrunc0_log(LW1(j,j), fact_mode_W1, fact_scale_W1);	  
 	  prior_fact_W1 += log(LW1(j,j)); // Jacobian (check this)
 	  for (int i=j+1; i<W1_dim; i++) {
-	    //    prior_fact_W1 += dt_log(LW1(i,j), fact_df_W1, fact_scale_W1);
-	    prior_fact_W1 += logT(LW1(i,j), fact_df_W1, fact_scale_W1);
+	    prior_fact_W1 += dnorm_log(LW1(i,j), fact_mode_W1, fact_scale_W1);	    
 	  }
 	}
       }
@@ -983,19 +954,16 @@ AScalar ads::eval_hyperprior() {
     if (P>0) {
       
       for (size_t i=0; i<W2_dim; i++) {
-	//     prior_diag_W2 += dhalft_log(exp(W2_log_diag(i)), diag_df_W2, diag_scale_W2);
-	prior_diag_W2 += logHalfT(exp(W2_log_diag(i)), diag_df_W2, diag_scale_W2);
+	prior_diag_W2 += dnormTrunc0_log(exp(W2_log_diag(i)), diag_mode_W2, diag_scale_W2);	
 	prior_diag_W2 += W2_log_diag(i); // Jacobian (check this)
       }
       
       if (nfact_W2 > 0) {
 	for (int j=0; j < nfact_W2; j++) {
-	  //    prior_fact_W2 += dhalft_log(LW2(j,j), fact_df_W2, fact_scale_W2);
-	  prior_fact_W2 += logHalfT(LW2(j,j), fact_df_W2, fact_scale_W2);
+	  prior_fact_W2 += dnormTrunc0_log(LW2(j,j), fact_mode_W2, fact_scale_W2);
           prior_fact_W2 += log(LW2(j,j)); // Jacobian (check this)
           for (int i=j+1; i<W2_dim; i++) {
-	    // prior_fact_W2 += dt_log(LW2(i,j), fact_df_W2, fact_scale_W2);
-	    prior_fact_W2 += logT(LW2(i,j), fact_df_W2, fact_scale_W2);
+	    prior_fact_W2 += dnorm_log(LW2(i,j), fact_mode_W2, fact_scale_W2);	
 	  }
 	}
       }
@@ -1089,7 +1057,7 @@ void ads::set_Gt(const int& tt) {
     } else {
       if (include_u) {
 	// u, not c
-	Gt(j+1, j+1) = exp(-u(j)*A[tt](j)/A_scale);
+	//	Gt(j+1, j+1) = exp(-u(j)*A[tt](j)/A_scale);
 	Gt(j+1, j+1) = exp(-A[tt](j) * log(u(j)) / A_scale);
 	//Gt(j+1, j+1) = exp(-u(j)*log1p(A[tt](j)));
 
@@ -1180,10 +1148,6 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 
   // Return values for A
 
-
-
-    
-  
   NumericVector LC(logit_c.size());
   NumericVector LU(logit_u.size());
   double Ldelta = CppAD::Value(logit_delta);

@@ -13,7 +13,7 @@ set.seed(10503)
 
 include.H <- FALSE
 include.c <- TRUE
-include.u <- FALSE
+include.u <- TRUE
 
 rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
     ## set.seed(153)
@@ -28,7 +28,7 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 }
 
 # create Y
-N <- 22  # number of 'sites'
+N <- 40  # number of 'sites'
 T <- 300  # number of time periods
 Tb <- 0  # number of burnin periods
 J <- 2  # number of equations
@@ -38,10 +38,10 @@ K1 <- 2  # number of non time varying covariates per city at top level (includin
 ##Uvec <- rnorm(J, mean = 0.15, sd = 0.05)  # wearout due to repetition
 
 Cvec <- seq(.1,.5,length=J)
-Uvec <- seq(.6, .1, length=J)
+Uvec <- seq(.8, .03, length=J)
 
 ## parameters
-delta <- 0.2
+delta <- 0.15
 Theta12 <- rnorm(K1 * J, sd = 0.3)
 dim(Theta12) <- c(K1, J)
 V <- list()
@@ -95,7 +95,7 @@ for (t in 1:T) {
     F1ml[[t]] <- t(as(F1ml[[t]], "dgCMatrix"))  ## make sparse
 }
 
-W <- .001 * diag(1 + J + P)
+W <- .1 * diag(1 + J + P)
 # W[1]<-0.01 diag(W)[(2+J):(1+J+P)]<-0.001
 Sigma <- matrix(0, nrow = J, ncol = J)
 diag(Sigma) <- 0.1

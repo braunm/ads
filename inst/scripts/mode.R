@@ -15,7 +15,7 @@ set.seed(1234)
 start.true.pars <- FALSE
 
 mod.name <- "hdlm"
-data.name <- "tti"
+data.name <- "ptw"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
@@ -29,7 +29,7 @@ flags <- list(include.H=FALSE,
               add.prior=TRUE,
               include.X=TRUE,
               standardize=FALSE,
-              A.scale = 1000000,
+              A.scale = 10000000,
               ##A.scale = 1,
               W1.LKJ = TRUE,  # W1.LKJ true means we do LKJ, otherwise same as W2
               fix.V1 = FALSE,
@@ -211,34 +211,34 @@ if (flags$add.prior) {
         prior.u <- NULL;
     }
     
-    ## For V1, V2, and W1, W2:   T or half-T priors (if needed)
+    ## For V1, V2, and W1, W2:   normal or truncated normal priors (if needed)
 
     if (!flags$fix.V1) {        
-        prior.V1 <- list(diag.scale=1, diag.df=3,
-                         fact.scale=1, fact.df=4)
+        prior.V1 <- list(diag.scale=.5, diag.mode=1,
+                         fact.scale=1, fact.mode=0)
     } else {
         prior.V1 <-  NULL
     }
 
 
     if (!flags$fix.V2) {
-        prior.V2 <- list(diag.scale=1, diag.df=3,
-                         fact.scale=1, fact.df=4)
+        prior.V2 <- list(diag.scale=.5, diag.mode=1,
+                         fact.scale=1, fact.mode=0)
     } else {
         prior.V2 = NULL
     }
 
     if (!flags$fix.W) {
-        prior.W2 <- list(diag.scale=.01, diag.df=4,
-                         fact.scale=.01, fact.df=4)
+        prior.W2 <- list(diag.scale=.5, diag.mode=1,
+                         fact.scale=.01, fact.mode=0)
         
-        ## LKJ prior on W1.  Scale parameter has half-T prior
+        ## LKJ prior on W1.  Scale parameter has truncated(0) normal prior
         
         if (flags$W1.LKJ) {
-            prior.W1 <- list(scale.df=10, scale.s=.5, eta=1)
+            prior.W1 <- list(scale.mode=0, scale.s=.5, eta=1)
         } else {
-            prior.W1 <- list(diag.scale=.01, diag.df=4,
-                             fact.scale=.01, fact.df=4)
+            prior.W1 <- list(diag.scale=.01, diag.mode=0,
+                             fact.scale=.01, fact.mode=0)
         }
     } else {
         prior.W1 <- NULL
@@ -314,7 +314,7 @@ if (start.true.pars) {
     }
 
  if (flags$include.u) {
-         logit.u.start <- seq(-2,-.1, length=J)
+         logit.u.start <- seq(-.1,.1, length=J)
         ## u.mean.log.sd.start <- c(0,0)
         ## u.off.start <- rep(0,J)        
     } else {
@@ -339,7 +339,7 @@ if (flags$fix.V1 | flags$fix.V2 | flags$fix.W) {
 }
 
 if (flags$fix.V1) {
-    fixed.cov$V1 <- 0.5*diag(N);
+    fixed.cov$V1 <- 0.1*diag(N);
     V1.start <- NULL
 } else {
     V1.length <- N + N*nfact.V1 - nfact.V1*(nfact.V1-1)/2
@@ -349,7 +349,7 @@ if (flags$fix.V1) {
 }
 
 if (flags$fix.V2) {
-    fixed.cov$V2 <- 3*diag(N*(P+1))
+    fixed.cov$V2 <- .1*diag(N*(P+1))
     V2.start <- NULL    
 } else {
     V2.length <- N*(P+1) + N*(P+1)*nfact.V2 - nfact.V2*(nfact.V2-1)/2
@@ -360,7 +360,7 @@ if (flags$fix.V2) {
 
 
 if (flags$fix.W) {
-    fixed.cov$W <- .01*diag(1+J+P)
+    fixed.cov$W <- .1*diag(1+J+P)
     W1.start <- NULL
     W2.start <- NULL    
 } else {
@@ -475,8 +475,6 @@ opt <- trust.optim(opt3$solution,
                      )
                    )
 
-
-
 opt$par <- opt$solution
 
                      
@@ -561,8 +559,9 @@ if (flags$include.u){
 
 parcheck <- cl$par.check(opt$par)
 
-
+cat("Computing Hessian\n")
 hs <- get.hessian(opt$par)
+cat("inverting negative Hessian\n")
 cv <- solve(-hs)
 se <- sqrt(diag(cv))
 se.sol <- relist(se,skeleton=start.list)
