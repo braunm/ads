@@ -7,7 +7,7 @@
 #include <Eigen/Core>
 #include <Eigen/Sparse>
 #include <Eigen/Cholesky>
-#include <cppad_atomic/atomics.h>
+#include <cppad_atomics.h>
 #include <mat_normAD.h>
 
 using Eigen::MatrixBase;
