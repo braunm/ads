@@ -24,10 +24,11 @@ data.file <- paste0("data/mcmod",data.name,".RData")
 save.file <- paste0("inst/results/",mod.name,"_",data.name,"_mode.Rdata")
 
 flags <- list(include.H=FALSE,
-              include.c=TRUE, ## 0-1
-              include.u=TRUE, ## 0-1
+              include.c=FALSE, ## 0-1
+              include.u=FALSE, ## 0-1
               include.q=TRUE, ## unbounded
-              include.r=TRUE, ## unbounded              
+              include.r=FALSE, ## unbounded
+              replenish = FALSE,
               add.prior=TRUE,
               include.X=TRUE,
               standardize=FALSE,
@@ -167,8 +168,8 @@ if (flags$add.prior) {
     if (flags$include.X) {
         ## prior on theta12:  matrix normal with sparse covariances
         mean.theta12 <- matrix(0,K,J)
-        cov.row.theta12 <- 50*diag(K) ## across covariates within brand
-        cov.col.theta12 <- 50*diag(J) ## across brand within covariates
+        cov.row.theta12 <- 500*diag(K) ## across covariates within brand
+        cov.col.theta12 <- 500*diag(J) ## across brand within covariates
         chol.cov.row.theta12 <- t(chol(cov.row.theta12))
         chol.cov.col.theta12 <- t(chol(cov.col.theta12))
         
@@ -200,21 +201,17 @@ if (flags$add.prior) {
     }
 
     if (flags$include.q) {
-        prior.q.mean <- 0           
-        prior.q <- list(mean.mean=prior.q.mean,
-                        mean.sd=1,
-                        sd.mean=.1,
-                        sd.sd=.5)
+        prior.q <- list(shape=1,
+                        rate=1)
     } else {
         prior.q <- NULL;
     }
 
     if (flags$include.r) {
-        prior.r.mean <- 0           
-        prior.r <- list(mean.mean=prior.r.mean,
+        prior.r <- list(mean.mean=0,
                         mean.sd=1,
-                        sd.mean=.1,
-                        sd.sd=.5)
+                        sd.mean=.05,
+                        sd.sd=.001)
     } else {
         prior.r <- NULL;
     }
@@ -346,16 +343,14 @@ if (start.true.pars) {
     }
 
     if (flags$include.q) {
-        q.mean.log.sd.start <- c(0,0)
-        q.off.start <- rep(0,J)
+        log.q.start <- rep(.5,J)
     } else {
-        q.mean.log.sd.start <- q.off.start <- NULL
-        logit.q.start <- NULL
+        log.q.start <- NULL
     }
     
     if (flags$include.r) {
-        r.mean.log.sd.start <- c(0,0)
-        r.off.start <- rep(0,J)        
+        r.mean.log.sd.start <- rnorm(2, 0, .02)
+        r.off.start <- rnorm(J,0,.001)        
     } else {
         r.mean.log.sd.start <- r.off.start <- NULL
         logit.r.start <- NULL
@@ -424,8 +419,7 @@ tmp <- list(
     theta12=theta12.start,
     logit.c = logit.c.start,
     logit.u = logit.u.start,
-    q.mean.log.sd=q.mean.log.sd.start,
-    q.off=q.off.start,
+    log.q = log.q.start,
     r.mean.log.sd=r.mean.log.sd.start,
     r.off=r.off.start,
     phi=phi.start,
@@ -464,21 +458,21 @@ cat("gradient\n")
 tg <- system.time(df <- get.df(start))
 print(tg)
 
+stop()
+opt2 <- optim(start,
+             fn=get.f,
+             gr=get.df,
+             hessian=FALSE,
+             method="BFGS",
+             control=list(
+               fnscale=-1,
+               REPORT=5,
+               trace=3,
+               maxit=30
+               )
+             )
 
-## opt2 <- optim(start,
-##              fn=get.f,
-##              gr=get.df,
-##              hessian=FALSE,
-##              method="BFGS",
-##              control=list(
-##                fnscale=-1,
-##                REPORT=5,
-##                trace=3,
-##                maxit=30
-##                )
-##              )
-
-opt3 <- trust.optim(start,  #opt2$par,                    
+opt3 <- trust.optim(opt2$par,                    
                     fn=get.f,
                     gr=get.df,       
                     method="SR1",
@@ -498,6 +492,35 @@ opt3 <- trust.optim(start,  #opt2$par,
 
 
 opt <- trust.optim(opt3$solution,
+                   fn=get.f,
+                   gr=get.df,
+                   method="BFGS",
+                   control=list(
+                       report.level=5L,
+                       report.precision=3L,
+                       maxit=3000L,
+                       function.scale.factor=-1,
+                       preconditioner=0,
+                       stop.trust.radius=1e-12,
+                       contract.factor=.7,
+                       report.freq=5L
+                     )
+                   )
+
+opt2 <- optim(opt$solution,
+             fn=get.f,
+             gr=get.df,
+             hessian=FALSE,
+             method="CG",
+             control=list(
+               fnscale=-1,
+               REPORT=5,
+               trace=3,
+               maxit=300
+               )
+              )
+
+opt <- trust.optim(opt2$par,
                    fn=get.f,
                    gr=get.df,
                    method="BFGS",
@@ -592,7 +615,7 @@ if (flags$include.u){
 }
 
 if (flags$include.q){
-    sol$qj <- exp(sol$q.mean.log.sd[2]) * sol$q.off + sol$q.mean.log.sd[1]
+    sol$qj <- exp(sol$log.q)
 }
 
 if (flags$include.r){

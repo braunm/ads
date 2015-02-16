@@ -26,6 +26,15 @@ using Rcpp::as;
 typedef CppAD::AD<double> AScalar;
 
 
+AScalar dgamma_log(const AScalar& x,
+		   const AScalar& r,
+		   const AScalar& a) {
+
+  AScalar res = r*log(a) - lgamma(r) + (r-1)*log(x) - a*x;
+  return(res);
+}
+
+
 class ads {
 
   typedef CppAD::AD<double> AScalar;
@@ -84,10 +93,8 @@ private:
   AScalar q_a, q_b, r_a, r_b;
 
   
-  AScalar q_mean_pmean;
-  AScalar q_mean_psd;
-  AScalar q_sd_pmean;
-  AScalar q_sd_psd;
+  AScalar q_shape;
+  AScalar q_rate;
 
   AScalar r_mean_pmean;
   AScalar r_mean_psd;
@@ -141,10 +148,10 @@ private:
   AScalar logit_delta;
   AScalar delta;
   
-  AScalar q_mean;
-  AScalar q_log_sd;
-  AScalar q_sd;
-  VectorXA q_off; // J copy wearout parameters offset
+  /* AScalar q_mean; */
+  /* AScalar q_log_sd; */
+  /* AScalar q_sd; */
+  /* VectorXA q_off; // J copy wearout parameters offset */
 
   AScalar r_mean;
   AScalar r_log_sd;
@@ -193,6 +200,7 @@ private:
   VectorXA u;
   VectorXA logit_c;
   VectorXA logit_u;
+  VectorXA log_q;
   VectorXA q;
   VectorXA r;
 
@@ -209,6 +217,7 @@ private:
   bool include_u;
   bool include_q;
   bool include_r;
+  bool replenish;
   bool W1_LKJ;
   bool fix_V1;
   bool fix_V2;
@@ -249,6 +258,7 @@ ads::ads(const List& params)
   include_u = as<bool>(flags["include.u"]);
   include_q = as<bool>(flags["include.q"]);
   include_r = as<bool>(flags["include.r"]);
+  replenish = as<bool>(flags["replenish"]);
   W1_LKJ = as<bool>(flags["W1.LKJ"]);
   A_scale = as<double>(flags["A.scale"]);
   fix_V1 = as<bool>(flags["fix.V1"]);
@@ -405,6 +415,7 @@ ads::ads(const List& params)
   }
 
   if (include_q) {
+    log_q.resize(J);
     q.resize(J);
   }
   
@@ -498,10 +509,8 @@ ads::ads(const List& params)
       Rcout << "priors for q\n";
       const List priors_q = as<List>(priors["q"]);
       
-      q_mean_pmean = as<double>(priors_q["mean.mean"]);
-      q_mean_psd = as<double>(priors_q["mean.sd"]);
-      q_sd_pmean = as<double>(priors_q["sd.mean"]);
-      q_sd_psd = as<double>(priors_q["sd.sd"]);
+      q_shape = as<double>(priors_q["shape"]);
+      q_rate = as<double>(priors_q["rate"]);
     }
 
 
@@ -659,15 +668,11 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
   // for q and r, the parameter is an offset against the 
   // mean.  So q_j = q_mean + par[ind+j]
 
-  if (include_q) {    
-    q_mean = par(ind++); //ind increments after pull
-    q_log_sd = par(ind++); // ind increments after pull
-    q_sd = exp(q_log_sd);
-    q_off = par.segment(ind,J); 
+  if (include_q) {
+    log_q = par.segment(ind, J);
     ind += J;
-    q.array() = q_sd * q_off.array() + q_mean;
-   }
-
+    q.array() = log_q.array().exp();
+  }
 
   if (include_r) {
     r_mean = par(ind++); //ind increments after pull
@@ -1024,11 +1029,10 @@ AScalar ads::eval_hyperprior() {
     }
 
     if (include_q) {
-      const AScalar prior_q_mean = dnorm_log(q_mean, q_mean_pmean, q_mean_psd);
-      AScalar prior_q_log_sd = dnormTrunc0_log(q_sd, q_sd_pmean, q_sd_psd);
-      prior_q_log_sd += q_log_sd; // Jacobian
-      const AScalar prior_q_off = -J*M_LN_SQRT_2PI - 0.5*q_off.squaredNorm(); // N(0,1)
-      const AScalar prior_q = prior_q_mean + prior_q_log_sd + prior_q_off;      
+      for (int jj=0; jj<J; jj++) {      
+	prior_q += dgamma_log(q(jj), q_shape, q_rate);
+	prior_q += log_q(jj); //jacobian
+      }  
     }
 
     if (include_r) {
@@ -1078,26 +1082,48 @@ void ads::set_Gt(const int& tt) {
   for (int j=0; j<J; j++) {
     Gt(0, j+1) = Afunc(A[tt](j), A_scale);
     
-    if (include_c) {
-      if (include_u) {
-	// c and u	
-	// Gt(j+1, j+1) = 1.0 - c(j) - u(j)*A[tt](j)/A_scale-delta * AjIsZero[tt](j);
-	Gt(j+1, j+1) = exp(-c(j) - A[tt](j) * log(u(j)) / A_scale);
+    /* if (include_c) { */
+    /*   if (include_u) { */
+    /* 	// c and u	 */
+    /* 	// Gt(j+1, j+1) = 1.0 - c(j) - u(j)*A[tt](j)/A_scale-delta * AjIsZero[tt](j); */
+    /* 	Gt(j+1, j+1) = exp(-c(j) - A[tt](j) * log(u(j)) / A_scale); */
+    /*   } else { */
+    /* 	// c, not u */
+    /* 	Gt(j+1, j+1) = exp(-c(j));	 */
+    /*   } */
+    /* } else { */
+    /*   if (include_u) { */
+    /* 	// u, not c */
+    /* 	//	Gt(j+1, j+1) = exp(-u(j)*A[tt](j)/A_scale); */
+    /* 	Gt(j+1, j+1) = exp(-A[tt](j) * log(u(j)) / A_scale); */
+    /* 	//Gt(j+1, j+1) = exp(-u(j)*log1p(A[tt](j))); */
+
+    /*   } else { */
+    /* 	// neither c nor u */
+    /* 	Gt(j+1, j+1) = 1.0; */
+    /*   } */
+    /* } */
+
+    if (include_q) {
+      if (include_r) {
+	// q and r	
+	Gt(j+1, j+1) = 1.0 - q(j) - r(j)*A[tt](j)/A_scale;
       } else {
-	// c, not u
-	Gt(j+1, j+1) = exp(-c(j));	
+	// q, not r
+	Gt(j+1, j+1) = 1.0 - q(j);
       }
     } else {
-      if (include_u) {
-	// u, not c
-	//	Gt(j+1, j+1) = exp(-u(j)*A[tt](j)/A_scale);
-	Gt(j+1, j+1) = exp(-A[tt](j) * log(u(j)) / A_scale);
-	//Gt(j+1, j+1) = exp(-u(j)*log1p(A[tt](j)));
-
+      if (include_r) {
+	// r, not q
+	Gt(j+1, j+1) = 1.0 - r(j)*A[tt](j)/A_scale;
       } else {
-	// neither c nor u
+	// neither q nor r
 	Gt(j+1, j+1) = 1.0;
       }
+    }
+
+    if (replenish) {
+      Gt(j+1, j+1) -= delta * AjIsZero[tt](j);
     }
   } // end loop over J
 
@@ -1183,6 +1209,7 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 
   NumericVector LC(logit_c.size());
   NumericVector LU(logit_u.size());
+  NumericVector LQ(logit_u.size());
   double Ldelta = CppAD::Value(logit_delta);
   NumericMatrix MV1(V1.rows(), V1.cols());
   NumericMatrix MV2(V2.rows(), V2.cols());
@@ -1193,6 +1220,9 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
   }
   for (size_t i=0; i<logit_u.size(); i++) {
     LU(i) = Value(logit_u(i));
+  }
+  for (size_t i=0; i<log_q.size(); i++) {
+    LQ(i) = Value(log_q(i));
   }
 
   for (size_t i=0; i<V1.rows(); i++) {
@@ -1237,6 +1267,7 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 
   List res = List::create(Named("logit_c") = wrap(LC),
 			  Named("logit_u") = wrap(LU),
+			  Named("log_q") = wrap(LQ),
 			  Named("logit_delta") = wrap(Ldelta),
 			  Named("V1") = wrap(MV1),
 			  Named("V2") = wrap(MV2),
