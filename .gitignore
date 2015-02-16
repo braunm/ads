@@ -6,3 +6,4 @@ data-raw/fetch_data.R
 *~
 .*~
 .DS_Store
+*.diff
