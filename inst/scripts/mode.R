@@ -24,8 +24,10 @@ data.file <- paste0("data/mcmod",data.name,".RData")
 save.file <- paste0("inst/results/",mod.name,"_",data.name,"_mode.Rdata")
 
 flags <- list(include.H=FALSE,
-              include.c=TRUE,
-              include.u=FALSE,
+              include.c=TRUE, ## 0-1
+              include.u=TRUE, ## 0-1
+              include.q=TRUE, ## unbounded
+              include.r=TRUE, ## unbounded              
               add.prior=TRUE,
               include.X=TRUE,
               standardize=FALSE,
@@ -165,8 +167,8 @@ if (flags$add.prior) {
     if (flags$include.X) {
         ## prior on theta12:  matrix normal with sparse covariances
         mean.theta12 <- matrix(0,K,J)
-        cov.row.theta12 <- 500*diag(K) ## across covariates within brand
-        cov.col.theta12 <- 500*diag(J) ## across brand within covariates
+        cov.row.theta12 <- 50*diag(K) ## across covariates within brand
+        cov.col.theta12 <- 50*diag(J) ## across brand within covariates
         chol.cov.row.theta12 <- t(chol(cov.row.theta12))
         chol.cov.col.theta12 <- t(chol(cov.col.theta12))
         
@@ -178,23 +180,14 @@ if (flags$add.prior) {
         prior.theta12 <- NULL
     }
     
-    ## prior on logit.delta.  transformed beta with 2 parameters
-    
-    ##  prior.delta <- list(a=1,b=5)
+    ## prior on logit.delta.  transformed beta with 2 parameters    
     prior.delta <- list(a=1,b=1)
     
-    ## prior on c.mean and u.mean:  normal
-    ## prior on c.sd and u.sd:  truncated normal
+    ## prior on q.mean and r.mean:  normal
+    ## prior on q.sd and r.sd:  truncated normal
     
     if (flags$include.c) {
-
         prior.c <- list(a=1, b=1)
- 
-        ## prior.c.mean <- 0       
-        ## prior.c <- list(mean.mean=prior.c.mean,
-        ##                 mean.sd=1,
-        ##                 sd.mean=.1,
-        ##                 sd.sd=.5)
     } else {
         prior.c <- NULL;
     }
@@ -202,14 +195,31 @@ if (flags$add.prior) {
 
     if (flags$include.u) {
         prior.u <- list(a=1, b=1)
-        ## prior.u.mean <- 0           
-        ## prior.u <- list(mean.mean=prior.u.mean,
-        ##                 mean.sd=1,
-        ##                 sd.mean=.1,
-        ##                 sd.sd=.5)
     } else {
         prior.u <- NULL;
     }
+
+    if (flags$include.q) {
+        prior.q.mean <- 0           
+        prior.q <- list(mean.mean=prior.q.mean,
+                        mean.sd=1,
+                        sd.mean=.1,
+                        sd.sd=.5)
+    } else {
+        prior.q <- NULL;
+    }
+
+    if (flags$include.r) {
+        prior.r.mean <- 0           
+        prior.r <- list(mean.mean=prior.r.mean,
+                        mean.sd=1,
+                        sd.mean=.1,
+                        sd.sd=.5)
+    } else {
+        prior.r <- NULL;
+    }
+    
+    
     
     ## For V1, V2, and W1, W2:   normal or truncated normal priors (if needed)
 
@@ -255,6 +265,8 @@ if (flags$add.prior) {
     prior.delta <- NULL
     prior.c <- NULL
     prior.u <- NULL
+    prior.q <- NULL
+    prior.r <- NULL
     prior.theta12 <- NULL
 }
 
@@ -267,6 +279,8 @@ tmp <- list(M20=M20,
             delta=prior.delta,
             c=prior.c,
             u=prior.u,
+            q=prior.q,
+            r=prior.r,
             V1=prior.V1, V2=prior.V2,
             W1=prior.W1, W2=prior.W2
             )
@@ -302,25 +316,50 @@ if (start.true.pars) {
         ## }
     }
 
+    if(flags$include.q) {
+    ##     q.mean.log.sd.start <- true.pars$q.mean.log.sd
+    ##     q.off.start <- true.pars$q.off
+    ## } else {
+    ##     q.mean.log.sd.start <- q.off.start  <- NULL
+        ## }
+    }
+
+    if(flags$include.r) {
+    ##     r.mean.log.sd.start <- true.pars$r.mean.log.sd
+    ##     r.off.start <- true.pars$r.off
+    ## } else {
+        ##      r.mean.log.sd.start <- r.off.start <- NULL
+        ## }
+    }
     logit.delta.start <- true.pars$logit.delta
 } else {
     if (flags$include.c) {
         logit.c.start <- seq(-3,-1,length=J)
-         ## c.mean.log.sd.start <- c(0,0)
-        ## c.off.start <- rep(0,J)
     } else {
-##        c.mean.log.sd.start <- c.off.start <- NULL
         logit.c.start <- NULL
     }
 
- if (flags$include.u) {
-         logit.u.start <- seq(-.1,.1, length=J)
-        ## u.mean.log.sd.start <- c(0,0)
-        ## u.off.start <- rep(0,J)        
+    if (flags$include.u) {
+        logit.u.start <- seq(-.1,.1, length=J)
     } else {
-##       u.mean.log.sd.start <- u.off.start <- NULL
         logit.u.start <- NULL
-    } 
+    }
+
+    if (flags$include.q) {
+        q.mean.log.sd.start <- c(0,0)
+        q.off.start <- rep(0,J)
+    } else {
+        q.mean.log.sd.start <- q.off.start <- NULL
+        logit.q.start <- NULL
+    }
+    
+    if (flags$include.r) {
+        r.mean.log.sd.start <- c(0,0)
+        r.off.start <- rep(0,J)        
+    } else {
+        r.mean.log.sd.start <- r.off.start <- NULL
+        logit.r.start <- NULL
+    }   
     logit.delta.start <- 0    
 }
 
@@ -385,11 +424,10 @@ tmp <- list(
     theta12=theta12.start,
     logit.c = logit.c.start,
     logit.u = logit.u.start,
-
-##    c.mean.log.sd=c.mean.log.sd.start,
-##    c.off=c.off.start,
-##    u.mean.log.sd=u.mean.log.sd.start,
-##    u.off=u.off.start,
+    q.mean.log.sd=q.mean.log.sd.start,
+    q.off=q.off.start,
+    r.mean.log.sd=r.mean.log.sd.start,
+    r.off=r.off.start,
     phi=phi.start,
     logit.delta=logit.delta.start,
     V1=V1.start,
@@ -427,20 +465,20 @@ tg <- system.time(df <- get.df(start))
 print(tg)
 
 
-opt2 <- optim(start,
-             fn=get.f,
-             gr=get.df,
-             hessian=FALSE,
-             method="BFGS",
-             control=list(
-               fnscale=-1,
-               REPORT=5,
-               trace=3,
-               maxit=30
-               )
-             )
+## opt2 <- optim(start,
+##              fn=get.f,
+##              gr=get.df,
+##              hessian=FALSE,
+##              method="BFGS",
+##              control=list(
+##                fnscale=-1,
+##                REPORT=5,
+##                trace=3,
+##                maxit=30
+##                )
+##              )
 
-opt3 <- trust.optim(opt2$par,                    
+opt3 <- trust.optim(start,  #opt2$par,                    
                     fn=get.f,
                     gr=get.df,       
                     method="SR1",
@@ -547,12 +585,18 @@ if (!flags$fix.W) {
 
 if (flags$include.c){
     sol$cj <- exp(sol$logit.c)/(1+exp(sol$logit.c))
-    ##    sol$cj <- exp(sol$c.mean.log.sd[2]) * sol$c.off + sol$c.mean.log.sd[1]
  }
 
 if (flags$include.u){
     sol$uj <- exp(sol$logit.u)/(1+exp(sol$logit.u))
-    ##    sol$uj <- exp(sol$u.mean.log.sd[2]) * sol$u.off + sol$u.mean.log.sd[1]
+}
+
+if (flags$include.q){
+    sol$qj <- exp(sol$q.mean.log.sd[2]) * sol$q.off + sol$q.mean.log.sd[1]
+}
+
+if (flags$include.r){
+    sol$rj <- exp(sol$r.mean.log.sd[2]) * sol$r.off + sol$r.mean.log.sd[1]
 }
 
 
