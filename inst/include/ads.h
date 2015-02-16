@@ -1209,7 +1209,7 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 
   NumericVector LC(logit_c.size());
   NumericVector LU(logit_u.size());
-  NumericVector LQ(logit_u.size());
+  NumericVector LQ(log_q.size());
   double Ldelta = CppAD::Value(logit_delta);
   NumericMatrix MV1(V1.rows(), V1.cols());
   NumericMatrix MV2(V2.rows(), V2.cols());

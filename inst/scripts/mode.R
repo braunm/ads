@@ -458,7 +458,6 @@ cat("gradient\n")
 tg <- system.time(df <- get.df(start))
 print(tg)
 
-stop()
 opt2 <- optim(start,
              fn=get.f,
              gr=get.df,
