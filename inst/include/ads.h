@@ -93,9 +93,14 @@ private:
   AScalar q_a, q_b, r_a, r_b;
 
   
-  AScalar q_shape;
-  AScalar q_rate;
+  // AScalar q_shape;
+  // AScalar q_rate;
 
+  AScalar q_mean_pmean;
+  AScalar q_mean_psd;
+  AScalar q_sd_pmean;
+  AScalar q_sd_psd;
+  
   AScalar r_mean_pmean;
   AScalar r_mean_psd;
   AScalar r_sd_pmean;
@@ -148,10 +153,10 @@ private:
   AScalar logit_delta;
   AScalar delta;
   
-  /* AScalar q_mean; */
-  /* AScalar q_log_sd; */
-  /* AScalar q_sd; */
-  /* VectorXA q_off; // J copy wearout parameters offset */
+  AScalar q_mean;
+  AScalar q_log_sd;
+  AScalar q_sd;
+  VectorXA q_off; // J copy wearout parameters offset
 
   AScalar r_mean;
   AScalar r_log_sd;
@@ -210,7 +215,7 @@ private:
   AScalar log_mvgamma_post;
   
   // flags for model specification
-  bool include_H;
+  bool include_phi;
   bool add_prior;
   bool include_X;
   bool include_c;
@@ -251,7 +256,9 @@ ads::ads(const List& params)
   K = as<int>(dimensions["K"]);
   P = as<int>(dimensions["P"]);
 
-  include_H = as<bool>(flags["include.H"]);
+  Rcout << "break 2a\n";
+  
+  include_phi = as<bool>(flags["include.phi"]);
   add_prior = as<bool>(flags["add.prior"]);
   include_X = as<bool>(flags["include.X"]);
   include_c = as<bool>(flags["include.c"]);
@@ -259,6 +266,9 @@ ads::ads(const List& params)
   include_q = as<bool>(flags["include.q"]);
   include_r = as<bool>(flags["include.r"]);
   replenish = as<bool>(flags["replenish"]);
+
+  Rcout << "break 2b\n";
+
   W1_LKJ = as<bool>(flags["W1.LKJ"]);
   A_scale = as<double>(flags["A.scale"]);
   fix_V1 = as<bool>(flags["fix.V1"]);
@@ -292,7 +302,7 @@ ads::ads(const List& params)
   AjIsZero.resize(T);
 
   List Elist;
-  if (include_H) {
+  if (include_phi) {
     Elist = as<List>(data["E"]);
     E.resize(T);
   }
@@ -353,7 +363,7 @@ ads::ads(const List& params)
       AjIsZero[i](j) = A[i](j)==0 ? 1. : 0.;
     }
 
-    if (include_H) {
+    if (include_phi) {
       const Map<VectorXd> Ed(as<Map<VectorXd> >(Elist[i]));
       E[i] = Ed.cast<AScalar>();
     }
@@ -423,10 +433,10 @@ ads::ads(const List& params)
     r.resize(J);
   }
 
+  Ht.resize(J,J);
   
-  if (include_H) {
+  if (include_phi) {
     phi.resize(J,J);
-    Ht = MatrixXA::Zero(J,J); // ignoring zeros in bottom P rows
     Pneg.resize(J,J);   
   }
 
@@ -469,7 +479,7 @@ ads::ads(const List& params)
   
   // The following priors are optional
   if (add_prior) {
-    if (include_H) {
+    if (include_phi) {
       
       const List priors_phi = as<List>(priors["phi"]);
       const Map<MatrixXd> mean_phi_d(as<Map<MatrixXd> >(priors_phi["mean"]));
@@ -488,8 +498,7 @@ ads::ads(const List& params)
   
     if (include_c) {
 
-      Rcout << "priors for c\n";
-      
+      Rcout << "priors for c\n";      
       const List priors_c = as<List>(priors["c"]);
       c_a = as<double>(priors_c["a"]);
       c_b = as<double>(priors_c["b"]);
@@ -505,14 +514,25 @@ ads::ads(const List& params)
       u_b = as<double>(priors_u["b"]);
     }
 
+    /* if (include_q) { */
+    /*   Rcout << "priors for q\n"; */
+    /*   const List priors_q = as<List>(priors["q"]); */
+      
+    /*   q_shape = as<double>(priors_q["shape"]); */
+    /*   q_rate = as<double>(priors_q["rate"]); */
+    /* } */
+
+
     if (include_q) {
       Rcout << "priors for q\n";
       const List priors_q = as<List>(priors["q"]);
       
-      q_shape = as<double>(priors_q["shape"]);
-      q_rate = as<double>(priors_q["rate"]);
+      q_mean_pmean = as<double>(priors_q["mean.mean"]);
+      q_mean_psd = as<double>(priors_q["mean.sd"]);
+      q_sd_pmean = as<double>(priors_q["sd.mean"]);
+      q_sd_psd = as<double>(priors_q["sd.sd"]);
     }
-
+    
 
     if (include_r) {
       Rcout << "priors for r\n";
@@ -668,12 +688,22 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
   // for q and r, the parameter is an offset against the 
   // mean.  So q_j = q_mean + par[ind+j]
 
-  if (include_q) {
-    log_q = par.segment(ind, J);
-    ind += J;
-    q.array() = log_q.array().exp();
-  }
+  /* if (include_q) { */
+  /*   log_q = par.segment(ind, J); */
+  /*   ind += J; */
+  /*   q.array() = log_q.array().exp(); */
+  /* } */
 
+  if (include_q) {
+    q_mean = par(ind++); //ind increments after pull
+    q_log_sd = par(ind++); // ind increments after pull
+    q_sd = exp(q_log_sd);
+    q_off = par.segment(ind,J); // N(0,1) prior
+    ind += J;
+    q.array() = q_sd * q_off.array() + q_mean;
+  }  
+
+  
   if (include_r) {
     r_mean = par(ind++); //ind increments after pull
     r_log_sd = par(ind++); // ind increments after pull
@@ -683,7 +713,7 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     r.array() = r_sd * r_off.array() + r_mean;
   }  
   
-  if (include_H) {
+  if (include_phi) {
     phi = MatrixXA::Map(par.derived().data() + ind, J, J);
     ind += J*J;
   }
@@ -838,14 +868,13 @@ AScalar ads::eval_LL()
     set_Gt(t);
 
     //  Rcout << "Gt[" << t << "] =\n " << Gt << "\n\n";
-    
+
+    set_Ht(t);
+    MatrixXA Htnow = Ht;
     a2t = Gt.triangularView<Upper>() * M2t;
-  
-    if (include_H) {
-      set_Ht(t);
-      // assume bottom P rows of Ht  are all zero
-      a2t.middleRows(1,J).array() +=  Ht.array();
-    }
+    // assume bottom P rows of Ht  are all zero
+    //  a2t.middleRows(1,J).array() +=  Htnow.array();
+    a2t.middleRows(1,J) += Htnow;
  
     Yft = -F1F2[t] * a2t;
     Yft += Ybar[t];
@@ -855,8 +884,7 @@ AScalar ads::eval_LL()
     R1t = F2[t] * R2t * F2[t].transpose(); 
     R1t += V2.selfadjointView<Lower>();      
     Qt = F1[t] * R1t * F1[t].transpose();
-    //    Qt +=  V1.selfadjointView<Lower>();
-    Qt += V1;
+    Qt +=  V1.selfadjointView<Lower>();
 
     
     chol_Qt.compute(Qt); // Cholesky of Qt
@@ -1028,13 +1056,22 @@ AScalar ads::eval_hyperprior() {
       }  
     }
 
-    if (include_q) {
-      for (int jj=0; jj<J; jj++) {      
-	prior_q += dgamma_log(q(jj), q_shape, q_rate);
-	prior_q += log_q(jj); //jacobian
-      }  
-    }
+    /* if (include_q) { */
+    /*   for (int jj=0; jj<J; jj++) {       */
+    /* 	prior_q += dgamma_log(q(jj), q_shape, q_rate); */
+    /* 	prior_q += log_q(jj); //jacobian */
+    /*   }   */
+    /* } */
 
+
+    if (include_q) {
+      const AScalar prior_q_mean = dnorm_log(q_mean, q_mean_pmean, q_mean_psd);
+      AScalar prior_q_log_sd = dnormTrunc0_log(q_sd, q_sd_pmean, q_sd_psd);
+      prior_q_log_sd += q_log_sd; // Jacobian
+      const AScalar prior_q_off = -J*M_LN_SQRT_2PI - 0.5*q_off.squaredNorm(); // N(0,1)
+      const AScalar prior_q = prior_q_mean + prior_q_log_sd + prior_q_off;      
+    }
+    
     if (include_r) {
       const AScalar prior_r_mean = dnorm_log(r_mean, r_mean_pmean, r_mean_psd);
       AScalar prior_r_log_sd = dnormTrunc0_log(r_sd, r_sd_pmean, r_sd_psd);
@@ -1050,7 +1087,7 @@ AScalar ads::eval_hyperprior() {
   // J x J matrix normal, diagonal (sparse) covariance matrices
 
     AScalar prior_phi = 0;
-    if (include_H) {
+    if (include_phi) {
       prior_phi = MatNorm_logpdf(phi, mean_phi,
 				 chol_cov_row_phi,
 				 chol_cov_col_phi,
@@ -1082,27 +1119,27 @@ void ads::set_Gt(const int& tt) {
   for (int j=0; j<J; j++) {
     Gt(0, j+1) = Afunc(A[tt](j), A_scale);
     
-    /* if (include_c) { */
-    /*   if (include_u) { */
-    /* 	// c and u	 */
-    /* 	// Gt(j+1, j+1) = 1.0 - c(j) - u(j)*A[tt](j)/A_scale-delta * AjIsZero[tt](j); */
-    /* 	Gt(j+1, j+1) = exp(-c(j) - A[tt](j) * log(u(j)) / A_scale); */
-    /*   } else { */
-    /* 	// c, not u */
-    /* 	Gt(j+1, j+1) = exp(-c(j));	 */
-    /*   } */
-    /* } else { */
-    /*   if (include_u) { */
-    /* 	// u, not c */
-    /* 	//	Gt(j+1, j+1) = exp(-u(j)*A[tt](j)/A_scale); */
-    /* 	Gt(j+1, j+1) = exp(-A[tt](j) * log(u(j)) / A_scale); */
-    /* 	//Gt(j+1, j+1) = exp(-u(j)*log1p(A[tt](j))); */
+    if (include_c) {
+      if (include_u) {
+    	// c and u
+    	// Gt(j+1, j+1) = 1.0 - c(j) - u(j)*A[tt](j)/A_scale-delta * AjIsZero[tt](j);
+    	Gt(j+1, j+1) = exp(-c(j) - A[tt](j) * log(u(j)) / A_scale);
+      } else {
+    	// c, not u
+    	Gt(j+1, j+1) = exp(-c(j));
+      }
+    } else {
+      if (include_u) {
+    	// u, not c
+    	//	Gt(j+1, j+1) = exp(-u(j)*A[tt](j)/A_scale);
+    	Gt(j+1, j+1) = exp(-A[tt](j) * log(u(j)) / A_scale);
+    	//Gt(j+1, j+1) = exp(-u(j)*log1p(A[tt](j)));
 
-    /*   } else { */
-    /* 	// neither c nor u */
-    /* 	Gt(j+1, j+1) = 1.0; */
-    /*   } */
-    /* } */
+      } else {
+    	// neither c nor u
+    	Gt(j+1, j+1) = 1.0;
+      }
+    }
 
     if (include_q) {
       if (include_r) {
@@ -1122,9 +1159,9 @@ void ads::set_Gt(const int& tt) {
       }
     }
 
-    if (replenish) {
+    if (replenish) { 
       Gt(j+1, j+1) -= delta * AjIsZero[tt](j);
-    }
+    } 
   } // end loop over J
 
   
@@ -1139,36 +1176,44 @@ void ads::set_Gt(const int& tt) {
 // set_Ht
 void ads::set_Ht(const int& tt) {
 
-  Ht = E[tt].asDiagonal() * phi; // H2t
-  Ht.array().colwise() += delta * AjIsZero[tt].array(); //H1t
+
+  Ht.setZero();
+  Ht.array().colwise() = delta * AjIsZero[tt].array(); //H1t
+
+  if (include_phi) {
+    Ht = E[tt].asDiagonal() * phi; // H2t
+  }
   
   // Estimate probability that sign(qij)<0
   
   AScalar ct = nuT - P - 2*J;
   Eigen::Matrix<AScalar, Dynamic, Dynamic> Pneg(J,J);
-  Pneg.setZero();
+  //  Pneg.setZero();
+  Pneg.setConstant(AScalar(1));
   
-  if (ct<30) {    
-    // use CDF of student T
-    for (size_t col=0; col<J; col++) {
-      for (size_t row=0; row<J; row++) {
-	AScalar mm = M2t(row+1, col);
-	AScalar dd = C2t(row+1, row+1) * OmegaT(col, col);
-	AScalar IB = incbeta(ct*mm*mm  / (ct*mm*mm + dd*dd), 0.5, 0.5*ct);
-	Pneg(row,col) = 0.5 * (1.0 - sign(mm)*IB);
-      }
-    }   
-  } else {
+  /* if (ct<30) {     */
+  /*   // use CDF of student T */
+  /*   for (size_t col=0; col<J; col++) { */
+  /*     for (size_t row=0; row<J; row++) { */
+  /* 	AScalar mm = M2t(row+1, col); */
+  /* 	AScalar dd = C2t(row+1, row+1) * OmegaT(col, col); */
+  /* 	AScalar IB = incbeta(ct*mm*mm  / (ct*mm*mm + dd*dd), 0.5, 0.5*ct); */
+  /* 	Pneg(row,col) = 0.5 * (1.0 - sign(mm)*IB); */
+  /*     } */
+  /*   }    */
+  /* } else { */
     // use CDF of normal    
     for (size_t col=0; col<J; col++) {
       for (size_t row=0; row<J; row++) {
-	AScalar mm = M2t(row+1, col);
-	AScalar dd = C2t(row+1, row+1) * OmegaT(col, col);
-	Pneg(row, col) = exp(pnorm_log(0, mm, dd/ct));
+    	AScalar mm = M2t(row+1, col);
+    	AScalar dd = C2t(row+1, row+1) * OmegaT(col, col);
+    	Pneg(row, col) = exp(pnorm_log(0, mm, dd/ct));
       }
-    }    
-  }
-  Ht.array() = (1.0 - 2.0 * Pneg.array()) * Ht.array();
+    }
+    //  }
+    Ht.array() = (1.0 - 2.0 * Pneg.array()) * Ht.array();
+
+  
 } // end set_Ht
 
 

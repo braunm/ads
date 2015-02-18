@@ -23,14 +23,14 @@ data.name <- "ptw"
 data.file <- paste0("data/mcmod",data.name,".RData")
 save.file <- paste0("inst/results/",mod.name,"_",data.name,"_mode.Rdata")
 
-flags <- list(include.H=FALSE,
+flags <- list(include.phi=FALSE,
               include.c=FALSE, ## 0-1
               include.u=FALSE, ## 0-1
               include.q=TRUE, ## unbounded
-              include.r=FALSE, ## unbounded
-              replenish = FALSE,
+              include.r=TRUE, ## unbounded
+              replenish = TRUE,
               add.prior=TRUE,
-              include.X=TRUE,
+              include.X=FALSE,
               standardize=FALSE,
               A.scale = 10000000,
               ##A.scale = 1,
@@ -77,7 +77,7 @@ F2 <- mcmod$F2[1:T]
 A <- mcmod$A[1:T]
 ##A <- llply(mcmod$A[1:T],function(x) return(x/flags$A.scale))
 
-if (flags$include.H) {
+if (flags$include.phi) {
   E <- mcmod$E[1:T]
 } else {
   E <- NULL
@@ -149,7 +149,7 @@ Omega0 <- (nu0-J-1)*E.Sigma
 ## The following priors are optional
 
 if (flags$add.prior) { 
-    if (flags$include.H) {
+    if (flags$include.phi) {
         ## prior on phi:  matrix normal with sparse covariances
         mean.phi <- matrix(0,J,J)
         cov.row.phi <- 10*diag(J)
@@ -163,7 +163,7 @@ if (flags$add.prior) {
                           )
     } else {
         prior.phi <- NULL
-    } ## end include.H
+    } ## end include.phi
     
     if (flags$include.X) {
         ## prior on theta12:  matrix normal with sparse covariances
@@ -200,18 +200,28 @@ if (flags$add.prior) {
         prior.u <- NULL;
     }
 
-    if (flags$include.q) {
-        prior.q <- list(shape=1,
-                        rate=1)
+    ## if (flags$include.q) {
+    ##     prior.q <- list(shape=1,
+    ##                     rate=1)
+    ## } else {
+    ##     prior.q <- NULL;
+    ## }
+
+   if (flags$include.q) {
+        prior.q <- list(mean.mean=0,
+                        mean.sd=1,
+                        sd.mean=.05,
+                        sd.sd=.01)
     } else {
         prior.q <- NULL;
     }
 
+    
     if (flags$include.r) {
         prior.r <- list(mean.mean=0,
                         mean.sd=1,
                         sd.mean=.05,
-                        sd.sd=.001)
+                        sd.sd=.01)
     } else {
         prior.r <- NULL;
     }
@@ -242,7 +252,7 @@ if (flags$add.prior) {
         ## LKJ prior on W1.  Scale parameter has truncated(0) normal prior
         
         if (flags$W1.LKJ) {
-            prior.W1 <- list(scale.mode=0, scale.s=.5, eta=1)
+            prior.W1 <- list(scale.mode=.02, scale.s=2, eta=1)
         } else {
             prior.W1 <- list(diag.scale=.01, diag.mode=0,
                              fact.scale=.01, fact.mode=0)
@@ -341,26 +351,34 @@ if (start.true.pars) {
     } else {
         logit.u.start <- NULL
     }
+    ## 
+    ## if (flags$include.q) {
+    ##     log.q.start <- rep(.5,J)
+    ## } else {
+    ##     log.q.start <- NULL
+    ## }
 
     if (flags$include.q) {
-        log.q.start <- rep(.5,J)
+        q.mean.log.sd.start <- rnorm(2, 0, .02)
+        q.off.start <- rnorm(J,0,.001)        
     } else {
-        log.q.start <- NULL
-    }
+        q.mean.log.sd.start <- q.off.start <- NULL
+    }  
+    
     
     if (flags$include.r) {
         r.mean.log.sd.start <- rnorm(2, 0, .02)
         r.off.start <- rnorm(J,0,.001)        
     } else {
         r.mean.log.sd.start <- r.off.start <- NULL
-        logit.r.start <- NULL
-    }   
+    }
+    
     logit.delta.start <- 0    
 }
 
 
-if (flags$include.H) {
-    phi.start <- matrix(0,J,J)
+if (flags$include.phi) {
+    phi.start <- rep(0,J*J)
 } else {
     phi.start <- NULL
 }
@@ -419,7 +437,9 @@ tmp <- list(
     theta12=theta12.start,
     logit.c = logit.c.start,
     logit.u = logit.u.start,
-    log.q = log.q.start,
+##    log.q = log.q.start,
+    q.mean.log.sd=q.mean.log.sd.start,
+    q.off=q.off.start,
     r.mean.log.sd=r.mean.log.sd.start,
     r.off=r.off.start,
     phi=phi.start,
@@ -458,20 +478,20 @@ cat("gradient\n")
 tg <- system.time(df <- get.df(start))
 print(tg)
 
-opt2 <- optim(start,
-             fn=get.f,
-             gr=get.df,
-             hessian=FALSE,
-             method="BFGS",
-             control=list(
-               fnscale=-1,
-               REPORT=5,
-               trace=3,
-               maxit=30
-               )
-             )
+## opt2 <- optim(start,
+##              fn=get.f,
+##              gr=get.df,
+##              hessian=FALSE,
+##              method="BFGS",
+##              control=list(
+##                fnscale=-1,
+##                REPORT=1,
+##                trace=3,
+##                maxit=10
+##                )
+##              )
 
-opt3 <- trust.optim(opt2$par,                    
+opt3 <- trust.optim(start,   ## opt2$par,                    
                     fn=get.f,
                     gr=get.df,       
                     method="SR1",
@@ -485,7 +505,7 @@ opt3 <- trust.optim(opt2$par,
                         contract.factor=.4,
                         expand.factor=2,
                         expand.threshold.radius=.85,
-                        report.freq = 5L
+                        report.freq = 1L
                         )
                     )
 
@@ -501,25 +521,13 @@ opt <- trust.optim(opt3$solution,
                        function.scale.factor=-1,
                        preconditioner=0,
                        stop.trust.radius=1e-12,
-                       contract.factor=.7,
+                       contract.factor=.9,
                        report.freq=5L
                      )
                    )
 
-opt2 <- optim(opt$solution,
-             fn=get.f,
-             gr=get.df,
-             hessian=FALSE,
-             method="CG",
-             control=list(
-               fnscale=-1,
-               REPORT=5,
-               trace=3,
-               maxit=300
-               )
-              )
 
-opt <- trust.optim(opt2$par,
+opt <- trust.optim(opt$solution,
                    fn=get.f,
                    gr=get.df,
                    method="BFGS",
@@ -614,7 +622,7 @@ if (flags$include.u){
 }
 
 if (flags$include.q){
-    sol$qj <- exp(sol$log.q)
+    sol$qj <- exp(sol$q.mean.log.sd[2]) * sol$q.off + sol$q.mean.log.sd[1]
 }
 
 if (flags$include.r){
