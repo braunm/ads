@@ -32,8 +32,7 @@ flags <- list(include.phi=FALSE,
               add.prior=TRUE,
               include.X=TRUE,
               standardize=FALSE,
-              A.scale = 10000000,
-              ##A.scale = 1,
+              A.scale = 1000,
               W1.LKJ = TRUE,  # W1.LKJ true means we do LKJ, otherwise same as W2
               fix.V1 = FALSE,
               fix.V2 = FALSE,
@@ -133,7 +132,7 @@ if (nfact.W2 > max.nfact.W2) stop("Too many factors for W2")
 ## We have to include these prior parameters
 
 M20 <- matrix(0,1+P+J,J)
-M20[1,] <- c(10.6, 7.7, 9.0)
+M20[1,] <- rep(10, J)
 ## M20[1,] <- 25
 ## M20[2:(J+1),] <- -.005
 ## M20[(J+2):(1+P+J),] <- 1
@@ -362,7 +361,7 @@ if (start.true.pars) {
 
     if (flags$include.q) {
         q.mean.log.sd.start <- rnorm(2, 0, .02)
-        q.off.start <- rnorm(J,0,.001)        
+        q.off.start <- rep(0, J)  ##rnorm(J,0,.001)        
     } else {
         q.mean.log.sd.start <- q.off.start <- NULL
     }  
@@ -370,7 +369,7 @@ if (start.true.pars) {
     
     if (flags$include.r) {
         r.mean.log.sd.start <- rnorm(2, 0, .02)
-        r.off.start <- rnorm(J,0,.001)        
+        r.off.start <- rep(0, J) ##rnorm(J,0,.001)        
     } else {
         r.mean.log.sd.start <- r.off.start <- NULL
     }
@@ -440,9 +439,9 @@ tmp <- list(
     logit.c = logit.c.start,
     logit.u = logit.u.start,
 ##    log.q = log.q.start,
-    q.mean.log.sd=q.mean.log.sd.start,
+##    q.mean.log.sd=q.mean.log.sd.start,
     q.off=q.off.start,
-    r.mean.log.sd=r.mean.log.sd.start,
+##    r.mean.log.sd=r.mean.log.sd.start,
     r.off=r.off.start,
     phi=phi.start,
     logit.delta=logit.delta.start,
@@ -468,6 +467,7 @@ tset <- system.time(cl <- new("ads", DL))
 print(tset)
 
 cat("Recording tape\n")
+browser()
 trec <- system.time(cl$record.tape(start))
 
 cat("Objective function - taped\n")
@@ -479,6 +479,10 @@ print(tf)
 cat("gradient\n")
 tg <- system.time(df <- get.df(start))
 print(tg)
+
+stop()
+
+## Need to bound variables to avoid overflow
 
 opt2 <- optim(start,
              fn=get.f,
@@ -503,6 +507,7 @@ opt3 <- trust.optim(opt2$par,
                         maxit=3000L,
                         function.scale.factor=-1,
                         preconditioner=0,
+                        start.trust.radius=.01,
                         stop.trust.radius=1e-12,
                         contract.factor=.4,
                         expand.factor=2,
@@ -624,11 +629,13 @@ if (flags$include.u){
 }
 
 if (flags$include.q){
-    sol$qj <- exp(sol$q.mean.log.sd[2]) * sol$q.off + sol$q.mean.log.sd[1]
+##    sol$qj <- exp(sol$q.mean.log.sd[2]) * sol$q.off + sol$q.mean.log.sd[1]
+    sol$qj <- sol$qj.off
 }
 
 if (flags$include.r){
-    sol$rj <- exp(sol$r.mean.log.sd[2]) * sol$r.off + sol$r.mean.log.sd[1]
+    ##    sol$rj <- exp(sol$r.mean.log.sd[2]) * sol$r.off + sol$r.mean.log.sd[1]
+    sol$rj <- sol$rj.off
 }
 
 

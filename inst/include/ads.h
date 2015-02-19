@@ -695,22 +695,29 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
   /* } */
 
   if (include_q) {
-    q_mean = par(ind++); //ind increments after pull
-    q_log_sd = par(ind++); // ind increments after pull
-    q_sd = exp(q_log_sd);
-    q_off = par.segment(ind,J); // N(0,1) prior
+    q = par.segment(ind, J);
     ind += J;
-    q.array() = q_sd * q_off.array() + q_mean;
+    
+    /* q_mean = par(ind++); //ind increments after pull */
+    /* q_log_sd = par(ind++); // ind increments after pull */
+    /* q_sd = exp(q_log_sd); */
+    /* q_off = par.segment(ind,J); // N(0,1) prior */
+    /* ind += J; */
+    /* q.array() = q_sd * q_off.array() + q_mean; */
   }  
 
   
   if (include_r) {
-    r_mean = par(ind++); //ind increments after pull
-    r_log_sd = par(ind++); // ind increments after pull
-    r_sd = exp(r_log_sd);
-    r_off = par.segment(ind,J); // N(0,1) prior
+
+    r = par.segment(ind, J);
     ind += J;
-    r.array() = r_sd * r_off.array() + r_mean;
+
+    /* r_mean = par(ind++); //ind increments after pull */
+    /* r_log_sd = par(ind++); // ind increments after pull */
+    /* r_sd = exp(r_log_sd); */
+    /* r_off = par.segment(ind,J); // N(0,1) prior */
+    /* ind += J; */
+    /* r.array() = r_sd * r_off.array() + r_mean; */
   }  
   
   if (include_phi) {
@@ -904,7 +911,8 @@ AScalar ads::eval_LL()
 
   Eigen::LDLT<MatrixXA> chol_DX(OmegaT);
   AScalar log_det_DX = chol_DX.vectorD().array().log().sum();
-  AScalar log_PY = log_const - J*log_det_Qt/2. - nuT*log_det_DX/2.;     
+  AScalar log_PY = log_const - J*log_det_Qt/2. - nuT*log_det_DX/2.;
+  assert(my_finite(log_PY));
   return(log_PY);
 }
 
@@ -1065,19 +1073,28 @@ AScalar ads::eval_hyperprior() {
 
 
     if (include_q) {
-      const AScalar prior_q_mean = dnorm_log(q_mean, q_mean_pmean, q_mean_psd);
-      AScalar prior_q_log_sd = dnormTrunc0_log(q_sd, q_sd_pmean, q_sd_psd);
-      prior_q_log_sd += q_log_sd; // Jacobian
-      const AScalar prior_q_off = -J*M_LN_SQRT_2PI - 0.5*q_off.squaredNorm(); // N(0,1)
-      const AScalar prior_q = prior_q_mean + prior_q_log_sd + prior_q_off;      
+      for (int jj=0; jj<J; jj++) {      
+	prior_q += dnorm_log(q(jj), q_mean_pmean, q_mean_psd);
+      }      
+      
+      /* const AScalar prior_q_mean = dnorm_log(q_mean, q_mean_pmean, q_mean_psd); */
+      /* AScalar prior_q_log_sd = dnormTrunc0_log(q_sd, q_sd_pmean, q_sd_psd); */
+      /* prior_q_log_sd += q_log_sd; // Jacobian */
+      /* const AScalar prior_q_off = -J*M_LN_SQRT_2PI - 0.5*q_off.squaredNorm(); // N(0,1) */
+      /* const AScalar prior_q = prior_q_mean + prior_q_log_sd  + prior_q_off;      */
     }
     
     if (include_r) {
-      const AScalar prior_r_mean = dnorm_log(r_mean, r_mean_pmean, r_mean_psd);
-      AScalar prior_r_log_sd = dnormTrunc0_log(r_sd, r_sd_pmean, r_sd_psd);
-      prior_r_log_sd += r_log_sd; // Jacobian
-      const AScalar prior_r_off = -J*M_LN_SQRT_2PI - 0.5*r_off.squaredNorm(); // N(0,1)
-      const AScalar prior_r = prior_r_mean + prior_r_log_sd + prior_r_off;      
+
+      for (int jj=0; jj<J; jj++) {      
+	prior_r += dnorm_log(r(jj), r_mean_pmean, r_mean_psd);
+      }      
+
+      /* const AScalar prior_r_mean = dnorm_log(r_mean, r_mean_pmean, r_mean_psd); */
+      /* AScalar prior_r_log_sd = dnormTrunc0_log(r_sd, r_sd_pmean, r_sd_psd); */
+      /* prior_r_log_sd += r_log_sd; // Jacobian */
+      /* const AScalar prior_r_off = -J*M_LN_SQRT_2PI - 0.5*r_off.squaredNorm(); // N(0,1) */
+      /* const AScalar prior_r = prior_r_mean + prior_r_log_sd + prior_r_off; */      
     }
     
 
@@ -1122,8 +1139,7 @@ void ads::set_Gt(const int& tt) {
     if (include_c) {
       if (include_u) {
     	// c and u
-    	// Gt(j+1, j+1) = 1.0 - c(j) - u(j)*A[tt](j)/A_scale-delta * AjIsZero[tt](j);
-    	Gt(j+1, j+1) = exp(-c(j) - A[tt](j) * log(u(j)) / A_scale);
+     	Gt(j+1, j+1) = exp(-c(j) - A[tt](j) * log(u(j)) / A_scale);
       } else {
     	// c, not u
     	Gt(j+1, j+1) = exp(-c(j));
@@ -1131,39 +1147,38 @@ void ads::set_Gt(const int& tt) {
     } else {
       if (include_u) {
     	// u, not c
-    	//	Gt(j+1, j+1) = exp(-u(j)*A[tt](j)/A_scale);
-    	Gt(j+1, j+1) = exp(-A[tt](j) * log(u(j)) / A_scale);
-    	//Gt(j+1, j+1) = exp(-u(j)*log1p(A[tt](j)));
-
+      	Gt(j+1, j+1) = exp(-A[tt](j) * log(u(j)) / A_scale);
       } else {
     	// neither c nor u
     	Gt(j+1, j+1) = 1.0;
       }
     }
 
-    if (include_q) {
-      if (include_r) {
-	// q and r	
-	Gt(j+1, j+1) = 1.0 - q(j) - r(j)*A[tt](j)/A_scale;
+    if (!(include_c || include_u)) {
+      if (include_q) {
+	if (include_r) {
+	  // q and r	
+	  Gt(j+1, j+1) = 1.0 - q(j) - r(j)*A[tt](j)/A_scale;
+	} else {
+	  // q, not r
+	  Gt(j+1, j+1) = 1.0 - q(j);
+	}
       } else {
-	// q, not r
-	Gt(j+1, j+1) = 1.0 - q(j);
-      }
-    } else {
-      if (include_r) {
-	// r, not q
-	Gt(j+1, j+1) = 1.0 - r(j)*A[tt](j)/A_scale;
-      } else {
-	// neither q nor r
-	Gt(j+1, j+1) = 1.0;
+	if (include_r) {
+	  // r, not q
+	  Gt(j+1, j+1) = 1.0 - r(j)*A[tt](j)/A_scale;
+	} else {
+	  // neither q nor r
+	  Gt(j+1, j+1) = 1.0;
+	}
       }
     }
-
+    
     if (replenish) { 
       Gt(j+1, j+1) -= delta * AjIsZero[tt](j);
     } 
   } // end loop over J
-
+  
   
   if (P>0) {
     Gt.bottomRightCorner(P,P).setIdentity();
@@ -1254,7 +1269,8 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 
   NumericVector LC(logit_c.size());
   NumericVector LU(logit_u.size());
-  NumericVector LQ(log_q.size());
+  NumericVector LQ(q.size());
+   NumericVector LR(r.size());
   double Ldelta = CppAD::Value(logit_delta);
   NumericMatrix MV1(V1.rows(), V1.cols());
   NumericMatrix MV2(V2.rows(), V2.cols());
@@ -1266,8 +1282,11 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
   for (size_t i=0; i<logit_u.size(); i++) {
     LU(i) = Value(logit_u(i));
   }
-  for (size_t i=0; i<log_q.size(); i++) {
-    LQ(i) = Value(log_q(i));
+  for (size_t i=0; i<q.size(); i++) {
+    LQ(i) = Value(q(i));
+  }
+  for (size_t i=0; i<r.size(); i++) {
+    LR(i) = Value(r(i));
   }
 
   for (size_t i=0; i<V1.rows(); i++) {
@@ -1312,12 +1331,13 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 
   List res = List::create(Named("logit_c") = wrap(LC),
 			  Named("logit_u") = wrap(LU),
-			  Named("log_q") = wrap(LQ),
+			  Named("q") = wrap(LQ),
+			  Named("r") = wrap(LR),
 			  Named("logit_delta") = wrap(Ldelta),
 			  Named("V1") = wrap(MV1),
 			  Named("V2") = wrap(MV2),
 			  Named("W") = wrap(MW),
-			  Named("A") = wrap(Areturn),
+			  //		  Named("A") = wrap(Areturn),
 			  Named("Gt") = wrap(Greturn)
 			  );
   return(res);
