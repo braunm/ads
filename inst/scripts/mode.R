@@ -30,7 +30,7 @@ flags <- list(include.phi=FALSE,
               include.r=TRUE, ## unbounded
               replenish = TRUE,
               add.prior=TRUE,
-              include.X=FALSE,
+              include.X=TRUE,
               standardize=FALSE,
               A.scale = 10000000,
               ##A.scale = 1,
@@ -133,14 +133,16 @@ if (nfact.W2 > max.nfact.W2) stop("Too many factors for W2")
 ## We have to include these prior parameters
 
 M20 <- matrix(0,1+P+J,J)
- M20[1,] <- 25
- M20[2:(J+1),] <- -.005
- M20[(J+2):(1+P+J),] <- 1
- for (j in 1:J) {
-     M20[J+1+j,j] <- -2
-     M20[j+1,j] <- .25
- }
-C20 <- 500*diag(1+P+J,1+P+J)
+M20[1,] <- c(10.6, 7.7, 9.0)
+## M20[1,] <- 25
+## M20[2:(J+1),] <- -.005
+## M20[(J+2):(1+P+J),] <- 1
+## for (j in 1:J) {
+##     M20[J+1+j,j] <- -2
+##     M20[j+1,j] <- .25
+## }
+
+C20 <- 5*diag(1+P+J,1+P+J)
 
 E.Sigma <- 0.1 * diag(J) ## expected covariance across brands
 nu0 <- P + 2*J + 6  ## must be greater than theta2 rows+cols
@@ -478,20 +480,20 @@ cat("gradient\n")
 tg <- system.time(df <- get.df(start))
 print(tg)
 
-## opt2 <- optim(start,
-##              fn=get.f,
-##              gr=get.df,
-##              hessian=FALSE,
-##              method="BFGS",
-##              control=list(
-##                fnscale=-1,
-##                REPORT=1,
-##                trace=3,
-##                maxit=10
-##                )
-##              )
+opt2 <- optim(start,
+             fn=get.f,
+             gr=get.df,
+             hessian=FALSE,
+             method="BFGS",
+             control=list(
+               fnscale=-1,
+               REPORT=1,
+               trace=3,
+               maxit=10
+               )
+             )
 
-opt3 <- trust.optim(start,   ## opt2$par,                    
+opt3 <- trust.optim(opt2$par,                    
                     fn=get.f,
                     gr=get.df,       
                     method="SR1",
