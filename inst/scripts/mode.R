@@ -15,7 +15,7 @@ set.seed(1234)
 start.true.pars <- FALSE
 
 mod.name <- "hdlm"
-data.name <- "ptw"
+data.name <- "sim"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
@@ -24,20 +24,20 @@ data.file <- paste0("data/mcmod",data.name,".RData")
 save.file <- paste0("inst/results/",mod.name,"_",data.name,"_mode.Rdata")
 
 flags <- list(include.phi=FALSE,
-              include.c=FALSE, ## 0-1
+              include.c=TRUE, ## 0-1
               include.u=FALSE, ## 0-1
-              include.q=TRUE, ## unbounded
-              include.r=TRUE, ## unbounded
-              replenish = TRUE,
+              include.q=FALSE, ## unbounded
+              include.r=FALSE, ## unbounded
+              replenish = FALSE,
               add.prior=TRUE,
               include.X=TRUE,
               standardize=FALSE,
-              A.scale = 1000,
+              A.scale = 1000000,
               W1.LKJ = TRUE,  # W1.LKJ true means we do LKJ, otherwise same as W2
               fix.V1 = FALSE,
               fix.V2 = FALSE,
               fix.W = FALSE,
-              estimate.M20 = TRUE
+              estimate.M20 = FALSE
               )
 
 nfact.V1 <- 0
@@ -310,7 +310,7 @@ priors <- Filter(function(x) !is.null(x), tmp)
 ## starting parameters
 
 if (flags$estimate.M20) {
-    M20.start <- matrix(0, 1+P+J, J)
+    M20.start <- matrix(rnorm(J*(1+P+J),0,.01), 1+P+J, J)
 } else {
     M20.start <- NULL
 }
@@ -319,7 +319,7 @@ if (flags$include.X) {
     if (start.true.pars) {
         theta12.start <- true.pars$theta12
     } else {
-        theta12.start <- matrix(0,K,J)
+        theta12.start <- matrix(rnorm(J*K,0,.01), K, J)
     }
 } else {
   theta12.start <- NULL
@@ -498,24 +498,26 @@ cat("gradient\n")
 tg <- system.time(df <- get.df(start))
 print(tg)
 
+stop()
+
 ## Need to bound variables to avoid overflow
 
-## opt2 <- optim(start,
-##              fn=get.f,
-##              gr=get.df,
-##              hessian=FALSE,
-##               method="L-BFGS-B",
-##               lower = start-5,
-##               upper=start+5,
-##              control=list(
-##                fnscale=-1,
-##                REPORT=1,
-##                trace=3,
-##                maxit=10
-##                )
-##              )
+opt2 <- optim(start,
+             fn=get.f,
+             gr=get.df,
+             hessian=FALSE,
+              method="BFGS",
+      ##        lower = start-5,
+      ##        upper=start+5,
+             control=list(
+               fnscale=-1,
+               REPORT=1,
+               trace=3,
+               maxit=10
+               )
+             )
 
-opt3 <- trust.optim(start, ##opt2$par,                    
+opt3 <- trust.optim(opt2$par,                    
                     fn=get.f,
                     gr=get.df,       
                     method="SR1",

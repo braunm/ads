@@ -653,9 +653,10 @@ ads::ads(const List& params)
       }
     }
 
-    Rcout << "M20 priors\n";
+
     const List priors_M20 = as<List>(priors["M20"]); 
     if (estimate_M20) {
+      Rcout << "M20 priors\n";
       /* Priors for M20 here */
       const Map<MatrixXd> mean_M20_d(as<Map<MatrixXd> >(priors_M20["mean"]));
       mean_M20 = mean_M20_d.cast<AScalar>();
@@ -664,6 +665,7 @@ ads::ads(const List& params)
       const Map<MatrixXd> chol_cov_col_M20_d(as<Map<MatrixXd> >(priors_M20["chol.col"]));
       chol_cov_col_M20 = chol_cov_col_M20_d.cast<AScalar>();
     } else {
+      Rcout << "Setting M20 value\n";
       const Map<MatrixXd> M20_d(as<Map<MatrixXd> >(priors_M20["M20"]));
       M20 = M20_d.cast<AScalar>();
     }
@@ -731,7 +733,7 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     ind += J;
 
     for (size_t j=0; j<J; j++) {
-      q(j) = 2*invlogit(q(j)) - 1;
+      q(j) = invlogit(q(j));
     }
     
     /* q_mean = par(ind++); //ind increments after pull */
@@ -749,7 +751,7 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     ind += J;
 
     for (size_t j=0; j<J; j++) {
-      r(j) = 2*invlogit(r(j)) - 1;
+      r(j) = invlogit(r(j));
     }
        
 
@@ -903,7 +905,7 @@ AScalar ads::eval_LL()
     
     M2t = M20;
     C2t = C20;
-    Eigen::LDLT<MatrixXA> chol_Qt;
+    Eigen::LDLT<MatrixXA> chol_Qt;    
     OmegaT = Omega0;
     AScalar log_det_Qt = 0;
     nuT = nu0;
@@ -918,12 +920,12 @@ AScalar ads::eval_LL()
     //  Rcout << "Gt[" << t << "] =\n " << Gt << "\n\n";
 
     set_Ht(t);
-    MatrixXA Htnow = Ht;
+    //   MatrixXA Htnow = Ht;
     a2t = Gt.triangularView<Upper>() * M2t;
     // assume bottom P rows of Ht  are all zero
-    //  a2t.middleRows(1,J).array() +=  Htnow.array();
-    a2t.middleRows(1,J) += Htnow;
- 
+    a2t.middleRows(1,J) +=  Ht;
+    //a2t.middleRows(1,J) += Htnow;
+    
     Yft = -F1F2[t] * a2t;
     Yft += Ybar[t];
   
@@ -936,8 +938,10 @@ AScalar ads::eval_LL()
 
     
     chol_Qt.compute(Qt); // Cholesky of Qt
-    log_det_Qt += chol_Qt.vectorD().array().log().sum();
-  
+    // log_det_Qt += chol_Qt.vectorD().array().log().sum();
+    MatrixXA tmp2 = chol_Qt.matrixL();
+    log_det_Qt += 2*tmp2.diagonal().array().log().sum();
+    
     S2t = R2t * F1F2[t].transpose();
     QYf = chol_Qt.solve(Yft);
     M2t = S2t * QYf;
@@ -952,6 +956,7 @@ AScalar ads::eval_LL()
 
   Eigen::LDLT<MatrixXA> chol_DX(OmegaT);
   AScalar log_det_DX = chol_DX.vectorD().array().log().sum();
+  
   AScalar log_PY = log_const - J*log_det_Qt/2. - nuT*log_det_DX/2.;
   assert(my_finite(log_PY));
   return(log_PY);
@@ -1205,25 +1210,25 @@ void ads::set_Gt(const int& tt) {
       }
     }
 
-    if (!(include_c || include_u)) {
-      if (include_q) {
-	if (include_r) {
-	  // q and r	
-	  Gt(j+1, j+1) = 1.0 - q(j) - r(j)*A[tt](j)/A_scale;
-	} else {
-	  // q, not r
-	  Gt(j+1, j+1) = 1.0 - q(j);
-	}
-      } else {
-	if (include_r) {
-	  // r, not q
-	  Gt(j+1, j+1) = 1.0 - r(j)*A[tt](j)/A_scale;
-	} else {
-	  // neither q nor r
-	  Gt(j+1, j+1) = 1.0;
-	}
-      }
-    }
+    /* if (!(include_c || include_u)) { */
+    /*   if (include_q) { */
+    /* 	if (include_r) { */
+    /* 	  // q and r	 */
+    /* 	  Gt(j+1, j+1) = 1.0 - q(j) - r(j)*A[tt](j)/A_scale; */
+    /* 	} else { */
+    /* 	  // q, not r */
+    /* 	  Gt(j+1, j+1) = 1.0 - q(j); */
+    /* 	} */
+    /*   } else { */
+    /* 	if (include_r) { */
+    /* 	  // r, not q */
+    /* 	  Gt(j+1, j+1) = 1.0 - r(j)*A[tt](j)/A_scale; */
+    /* 	} else { */
+    /* 	  // neither q nor r */
+    /* 	  Gt(j+1, j+1) = 1.0; */
+    /* 	} */
+    /*   } */
+    /* } */
     
     if (replenish) { 
       Gt(j+1, j+1) -= delta * AjIsZero[tt](j);
