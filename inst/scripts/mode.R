@@ -36,7 +36,8 @@ flags <- list(include.phi=FALSE,
               W1.LKJ = TRUE,  # W1.LKJ true means we do LKJ, otherwise same as W2
               fix.V1 = FALSE,
               fix.V2 = FALSE,
-              fix.W = FALSE
+              fix.W = FALSE,
+              estimate.M20 = TRUE
               )
 
 nfact.V1 <- 0
@@ -131,8 +132,18 @@ if (nfact.W2 > max.nfact.W2) stop("Too many factors for W2")
 
 ## We have to include these prior parameters
 
-M20 <- matrix(0,1+P+J,J)
-M20[1,] <- rep(10, J)
+if (flags$estimate.M20) {
+    cov.row.M20 <- diag(1+P+J)
+    cov.col.M20 <- diag(J)
+    prior.M20 <- list(mean=matrix(0, 1+P+J, J),
+                      chol.row = t(chol(cov.row.M20)),
+                      chol.col = t(chol(cov.col.M20)))
+} else {
+    M20 <- matrix(0,1+P+J,J)
+    M20[1,] <- rep(10, J)
+    prior.M20 <- list(M20=M20)
+}
+
 ## M20[1,] <- 25
 ## M20[2:(J+1),] <- -.005
 ## M20[(J+2):(1+P+J),] <- 1
@@ -264,7 +275,7 @@ if (flags$add.prior) {
     }
     
 } else {
-    
+    prior.M20 <- NULL
     prior.phi <- NULL
     prior.V1 <- NULL
     prior.V2 <- NULL
@@ -278,7 +289,7 @@ if (flags$add.prior) {
     prior.theta12 <- NULL
 }
 
-tmp <- list(M20=M20,
+tmp <- list(M20=prior.M20,
             C20=C20,
             Omega0=Omega0,
             nu0=nu0,
@@ -297,6 +308,13 @@ priors <- Filter(function(x) !is.null(x), tmp)
 
 
 ## starting parameters
+
+if (flags$estimate.M20) {
+    M20.start <- matrix(0, 1+P+J, J)
+} else {
+    M20.start <- NULL
+}
+
 if (flags$include.X) {
     if (start.true.pars) {
         theta12.start <- true.pars$theta12
@@ -435,7 +453,8 @@ if (flags$fix.W) {
 
 
 tmp <- list(
-    theta12=theta12.start,
+    M20 = M20.start,
+    theta12 = theta12.start,
     logit.c = logit.c.start,
     logit.u = logit.u.start,
 ##    log.q = log.q.start,
@@ -467,7 +486,6 @@ tset <- system.time(cl <- new("ads", DL))
 print(tset)
 
 cat("Recording tape\n")
-browser()
 trec <- system.time(cl$record.tape(start))
 
 cat("Objective function - taped\n")
@@ -480,24 +498,24 @@ cat("gradient\n")
 tg <- system.time(df <- get.df(start))
 print(tg)
 
-stop()
-
 ## Need to bound variables to avoid overflow
 
-opt2 <- optim(start,
-             fn=get.f,
-             gr=get.df,
-             hessian=FALSE,
-             method="BFGS",
-             control=list(
-               fnscale=-1,
-               REPORT=1,
-               trace=3,
-               maxit=10
-               )
-             )
+## opt2 <- optim(start,
+##              fn=get.f,
+##              gr=get.df,
+##              hessian=FALSE,
+##               method="L-BFGS-B",
+##               lower = start-5,
+##               upper=start+5,
+##              control=list(
+##                fnscale=-1,
+##                REPORT=1,
+##                trace=3,
+##                maxit=10
+##                )
+##              )
 
-opt3 <- trust.optim(opt2$par,                    
+opt3 <- trust.optim(start, ##opt2$par,                    
                     fn=get.f,
                     gr=get.df,       
                     method="SR1",
