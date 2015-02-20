@@ -76,10 +76,14 @@ private:
   std::vector<VectorXA> E; // number of new creatives added for each brand
 
   // priors
-  MatrixXA M20; // 1+P+J x J
+  MatrixXA M20; // 1+P+J x J - could be a parameter
   MatrixXA C20; // 1+P+J x 1+P+J
   MatrixXA Omega0;
   AScalar nu0;
+
+  MatrixXA mean_M20;
+  MatrixXA chol_cov_row_M20;
+  MatrixXA chol_cov_col_M20;
 
   MatrixXA mean_theta12;
   MatrixXA chol_cov_row_theta12;
@@ -227,6 +231,7 @@ private:
   bool fix_V1;
   bool fix_V2;
   bool fix_W;
+  bool estimate_M20;
 
   AScalar A_scale;
     
@@ -266,6 +271,7 @@ ads::ads(const List& params)
   include_q = as<bool>(flags["include.q"]);
   include_r = as<bool>(flags["include.r"]);
   replenish = as<bool>(flags["replenish"]);
+  estimate_M20 = as<bool>(flags["estimate.M20"]);
 
   Rcout << "break 2b\n";
 
@@ -454,13 +460,16 @@ ads::ads(const List& params)
   OmegaT.resize(J,J);
   QYf.resize(N,J);
 
+  M20.resize(1+J+P,J);
+  C20.resize(1+J+P,1+J+P);
+
 
   Rcout << "Required prior parameters\n";
   
   // These priors are required
-  const Map<MatrixXd> M20_d(as<Map<MatrixXd> >(priors["M20"]));
-  M20 = M20_d.cast<AScalar>();
- 
+
+
+      
   const Map<MatrixXd> C20_d(as<Map<MatrixXd> >(priors["C20"]));
   C20 = C20_d.cast<AScalar>();
 
@@ -561,7 +570,7 @@ ads::ads(const List& params)
       
       const Map<MatrixXd> chol_cov_col_theta12_d(as<Map<MatrixXd> >(priors_theta12["chol.col"]));
       chol_cov_col_theta12 = chol_cov_col_theta12_d.cast<AScalar>();
-  }
+    }
 
 
     List fixed_cov;
@@ -643,7 +652,24 @@ ads::ads(const List& params)
 	fact_mode_W2 = as<double>(priors_W2["fact.mode"]);
       }
     }
-  }
+
+    Rcout << "M20 priors\n";
+    const List priors_M20 = as<List>(priors["M20"]); 
+    if (estimate_M20) {
+      /* Priors for M20 here */
+      const Map<MatrixXd> mean_M20_d(as<Map<MatrixXd> >(priors_M20["mean"]));
+      mean_M20 = mean_M20_d.cast<AScalar>();
+      const Map<MatrixXd> chol_cov_row_M20_d(as<Map<MatrixXd> >(priors_M20["chol.row"]));
+      chol_cov_row_M20 = chol_cov_row_M20_d.cast<AScalar>();
+      const Map<MatrixXd> chol_cov_col_M20_d(as<Map<MatrixXd> >(priors_M20["chol.col"]));
+      chol_cov_col_M20 = chol_cov_col_M20_d.cast<AScalar>();
+    } else {
+      const Map<MatrixXd> M20_d(as<Map<MatrixXd> >(priors_M20["M20"]));
+      M20 = M20_d.cast<AScalar>();
+    }
+
+    
+  } // end priors
 
   
   Rcout << "End constructor\n";
@@ -655,7 +681,13 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
 {
   int ind = 0;
 
- 
+  // M20
+
+  if (estimate_M20) {
+   M20 = MatrixXA::Map(par.derived().data()+ind, 1+P+J, J);
+   ind += (1+J+P) * J;
+  }
+
   
   // unwrap theta12 and construct Ybar
 
@@ -697,6 +729,10 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
   if (include_q) {
     q = par.segment(ind, J);
     ind += J;
+
+    for (size_t j=0; j<J; j++) {
+      q(j) = 2*invlogit(q(j)) - 1;
+    }
     
     /* q_mean = par(ind++); //ind increments after pull */
     /* q_log_sd = par(ind++); // ind increments after pull */
@@ -711,6 +747,11 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
 
     r = par.segment(ind, J);
     ind += J;
+
+    for (size_t j=0; j<J; j++) {
+      r(j) = 2*invlogit(r(j)) - 1;
+    }
+       
 
     /* r_mean = par(ind++); //ind increments after pull */
     /* r_log_sd = par(ind++); // ind increments after pull */
@@ -921,6 +962,16 @@ AScalar ads::eval_hyperprior() {
   // Prior on theta_12
   // K x J matrix normal, diagonal (sparse) covariance matrices
 
+  AScalar prior_M20 = 0;
+  if (estimate_M20) {
+    prior_M20 = MatNorm_logpdf(M20, mean_M20,
+				   chol_cov_row_M20,
+				   chol_cov_col_M20,
+				   false);
+  } 
+
+
+  
   AScalar prior_theta12 = 0;
   if (include_X) {
     prior_theta12 = MatNorm_logpdf(theta12, mean_theta12,
@@ -1113,7 +1164,7 @@ AScalar ads::eval_hyperprior() {
     
     AScalar prior_logit_delta = dlogitbeta_log(logit_delta, delta_a, delta_b);
     AScalar res = prior_c + prior_u + prior_q + prior_r + prior_logit_delta;
-    res += prior_theta12 + prior_phi + prior_mats;    
+    res += prior_theta12 + prior_phi + prior_mats + prior_M20;    
     return(res);
 }
 
