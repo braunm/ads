@@ -67,7 +67,7 @@ private:
   std::vector<VectorXA> E; // number of new creatives added for each brand
 
   // priors
-  MatrixXA M20; // 1+P+J x J
+  MatrixXA M20; // 1+P+J x J either prior or parameter
   MatrixXA C20; // 1+P+J x 1+P+J
   MatrixXA Omega0;
   AScalar nu0;
@@ -79,6 +79,10 @@ private:
   MatrixXA mean_phi;
   MatrixXA chol_cov_row_phi;
   MatrixXA chol_cov_col_phi;
+
+  MatrixXA mean_M20;
+  MatrixXA chol_cov_row_M20;
+  MatrixXA chol_cov_col_M20;
   
   AScalar c_mean_pmean;
   AScalar c_mean_psd;
@@ -204,6 +208,7 @@ private:
   bool fix_V1;
   bool fix_V2;
   bool fix_W;
+  bool estimate_M20;
 
   AScalar A_scale;
     
@@ -243,6 +248,7 @@ ads::ads(const List& params)
   fix_V1 = as<bool>(flags["fix.V1"]);
   fix_V2 = as<bool>(flags["fix.V2"]);
   fix_W = as<bool>(flags["fix.W"]);
+  estimate_M20 = as<bool>(flags["estimate.M20"]);
 
   
 
@@ -422,9 +428,21 @@ ads::ads(const List& params)
   Rcout << "Required prior parameters\n";
   
   // These priors are required
-  const Map<MatrixXd> M20_d(as<Map<MatrixXd> >(priors["M20"]));
-  M20 = M20_d.cast<AScalar>();
- 
+
+
+  const List priors_M20 = as<List>(priors["M20"]);
+  if (estimate_M20) {
+    const Map<MatrixXd> mean_M20_d(as<Map<MatrixXd> >(priors_M20["mean"]));
+    mean_M20 = mean_M20_d.cast<AScalar>();
+    const Map<MatrixXd> chol_cov_row_M20_d(as<Map<MatrixXd> >(priors_M20["chol.row"]));
+    chol_cov_row_M20 = chol_cov_row_M20_d.cast<AScalar>();
+    const Map<MatrixXd> chol_cov_col_M20_d(as<Map<MatrixXd> >(priors_M20["chol.col"]));
+    chol_cov_col_M20 = chol_cov_col_M20_d.cast<AScalar>();   
+  } else {
+    const Map<MatrixXd> M20_d(as<Map<MatrixXd> >(priors_M20["M20"]));
+    M20 = M20_d.cast<AScalar>();
+  }
+  
   const Map<MatrixXd> C20_d(as<Map<MatrixXd> >(priors["C20"]));
   C20 = C20_d.cast<AScalar>();
 
@@ -600,7 +618,12 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
 {
   int ind = 0;
 
- 
+  // unwrap M20, if needed
+
+  if (estimate_M20) {
+    M20 = MatrixXA::Map(par.derived().data()+ind,1+P+J,J);
+    ind += (1+P+J)*J;
+  }
   
   // unwrap theta12 and construct Ybar
 
@@ -795,6 +818,7 @@ AScalar ads::eval_LL()
     M2t = M20;
     C2t = C20;
     Eigen::LDLT<MatrixXA> chol_Qt;
+    //Eigen::ColPivHouseholderQR<MatrixXA> chol_Qt;
     OmegaT = Omega0;
     AScalar log_det_Qt = 0;
     nuT = nu0;
@@ -824,6 +848,9 @@ AScalar ads::eval_LL()
     Qt +=  V1.selfadjointView<Lower>();
 
     chol_Qt.compute(Qt); // Cholesky of Qt
+    //    AScalar qdet = chol_Qt.logAbsDeterminant();
+    // assert(qdet>0 && my_finite(qdet));
+    // log_det_Qt += qdet;
     log_det_Qt += chol_Qt.vectorD().array().log().sum();
   
     S2t = R2t * F1F2[t].transpose();
@@ -1015,9 +1042,17 @@ AScalar ads::eval_hyperprior() {
 				 chol_cov_col_phi,
 				 false);
     }
+
+    AScalar prior_M20 = 0;
+    if (estimate_M20) {
+      prior_M20 = MatNorm_logpdf(M20, mean_M20,
+				 chol_cov_row_M20,
+				 chol_cov_col_M20,
+				 false);
+    }
     
     AScalar prior_logit_delta = dlogitbeta_log(logit_delta, delta_a, delta_b);
-    AScalar res= prior_c + prior_u + prior_logit_delta + prior_theta12 + prior_phi + prior_mats;
+    AScalar res= prior_c + prior_u + prior_logit_delta + prior_theta12 + prior_phi + prior_mats + prior_M20;
     
     return(res);
 }

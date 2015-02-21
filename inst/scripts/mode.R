@@ -15,7 +15,7 @@ set.seed(1234)
 start.true.pars <- FALSE
 
 mod.name <- "hdlm"
-data.name <- "sim"
+data.name <- "ptw"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
@@ -29,12 +29,13 @@ flags <- list(include.phi=FALSE,
               add.prior=TRUE,
               include.X=TRUE,
               standardize=FALSE,
-              A.scale = 10000000,
+              A.scale = 100000,
               ##A.scale = 1,
               W1.LKJ = TRUE,  # W1.LKJ true means we do LKJ, otherwise same as W2
               fix.V1 = FALSE,
               fix.V2 = FALSE,
-              fix.W = FALSE
+              fix.W = FALSE,
+              estimate.M20 = TRUE
               )
 
 nfact.V1 <- 0
@@ -130,14 +131,29 @@ if (nfact.W2 > max.nfact.W2) stop("Too many factors for W2")
 ## We have to include these prior parameters
 
 M20 <- matrix(0,1+P+J,J)
- M20[1,] <- 25
- M20[2:(J+1),] <- -.005
- M20[(J+2):(1+P+J),] <- 1
- for (j in 1:J) {
-     M20[J+1+j,j] <- -2
-     M20[j+1,j] <- .25
- }
-C20 <- 500*diag(1+P+J,1+P+J)
+M20[1,] <- 25
+M20[2:(J+1),] <- -.005
+M20[(J+2):(1+P+J),] <- 1
+for (j in 1:J) {
+    M20[J+1+j,j] <- -2
+    M20[j+1,j] <- .25
+}
+
+if (flags$estimate.M20) {
+    M20.mean <- M20
+    M20.cov.row <- 10*diag(1+P+J)
+    M20.cov.col <- 10*diag(J)
+    prior.M20 <- list(mean=M20,
+                      chol.row = t(chol(M20.cov.row)),
+                      chol.col = t(chol(M20.cov.col))
+                      )
+    
+} else {
+    prior.M20 <- list(M20=M20)
+}
+
+C20 <- 5*diag(1+P+J,1+P+J)
+
 
 E.Sigma <- 0.1 * diag(J) ## expected covariance across brands
 nu0 <- P + 2*J + 6  ## must be greater than theta2 rows+cols
@@ -258,7 +274,7 @@ if (flags$add.prior) {
     prior.theta12 <- NULL
 }
 
-tmp <- list(M20=M20,
+tmp <- list(M20=prior.M20,
             C20=C20,
             Omega0=Omega0,
             nu0=nu0,
@@ -275,6 +291,14 @@ priors <- Filter(function(x) !is.null(x), tmp)
 
 
 ## starting parameters
+
+
+if (flags$estimate.M20) {
+    M20.start <- matrix(0,1+P+J,J)    
+} else {
+    M20.start <- NULL
+}
+
 if (flags$include.X) {
     if (start.true.pars) {
         theta12.start <- true.pars$theta12
@@ -382,6 +406,7 @@ if (flags$fix.W) {
 
 
 tmp <- list(
+    M20 = M20.start,
     theta12=theta12.start,
     logit.c = logit.c.start,
     logit.u = logit.u.start,
