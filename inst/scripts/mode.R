@@ -15,7 +15,7 @@ set.seed(1234)
 start.true.pars <- FALSE
 
 mod.name <- "hdlm"
-data.name <- "ptw"
+data.name <- "sim"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
@@ -23,7 +23,7 @@ data.name <- "ptw"
 data.file <- paste0("data/mcmod",data.name,".RData")
 save.file <- paste0("inst/results/",mod.name,"_",data.name,"_mode.Rdata")
 
-flags <- list(include.H=FALSE,
+flags <- list(include.phi=FALSE,
               include.c=TRUE,
               include.u=FALSE,
               add.prior=TRUE,
@@ -74,7 +74,7 @@ F2 <- mcmod$F2[1:T]
 A <- mcmod$A[1:T]
 ##A <- llply(mcmod$A[1:T],function(x) return(x/flags$A.scale))
 
-if (flags$include.H) {
+if (flags$include.phi) {
   E <- mcmod$E[1:T]
 } else {
   E <- NULL
@@ -146,7 +146,7 @@ Omega0 <- (nu0-J-1)*E.Sigma
 ## The following priors are optional
 
 if (flags$add.prior) { 
-    if (flags$include.H) {
+    if (flags$include.phi) {
         ## prior on phi:  matrix normal with sparse covariances
         mean.phi <- matrix(0,J,J)
         cov.row.phi <- 10*diag(J)
@@ -160,7 +160,7 @@ if (flags$add.prior) {
                           )
     } else {
         prior.phi <- NULL
-    } ## end include.H
+    } ## end include.phi
     
     if (flags$include.X) {
         ## prior on theta12:  matrix normal with sparse covariances
@@ -325,7 +325,7 @@ if (start.true.pars) {
 }
 
 
-if (flags$include.H) {
+if (flags$include.phi) {
     phi.start <- matrix(0,J,J)
 } else {
     phi.start <- NULL

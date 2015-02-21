@@ -11,7 +11,7 @@ library(trustOptim)
 set.seed(10503)
 # set.seed(105)
 
-include.H <- FALSE
+include.phi <- FALSE
 include.c <- TRUE
 include.u <- TRUE
 
@@ -28,8 +28,8 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 }
 
 # create Y
-N <- 40  # number of 'sites'
-T <- 300  # number of time periods
+N <- 22  # number of 'sites'
+T <- 150  # number of time periods
 Tb <- 0  # number of burnin periods
 J <- 2  # number of equations
 P <- J  # number of time varying covariates per city (excluding intercept)
@@ -70,8 +70,8 @@ gA <- log(1+A)
 E <- rpois(T * J, 0.5)  # incidence of new creatives
 dim(E) <- c(T, J)
 E[A == 0] <- 0  # switch to zero if there is no advertising
-Evec <- matrix(0, nc = J, nr = J)  # response coefficients for new creatives
-diag(Evec) <- runif(J, min = 0.05, max = 0.1)
+phi <- matrix(0, nc = J, nr = J)  # response coefficients for new creatives
+diag(phi) <- runif(J, min = 0.05, max = 0.1)
 
 # time invariant component
 ## K <- 2
@@ -158,25 +158,29 @@ for (t in 1:T) {
         
     ## innovation component which switches signs if the underlying state
     ## variable does (simplified here)
-    Ht <- matrix(0, nr = nrow(Gt), nc = J)
+    Ht <- matrix(0, nr = J, nc = J)
     for (j in 1:J) {
-        for (k in 1:J) {
-        # if(Theta2t[1+j,k] < 0) Ht[1+j,k] <- -delta*(1-(A[t,j]>0)) -
-        # Evec[j,k]*E[t,j] # if it is below zero else Ht[j+1,k] <-
-        # delta*(1-(A[t,j]>0)) + Evec[j,k]*E[t,j] # if above if(Theta2t[1+j,k]
-        # < 0) Ht[1+j,k] <- - Evec[j,k]*E[t,j] # if it is below zero else
-        # Ht[j+1,k] <- Evec[j,k]*E[t,j] # if above if(j!=k) Ht[1+j,k] <-
-        # -delta*(1-(A[t,j]>0)) - e[j]*E[t,j] # if it is below zero else
-        # Ht[j+1,k] <- delta*(1-(A[t,j]>0)) + e[j]*E[t,j] # if above
-            Ht[1 + j, k] <- Evec[j, k] * E[t, j]
+        Ht[j,] <- delta * (A[t,j]==0)
+        if (include.phi) {
+            Ht[j,] <- Ht[j,] + phi[j,]*E[t,j]
         }
     }
     
-    if (!include.H) {
-        Ht <- Ht * 0
-    }
+ ##   for (k in 1:J) {
+        ## if(Theta2t[1+j,k] < 0) Ht[1+j,k] <- -delta*(1-(A[t,j]>0)) -
+        ## Evec[j,k]*E[t,j] # if it is below zero else Ht[j+1,k] <-
+        ## delta*(1-(A[t,j]>0)) + Evec[j,k]*E[t,j] # if above if(Theta2t[1+j,k]
+        ## < 0) Ht[1+j,k] <- - Evec[j,k]*E[t,j] # if it is below zero else
+        ## Ht[j+1,k] <- Evec[j,k]*E[t,j] # if above if(j!=k) Ht[1+j,k] <-
+        ## -delta*(1-(A[t,j]>0)) - e[j]*E[t,j] # if it is below zero else
+        ## Ht[j+1,k] <- delta*(1-(A[t,j]>0)) + e[j]*E[t,j] # if above
+        ##       Ht[j, k] <- Evec[j, k] * E[t, j]
+   ## }
+
+    
     epsW <- rmvMN(1, , W, Sigma)
-    Theta2t <- Gt %*% Theta2t + Ht + epsW
+    Theta2t <- Gt %*% Theta2t + epsW
+    Theta2t[2:(J+1),] <- Theta2t[2:(J+1),] + Ht
     T2[[t]] <- Theta2t
     
     epsV2 <- rmvMN(1, , V[[2]], Sigma)

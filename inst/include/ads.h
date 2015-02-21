@@ -195,7 +195,7 @@ private:
   AScalar log_mvgamma_post;
   
   // flags for model specification
-  bool include_H;
+  bool include_phi;
   bool add_prior;
   bool include_X;
   bool include_c;
@@ -233,7 +233,7 @@ ads::ads(const List& params)
   K = as<int>(dimensions["K"]);
   P = as<int>(dimensions["P"]);
 
-  include_H = as<bool>(flags["include.H"]);
+  include_phi = as<bool>(flags["include.phi"]);
   add_prior = as<bool>(flags["add.prior"]);
   include_X = as<bool>(flags["include.X"]);
   include_c = as<bool>(flags["include.c"]);
@@ -271,7 +271,7 @@ ads::ads(const List& params)
   AjIsZero.resize(T);
 
   List Elist;
-  if (include_H) {
+  if (include_phi) {
     Elist = as<List>(data["E"]);
     E.resize(T);
   }
@@ -332,7 +332,7 @@ ads::ads(const List& params)
       AjIsZero[i](j) = A[i](j)==0 ? 1. : 0.;
     }
 
-    if (include_H) {
+    if (include_phi) {
       const Map<VectorXd> Ed(as<Map<VectorXd> >(Elist[i]));
       E[i] = Ed.cast<AScalar>();
     }
@@ -396,10 +396,11 @@ ads::ads(const List& params)
     logit_u.resize(J);
   }
 
+  Ht = MatrixXA::Zero(J,J); // ignoring zeros in bottom P rows
   
-  if (include_H) {
+  
+  if (include_phi) {
     phi.resize(J,J);
-    Ht = MatrixXA::Zero(J,J); // ignoring zeros in bottom P rows
     Pneg.resize(J,J);   
   }
 
@@ -442,7 +443,7 @@ ads::ads(const List& params)
   
   // The following priors are optional
   if (add_prior) {
-    if (include_H) {
+    if (include_phi) {
       
       const List priors_phi = as<List>(priors["phi"]);
       const Map<MatrixXd> mean_phi_d(as<Map<MatrixXd> >(priors_phi["mean"]));
@@ -651,7 +652,7 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
 
   
   
-  if (include_H) {
+  if (include_phi) {
     phi = MatrixXA::Map(par.derived().data() + ind, J, J);
     ind += J*J;
   }
@@ -808,12 +809,9 @@ AScalar ads::eval_LL()
     //  Rcout << "Gt[" << t << "] =\n " << Gt << "\n\n";
     
     a2t = Gt.triangularView<Upper>() * M2t;
-  
-    if (include_H) {
-      set_Ht(t);
-      // assume bottom P rows of Ht  are all zero
-      a2t.middleRows(1,J).array() +=  Ht.array();
-    }
+    set_Ht(t);
+    // assume bottom P rows of Ht  are all zero
+    a2t.middleRows(1,J).array() +=  Ht.array();
  
     Yft = -F1F2[t] * a2t;
     Yft += Ybar[t];
@@ -823,10 +821,8 @@ AScalar ads::eval_LL()
     R1t = F2[t] * R2t * F2[t].transpose(); 
     R1t += V2.selfadjointView<Lower>();      
     Qt = F1[t] * R1t * F1[t].transpose();
-    //    Qt +=  V1.selfadjointView<Lower>();
-    Qt += V1;
+    Qt +=  V1.selfadjointView<Lower>();
 
-    
     chol_Qt.compute(Qt); // Cholesky of Qt
     log_det_Qt += chol_Qt.vectorD().array().log().sum();
   
@@ -1013,7 +1009,7 @@ AScalar ads::eval_hyperprior() {
   // J x J matrix normal, diagonal (sparse) covariance matrices
 
     AScalar prior_phi = 0;
-    if (include_H) {
+    if (include_phi) {
       prior_phi = MatNorm_logpdf(phi, mean_phi,
 				 chol_cov_row_phi,
 				 chol_cov_col_phi,
@@ -1080,36 +1076,42 @@ void ads::set_Gt(const int& tt) {
 // set_Ht
 void ads::set_Ht(const int& tt) {
 
-  Ht = E[tt].asDiagonal() * phi; // H2t
+  Ht.setZero();
   Ht.array().colwise() += delta * AjIsZero[tt].array(); //H1t
   
-  // Estimate probability that sign(qij)<0
-  
-  AScalar ct = nuT - P - 2*J;
-  Eigen::Matrix<AScalar, Dynamic, Dynamic> Pneg(J,J);
-  Pneg.setZero();
-  
-  if (ct<30) {    
-    // use CDF of student T
-    for (size_t col=0; col<J; col++) {
-      for (size_t row=0; row<J; row++) {
-	AScalar mm = M2t(row+1, col);
-	AScalar dd = C2t(row+1, row+1) * OmegaT(col, col);
-	AScalar IB = incbeta(ct*mm*mm  / (ct*mm*mm + dd*dd), 0.5, 0.5*ct);
-	Pneg(row,col) = 0.5 * (1.0 - sign(mm)*IB);
-      }
-    }   
-  } else {
-    // use CDF of normal    
-    for (size_t col=0; col<J; col++) {
-      for (size_t row=0; row<J; row++) {
-	AScalar mm = M2t(row+1, col);
-	AScalar dd = C2t(row+1, row+1) * OmegaT(col, col);
-	Pneg(row, col) = exp(pnorm_log(0, mm, dd/ct));
-      }
-    }    
+  if (include_phi) {
+    Ht += E[tt].asDiagonal() * phi; // H2t
   }
-  Ht.array() = (1.0 - 2.0 * Pneg.array()) * Ht.array();
+    
+  /* // Estimate probability that sign(qij)<0 */
+  
+  /* AScalar ct = nuT - P - 2*J; */
+  /* Eigen::Matrix<AScalar, Dynamic, Dynamic> Pneg(J,J); */
+  /* Pneg.setZero(); */
+  
+  /* if (ct<30) {     */
+  /*   // use CDF of student T */
+  /*   for (size_t col=0; col<J; col++) { */
+  /*     for (size_t row=0; row<J; row++) { */
+  /* 	AScalar mm = M2t(row+1, col); */
+  /* 	AScalar dd = C2t(row+1, row+1) * OmegaT(col, col); */
+  /* 	AScalar IB = incbeta(ct*mm*mm  / (ct*mm*mm + dd*dd), 0.5, 0.5*ct); */
+  /* 	Pneg(row,col) = 0.5 * (1.0 - sign(mm)*IB); */
+  /*     } */
+  /*   }    */
+  /* } else { */
+  /*   // use CDF of normal     */
+  /*   for (size_t col=0; col<J; col++) { */
+  /*     for (size_t row=0; row<J; row++) { */
+  /* 	AScalar mm = M2t(row+1, col); */
+  /* 	AScalar dd = C2t(row+1, row+1) * OmegaT(col, col); */
+  /* 	Pneg(row, col) = exp(pnorm_log(0, mm, dd/ct)); */
+  /*     } */
+  /*   }     */
+  /* } */
+  /* Ht.array() = (1.0 - 2.0 * Pneg.array()) * Ht.array(); */
+
+  
 } // end set_Ht
 
 
