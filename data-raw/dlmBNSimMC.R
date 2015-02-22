@@ -13,7 +13,7 @@ set.seed(10503)
 
 include.phi <- FALSE
 include.c <- TRUE
-include.u <- TRUE
+include.u <- FALSE
 
 rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
     ## set.seed(153)

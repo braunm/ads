@@ -15,7 +15,7 @@ set.seed(1234)
 start.true.pars <- FALSE
 
 mod.name <- "hdlm"
-data.name <- "ptw"
+data.name <- "sim"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
@@ -29,7 +29,7 @@ flags <- list(include.phi=FALSE,
               add.prior=TRUE,
               include.X=TRUE,
               standardize=FALSE,
-              A.scale = 100000,
+              A.scale = 1000,
               ##A.scale = 1,
               W1.LKJ = TRUE,  # W1.LKJ true means we do LKJ, otherwise same as W2
               fix.V1 = FALSE,
@@ -131,13 +131,13 @@ if (nfact.W2 > max.nfact.W2) stop("Too many factors for W2")
 ## We have to include these prior parameters
 
 M20 <- matrix(0,1+P+J,J)
-M20[1,] <- 25
-M20[2:(J+1),] <- -.005
-M20[(J+2):(1+P+J),] <- 1
-for (j in 1:J) {
-    M20[J+1+j,j] <- -2
-    M20[j+1,j] <- .25
-}
+## M20[1,] <- 25
+## M20[2:(J+1),] <- -.005
+## M20[(J+2):(1+P+J),] <- 1
+## for (j in 1:J) {
+##     M20[J+1+j,j] <- -2
+##     M20[j+1,j] <- .25
+## }
 
 if (flags$estimate.M20) {
     M20.mean <- M20
@@ -459,7 +459,7 @@ opt2 <- optim(start,
              method="BFGS",
              control=list(
                fnscale=-1,
-               REPORT=5,
+               REPORT=1,
                trace=3,
                maxit=30
                )
@@ -479,7 +479,7 @@ opt3 <- trust.optim(opt2$par,
                         contract.factor=.4,
                         expand.factor=2,
                         expand.threshold.radius=.85,
-                        report.freq = 5L
+                        report.freq = 1L
                         )
                     )
 

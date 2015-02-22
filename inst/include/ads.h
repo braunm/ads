@@ -9,6 +9,7 @@
 #include <Eigen/Cholesky>
 #include <cppad_atomics.h>
 #include <mat_normAD.h>
+#include <LDLT_cppad.h>
 
 using Eigen::MatrixBase;
 using Eigen::Dynamic;
@@ -189,7 +190,10 @@ private:
 
   AScalar log_const;
   MatrixXA QYf;
-
+  MatrixXA tmpNJ;
+  MatrixXA chol_DX_L;
+  VectorXA chol_DX_D;
+  
   VectorXA c;
   VectorXA u;
   VectorXA logit_c;
@@ -423,6 +427,7 @@ ads::ads(const List& params)
   S2t.resize(1+J+P,N);
   OmegaT.resize(J,J);
   QYf.resize(N,J);
+  tmpNJ.resize(N,J);
 
 
   Rcout << "Required prior parameters\n";
@@ -817,8 +822,9 @@ AScalar ads::eval_LL()
     
     M2t = M20;
     C2t = C20;
-    Eigen::LDLT<MatrixXA> chol_Qt;
-    //Eigen::ColPivHouseholderQR<MatrixXA> chol_Qt;
+    MatrixXA chol_Qt_L = MatrixXA::Identity(N,N);
+    VectorXA chol_Qt_D = VectorXA::Zero(N);
+ 
     OmegaT = Omega0;
     AScalar log_det_Qt = 0;
     nuT = nu0;
@@ -847,17 +853,23 @@ AScalar ads::eval_LL()
     Qt = F1[t] * R1t * F1[t].transpose();
     Qt +=  V1.selfadjointView<Lower>();
 
-    chol_Qt.compute(Qt); // Cholesky of Qt
-    //    AScalar qdet = chol_Qt.logAbsDeterminant();
-    // assert(qdet>0 && my_finite(qdet));
-    // log_det_Qt += qdet;
-    log_det_Qt += chol_Qt.vectorD().array().log().sum();
+    LDLT(Qt, chol_Qt_L, chol_Qt_D);
+    log_det_Qt = chol_Qt_D.array().log().sum();    
   
     S2t = R2t * F1F2[t].transpose();
-    QYf = chol_Qt.solve(Yft);
+
+    QYf = chol_Qt_L.triangularView<Lower>().solve(Yft);
+    tmpNJ = chol_Qt_D.asDiagonal().inverse() *QYf;
+    QYf = chol_Qt_L.transpose().triangularView<Upper>().solve(tmpNJ);    
+    //    QYf = chol_Qt.solve(Yft);
     M2t = S2t * QYf;
     M2t += a2t;
-    C2t = -S2t*(chol_Qt.solve(S2t.transpose()));
+
+    MatrixXA tmp1 = chol_Qt_L.triangularView<Lower>().solve(S2t.transpose());
+    MatrixXA tmp2 = chol_Qt_D.asDiagonal().inverse() * tmp1;
+    C2t = -tmp1.transpose() * tmp2;        
+    //    C2t = -S2t*(chol_Qt.solve(S2t.transpose()));
+
     C2t += R2t;
 
     // accumulate terms for Matrix T
@@ -865,8 +877,13 @@ AScalar ads::eval_LL()
     nuT += N;
   }
 
-  Eigen::LDLT<MatrixXA> chol_DX(OmegaT);
-  AScalar log_det_DX = chol_DX.vectorD().array().log().sum();
+  MatrixXA chol_DX_L = MatrixXA::Identity(J,J);
+  VectorXA chol_DX_D = VectorXA::Zero(J);
+  LDLT(OmegaT, chol_DX_L, chol_DX_D);
+  AScalar log_det_DX = chol_DX_D.array().log().sum();
+  
+  //  Eigen::LDLT<MatrixXA> chol_DX(OmegaT);
+  //AScalar log_det_DX = chol_DX.vectorD().array().log().sum();
   AScalar log_PY = log_const - J*log_det_Qt/2. - nuT*log_det_DX/2.;     
   return(log_PY);
 }
