@@ -150,7 +150,7 @@ private:
   // AScalar u_sd;
   // VectorXA u_off; // J ad wearout parameters offset
 
-  AScalar c_a, c_b, u_a, u_b;
+  AScalar c_pmean, c_psd, u_pmean, u_psd;
 
   
   MatrixXA phi; // J x J
@@ -488,8 +488,8 @@ ads::ads(const List& params)
       Rcout << "priors for c\n";
       
       const List priors_c = as<List>(priors["c"]);
-      c_a = as<double>(priors_c["a"]);
-      c_b = as<double>(priors_c["b"]);
+      c_pmean = as<double>(priors_c["mean"]);
+      c_psd = as<double>(priors_c["sd"]);
       
       /* c_mean_pmean = as<double>(priors_c["mean.mean"]); */
       /* c_mean_psd = as<double>(priors_c["mean.sd"]); */
@@ -503,8 +503,8 @@ ads::ads(const List& params)
       Rcout << "priors for u\n";
       
       const List priors_u = as<List>(priors["u"]);
-      u_a = as<double>(priors_u["a"]);
-      u_b = as<double>(priors_u["b"]);
+      u_pmean = as<double>(priors_u["mean"]);
+      u_psd = as<double>(priors_u["sd"]);
       
       /* u_mean_pmean = as<double>(priors_u["mean.mean"]); */
       /* u_mean_psd = as<double>(priors_u["mean.sd"]); */
@@ -1027,7 +1027,7 @@ AScalar ads::eval_hyperprior() {
 
       for (int jj=0; jj<J; jj++) {      
 	//	prior_c += dlogitbeta_log(logit_c(jj), c_a, c_b);
-	prior_c += dnorm_log(c(jj), c_a, c_b);
+	prior_c += dnorm_log(c(jj), c_pmean, c_psd);
       }      
     }
     
@@ -1042,7 +1042,7 @@ AScalar ads::eval_hyperprior() {
       
       for (int jj=0; jj<J; jj++) {      
 	//	prior_u += dlogitbeta_log(logit_u(jj), u_a, u_b);
-	prior_u += dnorm_log(u(jj), u_a, u_b);
+	prior_u += dnorm_log(u(jj), u_pmean, u_psd);
       }  
     }
     

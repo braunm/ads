@@ -15,7 +15,7 @@ set.seed(1234)
 start.true.pars <- FALSE
 
 mod.name <- "hdlm"
-data.name <- "tti"
+data.name <- "sim"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
@@ -204,7 +204,7 @@ if (flags$add.prior) {
     
     if (flags$include.c) {
 
-        prior.c <- list(a=0, b=1)
+        prior.c <- list(mean=0, sd=1)
  
         ## prior.c.mean <- 0       
         ## prior.c <- list(mean.mean=prior.c.mean,
@@ -217,7 +217,7 @@ if (flags$add.prior) {
 
 
     if (flags$include.u) {
-        prior.u <- list(a=0, b=1)
+        prior.u <- list(mean=0, sd=1)
         ## prior.u.mean <- 0           
         ## prior.u <- list(mean.mean=prior.u.mean,
         ##                 mean.sd=1,
