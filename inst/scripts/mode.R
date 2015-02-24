@@ -8,14 +8,14 @@ library(numDeriv)
 library(trustOptim)
 library(plyr)
 library(reshape2)
-library(ads)
+##library(ads)
 
 set.seed(1234)
 
 start.true.pars <- FALSE
 
 mod.name <- "hdlm"
-data.name <- "sim"
+data.name <- "ptw"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
@@ -25,11 +25,11 @@ save.file <- paste0("inst/results/",mod.name,"_",data.name,"_mode.Rdata")
 
 flags <- list(include.phi=FALSE,
               include.c=TRUE,
-              include.u=FALSE,
+              include.u=TRUE,
               add.prior=TRUE,
               include.X=TRUE,
               standardize=FALSE,
-              A.scale = 1000,
+              A.scale = 1000000,
               ##A.scale = 1,
               W1.LKJ = TRUE,  # W1.LKJ true means we do LKJ, otherwise same as W2
               fix.V1 = FALSE,

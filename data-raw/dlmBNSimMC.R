@@ -1,4 +1,4 @@
-# dlmBNSimMC.R Hierarchical simulation of BN model for MC estimation
+str# dlmBNSimMC.R Hierarchical simulation of BN model for MC estimation
 
 # include functions
 rm(list = ls())
@@ -13,7 +13,7 @@ set.seed(10503)
 
 include.phi <- FALSE
 include.c <- TRUE
-include.u <- FALSE
+include.u <- TRUE
 
 rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
     ## set.seed(153)
@@ -142,14 +142,13 @@ for (t in 1:T) {
     for (j in 1:J) {
         if (include.c) {
             if (include.u) {
-                Gt[j+1, j+1] <- exp(-Cvec[j] - Ac[t,j] * log(Uvec[j]))              
+                Gt[j+1,j+1] <- 1 - Cvec[j] - Uvec[j]*Ac[t,j]
             } else {
-                Gt[j+1, j+1] <- exp(-Cvec[j])
+                Gt[j+1,j+1] <- 1 - Cvec[j]
             }
         } else {
             if (include.u) {
-##                Gt[j+1, j+1] <- exp(-Uvec[j]*Ac[t,j])
-                Gt[j+1, j+1] <- exp(-Ac[t,j] * log(Uvec[j]))              
+                Gt[j+1,j+1] <- 1 - Uvec[j]*Ac[t,j]
             } else {
                 Gt[j+1, j+1] <- 1
             }

@@ -861,14 +861,12 @@ AScalar ads::eval_LL()
     QYf = chol_Qt_L.triangularView<Lower>().solve(Yft);
     tmpNJ = chol_Qt_D.asDiagonal().inverse() *QYf;
     QYf = chol_Qt_L.transpose().triangularView<Upper>().solve(tmpNJ);    
-    //    QYf = chol_Qt.solve(Yft);
     M2t = S2t * QYf;
     M2t += a2t;
 
     MatrixXA tmp1 = chol_Qt_L.triangularView<Lower>().solve(S2t.transpose());
     MatrixXA tmp2 = chol_Qt_D.asDiagonal().inverse() * tmp1;
     C2t = -tmp1.transpose() * tmp2;        
-    //    C2t = -S2t*(chol_Qt.solve(S2t.transpose()));
 
     C2t += R2t;
 
@@ -881,9 +879,6 @@ AScalar ads::eval_LL()
   VectorXA chol_DX_D = VectorXA::Zero(J);
   LDLT(OmegaT, chol_DX_L, chol_DX_D);
   AScalar log_det_DX = chol_DX_D.array().log().sum();
-  
-  //  Eigen::LDLT<MatrixXA> chol_DX(OmegaT);
-  //AScalar log_det_DX = chol_DX.vectorD().array().log().sum();
   AScalar log_PY = log_const - J*log_det_Qt/2. - nuT*log_det_DX/2.;     
   return(log_PY);
 }
@@ -1096,24 +1091,22 @@ void ads::set_Gt(const int& tt) {
     if (include_c) {
       if (include_u) {
 	// c and u	
-	// Gt(j+1, j+1) = 1.0 - c(j) - u(j)*A[tt](j)/A_scale-delta * AjIsZero[tt](j);
-	Gt(j+1, j+1) = exp(-c(j) - A[tt](j) * log(u(j)) / A_scale);
+	Gt(j+1, j+1) = 1.0 - c(j) - u(j)*A[tt](j)/A_scale;
       } else {
 	// c, not u
-	Gt(j+1, j+1) = exp(-c(j));	
+	Gt(j+1, j+1) = 1.0 - c(j);
       }
     } else {
       if (include_u) {
 	// u, not c
-	//	Gt(j+1, j+1) = exp(-u(j)*A[tt](j)/A_scale);
-	Gt(j+1, j+1) = exp(-A[tt](j) * log(u(j)) / A_scale);
-	//Gt(j+1, j+1) = exp(-u(j)*log1p(A[tt](j)));
-
+	Gt(j+1, j+1) = 1.0 - u(j)*A[tt](j)/A_scale;
       } else {
 	// neither c nor u
 	Gt(j+1, j+1) = 1.0;
       }
     }
+
+    Gt(j+1,j+1) -= delta * AjIsZero[tt](j);
   } // end loop over J
 
   
