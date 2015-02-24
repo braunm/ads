@@ -15,7 +15,7 @@ set.seed(1234)
 start.true.pars <- FALSE
 
 mod.name <- "hdlm"
-data.name <- "ptw"
+data.name <- "tti"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
@@ -38,8 +38,8 @@ flags <- list(include.phi=FALSE,
               estimate.M20 = TRUE
               )
 
-nfact.V1 <- 0
-nfact.V2 <- 0
+nfact.V1 <- 1
+nfact.V2 <- 1
 nfact.W1 <- 0
 nfact.W2 <- 0
 
@@ -204,7 +204,7 @@ if (flags$add.prior) {
     
     if (flags$include.c) {
 
-        prior.c <- list(a=1, b=1)
+        prior.c <- list(a=0, b=1)
  
         ## prior.c.mean <- 0       
         ## prior.c <- list(mean.mean=prior.c.mean,
@@ -217,7 +217,7 @@ if (flags$add.prior) {
 
 
     if (flags$include.u) {
-        prior.u <- list(a=1, b=1)
+        prior.u <- list(a=0, b=1)
         ## prior.u.mean <- 0           
         ## prior.u <- list(mean.mean=prior.u.mean,
         ##                 mean.sd=1,
@@ -230,7 +230,7 @@ if (flags$add.prior) {
     ## For V1, V2, and W1, W2:   normal or truncated normal priors (if needed)
 
     if (!flags$fix.V1) {        
-        prior.V1 <- list(diag.scale=.5, diag.mode=1,
+        prior.V1 <- list(diag.scale=2, diag.mode=1,
                          fact.scale=1, fact.mode=0)
     } else {
         prior.V1 <-  NULL
@@ -238,20 +238,20 @@ if (flags$add.prior) {
 
 
     if (!flags$fix.V2) {
-        prior.V2 <- list(diag.scale=.5, diag.mode=1,
+        prior.V2 <- list(diag.scale=2, diag.mode=1,
                          fact.scale=1, fact.mode=0)
     } else {
         prior.V2 = NULL
     }
 
     if (!flags$fix.W) {
-        prior.W2 <- list(diag.scale=.5, diag.mode=1,
+        prior.W2 <- list(diag.scale=2, diag.mode=1,
                          fact.scale=.01, fact.mode=0)
         
         ## LKJ prior on W1.  Scale parameter has truncated(0) normal prior
         
         if (flags$W1.LKJ) {
-            prior.W1 <- list(scale.mode=0, scale.s=.5, eta=1)
+            prior.W1 <- list(scale.mode=0, scale.s=2, eta=1)
         } else {
             prior.W1 <- list(diag.scale=.01, diag.mode=0,
                              fact.scale=.01, fact.mode=0)
@@ -329,21 +329,23 @@ if (start.true.pars) {
     logit.delta.start <- true.pars$logit.delta
 } else {
     if (flags$include.c) {
-        logit.c.start <- seq(-3,-1,length=J)
+        ##    logit.c.start <- seq(-3,-1,length=J)
+        c.start <- rep(0,J)
          ## c.mean.log.sd.start <- c(0,0)
         ## c.off.start <- rep(0,J)
     } else {
 ##        c.mean.log.sd.start <- c.off.start <- NULL
-        logit.c.start <- NULL
+##        logit.c.start <- NULL
+        c.start <- NULL
     }
 
  if (flags$include.u) {
-         logit.u.start <- seq(-.1,.1, length=J)
+         u.start <- rep(0,J)
         ## u.mean.log.sd.start <- c(0,0)
         ## u.off.start <- rep(0,J)        
     } else {
 ##       u.mean.log.sd.start <- u.off.start <- NULL
-        logit.u.start <- NULL
+        u.start <- NULL
     } 
     logit.delta.start <- 0    
 }
@@ -408,9 +410,10 @@ if (flags$fix.W) {
 tmp <- list(
     M20 = M20.start,
     theta12=theta12.start,
-    logit.c = logit.c.start,
-    logit.u = logit.u.start,
-
+ ##   logit.c = logit.c.start,
+    c = c.start,
+ ##   logit.u = logit.u.start,
+    u = u.start,
 ##    c.mean.log.sd=c.mean.log.sd.start,
 ##    c.off=c.off.start,
 ##    u.mean.log.sd=u.mean.log.sd.start,
@@ -571,13 +574,15 @@ if (!flags$fix.W) {
 }
 
 if (flags$include.c){
-    sol$cj <- exp(sol$logit.c)/(1+exp(sol$logit.c))
+ ##   sol$cj <- exp(sol$logit.c)/(1+exp(sol$logit.c))
     ##    sol$cj <- exp(sol$c.mean.log.sd[2]) * sol$c.off + sol$c.mean.log.sd[1]
+    sol$cj <- sol$c
  }
 
 if (flags$include.u){
-    sol$uj <- exp(sol$logit.u)/(1+exp(sol$logit.u))
+##    sol$uj <- exp(sol$logit.u)/(1+exp(sol$logit.u))
     ##    sol$uj <- exp(sol$u.mean.log.sd[2]) * sol$u.off + sol$u.mean.log.sd[1]
+sol$uj <- sol$u
 }
 
 

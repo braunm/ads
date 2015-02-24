@@ -28,10 +28,10 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 }
 
 # create Y
-N <- 22  # number of 'sites'
-T <- 150  # number of time periods
+N <- 42  # number of 'sites'
+T <- 226  # number of time periods
 Tb <- 0  # number of burnin periods
-J <- 2  # number of equations
+J <- 3  # number of equations
 P <- J  # number of time varying covariates per city (excluding intercept)
 K1 <- 2  # number of non time varying covariates per city at top level (including intercept)
 ##Cvec <- rnorm(J, mean = 0.1, sd = 0.03)  # wearout per period

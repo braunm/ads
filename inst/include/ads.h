@@ -196,8 +196,8 @@ private:
   
   VectorXA c;
   VectorXA u;
-  VectorXA logit_c;
-  VectorXA logit_u;
+  //  VectorXA logit_c;
+  // VectorXA logit_u;
 
   AScalar log_mvgamma_prior;
   AScalar log_mvgamma_post;
@@ -398,12 +398,12 @@ ads::ads(const List& params)
   
   if (include_c) {
     c.resize(J);
-    logit_c.resize(J);
+    //    logit_c.resize(J);
    }
 
   if (include_u) {
     u.resize(J);
-    logit_u.resize(J);
+    //    logit_u.resize(J);
   }
 
   Ht = MatrixXA::Zero(J,J); // ignoring zeros in bottom P rows
@@ -648,7 +648,8 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
   // mean.  So c_j = c_mean + par[ind+j]
   if (include_c) {
 
-    logit_c = par.segment(ind, J);
+    //  logit_c = par.segment(ind, J);
+    c = par.segment(ind, J);
     ind += J;
      
     /* c_mean = par(ind++); //ind increments after pull */
@@ -658,13 +659,13 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     /* ind += J; */
     /* logit_c.array() = c_sd * c_off.array() + c_mean; */
 
-    c.array() = logit_c.array().exp()/(1+logit_c.array().exp()); 
+    //   c.array() = logit_c.array().exp()/(1+logit_c.array().exp()); 
    }
 
 
     if (include_u) {
 
-    logit_u = par.segment(ind, J);
+    u = par.segment(ind, J);
     ind += J;
 
     /* u_mean = par(ind++); //ind increments after pull */
@@ -674,7 +675,7 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     /* ind += J; */
     /* logit_u.array() = u_sd * u_off.array() + u_mean; */
 
-    u.array() = logit_u.array().exp()/(1+logit_u.array().exp());
+    //   u.array() = logit_u.array().exp()/(1+logit_u.array().exp());
   }
 
 
@@ -1025,7 +1026,8 @@ AScalar ads::eval_hyperprior() {
         /* const AScalar prior_c = prior_c_mean + prior_c_log_sd + prior_c_off; */
 
       for (int jj=0; jj<J; jj++) {      
-	prior_c += dlogitbeta_log(logit_c(jj), c_a, c_b);
+	//	prior_c += dlogitbeta_log(logit_c(jj), c_a, c_b);
+	prior_c += dnorm_log(c(jj), c_a, c_b);
       }      
     }
     
@@ -1039,7 +1041,8 @@ AScalar ads::eval_hyperprior() {
       /* const AScalar prior_u = prior_u_mean + prior_u_log_sd + prior_u_off; */
       
       for (int jj=0; jj<J; jj++) {      
-	prior_u += dlogitbeta_log(logit_u(jj), u_a, u_b);
+	//	prior_u += dlogitbeta_log(logit_u(jj), u_a, u_b);
+	prior_u += dnorm_log(u(jj), u_a, u_b);
       }  
     }
     
@@ -1195,18 +1198,18 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 
   // Return values for A
 
-  NumericVector LC(logit_c.size());
-  NumericVector LU(logit_u.size());
+  NumericVector LC(c.size());
+  NumericVector LU(u.size());
   double Ldelta = CppAD::Value(logit_delta);
   NumericMatrix MV1(V1.rows(), V1.cols());
   NumericMatrix MV2(V2.rows(), V2.cols());
   NumericMatrix MW(W.rows(), W.cols());
 
-  for (size_t i=0; i<logit_c.size(); i++) {
-    LC(i) = Value(logit_c(i));
+  for (size_t i=0; i<c.size(); i++) {
+    LC(i) = Value(c(i));
   }
-  for (size_t i=0; i<logit_u.size(); i++) {
-    LU(i) = Value(logit_u(i));
+  for (size_t i=0; i<u.size(); i++) {
+    LU(i) = Value(u(i));
   }
 
   for (size_t i=0; i<V1.rows(); i++) {
@@ -1249,8 +1252,8 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
     Greturn(tt) = wrap(GG);
   }
 
-  List res = List::create(Named("logit_c") = wrap(LC),
-			  Named("logit_u") = wrap(LU),
+  List res = List::create(Named("c") = wrap(LC),
+			  Named("u") = wrap(LU),
 			  Named("logit_delta") = wrap(Ldelta),
 			  Named("V1") = wrap(MV1),
 			  Named("V2") = wrap(MV2),
