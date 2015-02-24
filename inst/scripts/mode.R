@@ -15,7 +15,7 @@ set.seed(1234)
 start.true.pars <- FALSE
 
 mod.name <- "hdlm"
-data.name <- "sim"
+data.name <- "tti"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
@@ -29,7 +29,7 @@ flags <- list(include.phi=FALSE,
               add.prior=TRUE,
               include.X=TRUE,
               standardize=FALSE,
-              A.scale = 1000000,
+              A.scale = 10000000,
               ##A.scale = 1,
               W1.LKJ = TRUE,  # W1.LKJ true means we do LKJ, otherwise same as W2
               fix.V1 = FALSE,
@@ -251,7 +251,7 @@ if (flags$add.prior) {
         ## LKJ prior on W1.  Scale parameter has truncated(0) normal prior
         
         if (flags$W1.LKJ) {
-            prior.W1 <- list(scale.mode=0, scale.s=2, eta=1)
+            prior.W1 <- list(scale.mode=0, scale.s=1, eta=2)
         } else {
             prior.W1 <- list(diag.scale=.01, diag.mode=0,
                              fact.scale=.01, fact.mode=0)

@@ -667,8 +667,8 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
 
     if (include_u) {
 
-    u = par.segment(ind, J);
-    ind += J;
+      u = par.segment(ind, J);
+      ind += J;
 
     /* u_mean = par(ind++); //ind increments after pull */
     /* u_log_sd = par(ind++); // ind increments after pull */
@@ -1135,31 +1135,31 @@ void ads::set_Ht(const int& tt) {
     
   /* // Estimate probability that sign(qij)<0 */
   
-  /* AScalar ct = nuT - P - 2*J; */
-  /* Eigen::Matrix<AScalar, Dynamic, Dynamic> Pneg(J,J); */
-  /* Pneg.setZero(); */
+  AScalar ct = nuT - P - 2*J;
+  Eigen::Matrix<AScalar, Dynamic, Dynamic> Pneg(J,J);
+  Pneg.setZero();
   
   /* if (ct<30) {     */
   /*   // use CDF of student T */
-  /*   for (size_t col=0; col<J; col++) { */
-  /*     for (size_t row=0; row<J; row++) { */
-  /* 	AScalar mm = M2t(row+1, col); */
-  /* 	AScalar dd = C2t(row+1, row+1) * OmegaT(col, col); */
-  /* 	AScalar IB = incbeta(ct*mm*mm  / (ct*mm*mm + dd*dd), 0.5, 0.5*ct); */
-  /* 	Pneg(row,col) = 0.5 * (1.0 - sign(mm)*IB); */
-  /*     } */
-  /*   }    */
+    /* for (size_t col=0; col<J; col++) { */
+    /*   for (size_t row=0; row<J; row++) { */
+    /* 		AScalar mm = M2t(row+1, col); */
+    /* 		AScalar dd = C2t(row+1, row+1) * OmegaT(col, col); */
+    /* 		AScalar IB = incbeta(ct*mm*mm  / (ct*mm*mm + dd*dd), 0.5, 0.5*ct); */
+    /* 		Pneg(row,col) = 0.5 * (1.0 - sign(mm)*IB); */
+    /*   } */
+    /* } */
   /* } else { */
   /*   // use CDF of normal     */
-  /*   for (size_t col=0; col<J; col++) { */
-  /*     for (size_t row=0; row<J; row++) { */
-  /* 	AScalar mm = M2t(row+1, col); */
-  /* 	AScalar dd = C2t(row+1, row+1) * OmegaT(col, col); */
-  /* 	Pneg(row, col) = exp(pnorm_log(0, mm, dd/ct)); */
-  /*     } */
-  /*   }     */
-  /* } */
-  /* Ht.array() = (1.0 - 2.0 * Pneg.array()) * Ht.array(); */
+    for (size_t col=0; col<J; col++) {
+      for (size_t row=0; row<J; row++) {
+    	AScalar mm = M2t(row+1, col);
+    	AScalar dd = C2t(row+1, row+1) * OmegaT(col, col);
+    	Pneg(row, col) = exp(pnorm_log(0, mm, dd/ct));
+      }
+    }
+    /* } */
+    Ht.array() *= 1.0 - 2.0 * Pneg.array();
 
   
 } // end set_Ht
