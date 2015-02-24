@@ -306,6 +306,8 @@ ads::ads(const List& params)
     nfact_V2 = as<int>(dimensions["nfact.V2"]);
   }
 
+  Rcout << "nfact_V1 = " << nfact_V1 << "\nnfact_V2 = " << nfact_V2 << "\n";
+  
   if (!fix_W) {
     if (P>0) {
       nfact_W2 = as<int>(dimensions["nfact.W2"]);

@@ -38,8 +38,8 @@ flags <- list(include.phi=FALSE,
               estimate.M20 = TRUE
               )
 
-nfact.V1 <- 1
-nfact.V2 <- 1
+nfact.V1 <- 0
+nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
 
@@ -141,8 +141,8 @@ M20 <- matrix(0,1+P+J,J)
 
 if (flags$estimate.M20) {
     M20.mean <- M20
-    M20.cov.row <- 10*diag(1+P+J)
-    M20.cov.col <- 10*diag(J)
+    M20.cov.row <- 50*diag(1+P+J)
+    M20.cov.col <- 50*diag(J)
     prior.M20 <- list(mean=M20,
                       chol.row = t(chol(M20.cov.row)),
                       chol.col = t(chol(M20.cov.col))
@@ -152,7 +152,7 @@ if (flags$estimate.M20) {
     prior.M20 <- list(M20=M20)
 }
 
-C20 <- 5*diag(1+P+J,1+P+J)
+C20 <- 50*diag(1+P+J,1+P+J)
 
 
 E.Sigma <- 0.1 * diag(J) ## expected covariance across brands
@@ -204,7 +204,7 @@ if (flags$add.prior) {
     
     if (flags$include.c) {
 
-        prior.c <- list(mean=0, sd=1)
+        prior.c <- list(mean=0, sd=4)
  
         ## prior.c.mean <- 0       
         ## prior.c <- list(mean.mean=prior.c.mean,
@@ -474,7 +474,7 @@ opt3 <- trust.optim(opt2$par,
                     method="SR1",
                     control=list(
                         report.level=5L,
-                        report.precision=3L,
+                        report.precision=4L,
                         maxit=3000L,
                         function.scale.factor=-1,
                         preconditioner=0,
@@ -482,7 +482,7 @@ opt3 <- trust.optim(opt2$par,
                         contract.factor=.4,
                         expand.factor=2,
                         expand.threshold.radius=.85,
-                        report.freq = 1L
+                        report.freq = 5L
                         )
                     )
 
@@ -493,7 +493,7 @@ opt <- trust.optim(opt3$solution,
                    method="BFGS",
                    control=list(
                        report.level=5L,
-                       report.precision=3L,
+                       report.precision=4L,
                        maxit=3000L,
                        function.scale.factor=-1,
                        preconditioner=0,

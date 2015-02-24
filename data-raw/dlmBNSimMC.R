@@ -29,7 +29,7 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 
 # create Y
 N <- 42  # number of 'sites'
-T <- 226  # number of time periods
+T <- 220  # number of time periods
 Tb <- 0  # number of burnin periods
 J <- 3  # number of equations
 P <- J  # number of time varying covariates per city (excluding intercept)
@@ -37,12 +37,24 @@ K1 <- 2  # number of non time varying covariates per city at top level (includin
 ##Cvec <- rnorm(J, mean = 0.1, sd = 0.03)  # wearout per period
 ##Uvec <- rnorm(J, mean = 0.15, sd = 0.05)  # wearout due to repetition
 
-Cvec <- seq(.1,.5,length=J)
-Uvec <- seq(.8, .03, length=J)
+Cvec <- c(.04, .36, .91)
+Uvec <- c(-.04, .40, .20)
+
+
+Theta2.0 <- matrix(rep(0, 1 + J + P), nrow = (1 + J + P), ncol = J)
+Theta2.0[1, ] <- c(.01, .16, .08)
+Theta2.0[1 + 1:J, ] <- -0.005
+# Theta2.0[1+1:J,]<- 0
+Theta2.0[(J + 2):(1 + J + P), ] <- 1
+for (j in 1:J) {
+    Theta2.0[1+J+j, j] <- -2
+    Theta2.0[1+j, j] <- 0.25
+    # Theta2.0[1+J+j,j]<- 0 Theta2.0[1+j,j]<- 0
+}
 
 ## parameters
-delta <- 0.15
-Theta12 <- rnorm(K1 * J, sd = 0.3)
+delta <- 0.047
+Theta12 <- rnorm(K1 * J, mean = .02, sd = 0.03)
 dim(Theta12) <- c(K1, J)
 V <- list()
 FF <- list()
@@ -105,16 +117,7 @@ V[[1]] <- diag(.1, nrow = N)
 
 V[[2]] <- diag(N * (1 + P)) * 0.1
 
-Theta2.0 <- matrix(rep(0, 1 + J + P), nrow = (1 + J + P), ncol = J)
-Theta2.0[1, ] <- 25
-Theta2.0[1 + 1:J, ] <- -0.005
-# Theta2.0[1+1:J,]<- 0
-Theta2.0[(J + 2):(1 + J + P), ] <- 1
-for (j in 1:J) {
-    Theta2.0[1+J+j, j] <- -2
-    Theta2.0[1+j, j] <- 0.25
-    # Theta2.0[1+J+j,j]<- 0 Theta2.0[1+j,j]<- 0
-}
+
 
 # true parameters
 T1 <- list()
