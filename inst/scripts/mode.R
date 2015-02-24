@@ -8,6 +8,7 @@ library(numDeriv)
 library(trustOptim)
 library(plyr)
 library(reshape2)
+library(Rcgmin)
 ##library(ads)
 
 set.seed(1234)
@@ -35,7 +36,7 @@ flags <- list(include.phi=FALSE,
               fix.V1 = FALSE,
               fix.V2 = FALSE,
               fix.W = FALSE,
-              estimate.M20 = TRUE
+              estimate.M20 = FALSE
               )
 
 nfact.V1 <- 0
@@ -455,18 +456,27 @@ tg <- system.time(df <- get.df(start))
 print(tg)
 
 
-opt2 <- optim(start,
+opt1 <- optim(start,
              fn=get.f,
              gr=get.df,
              hessian=FALSE,
-             method="BFGS",
+             method="CG",
              control=list(
                fnscale=-1,
                REPORT=1,
                trace=3,
-               maxit=30
+               maxit=20
                )
              )
+
+opt2 <- opt1
+
+## opt2 <- Rcgmin(opt1$par,
+##                fn=function(x) -get.f(x),
+##                gr=function(x) -get.df(x),
+##                control=list(trace=2,
+##                    maxit=31)
+##                )
 
 opt3 <- trust.optim(opt2$par,                    
                     fn=get.f,
@@ -503,6 +513,7 @@ opt <- trust.optim(opt3$solution,
                      )
                    )
 
+opt <- opt3
 opt$par <- opt$solution
 
                      
@@ -588,6 +599,9 @@ sol$uj <- sol$u
 
 
 parcheck <- cl$par.check(opt$par)
+
+
+stop()
 
 cat("Computing Hessian\n")
 hs <- get.hessian(opt$par)

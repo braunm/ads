@@ -1147,6 +1147,7 @@ void ads::set_Ht(const int& tt) {
     /* 		AScalar dd = C2t(row+1, row+1) * OmegaT(col, col); */
     /* 		AScalar IB = incbeta(ct*mm*mm  / (ct*mm*mm + dd*dd), 0.5, 0.5*ct); */
     /* 		Pneg(row,col) = 0.5 * (1.0 - sign(mm)*IB); */
+  /*  Ht(row,col) *= 1 - 2*Pneg(row,col); */
     /*   } */
     /* } */
   /* } else { */
@@ -1155,11 +1156,14 @@ void ads::set_Ht(const int& tt) {
       for (size_t row=0; row<J; row++) {
     	AScalar mm = M2t(row+1, col);
     	AScalar dd = C2t(row+1, row+1) * OmegaT(col, col);
-    	Pneg(row, col) = exp(pnorm_log(0, mm, dd/ct));
+	//	Pneg(row, col) = exp(pnorm_log(0, mm, dd/ct));
+	//	Ht(row,col) *= 1-2*exp(pnorm_log(0, mm, dd/ct));
+	Ht(row,col) *= -Ht(row,col) * expm1(M_LN2 + pnorm_log(0, mm, dd/ct));
+	// IS dd/ct SO small that it causes underflow, and thus NaN gradient?
+	assert(my_finite(Ht(row,col)));
       }
     }
     /* } */
-    Ht.array() *= 1.0 - 2.0 * Pneg.array();
 
   
 } // end set_Ht
@@ -1197,7 +1201,7 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
   using Rcpp::as;
 
   unwrap_params(P);
-
+  eval_LL();
   // Return values for A
 
   NumericVector LC(c.size());
@@ -1206,6 +1210,9 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
   NumericMatrix MV1(V1.rows(), V1.cols());
   NumericMatrix MV2(V2.rows(), V2.cols());
   NumericMatrix MW(W.rows(), W.cols());
+  NumericMatrix M2treturn(M2t.rows(), M2t.cols());
+  NumericMatrix C2treturn(C2t.rows(), C2t.cols());
+  NumericMatrix OmegaTreturn(OmegaT.rows(), OmegaT.cols());
 
   for (size_t i=0; i<c.size(); i++) {
     LC(i) = Value(c(i));
@@ -1232,23 +1239,34 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
     }
   }
 
-  Rcpp::List Areturn(T);  
-  for (size_t ti=0; ti<A.size(); ti++) {
-    //   Rcout << "A[" << ti << "] = " << A[ti] << "\n";
-    Rcpp::NumericVector Atj(J);
-    for (size_t j=0; j<J; j++) {
-      Atj(j) = Value(A[ti](j));
+  for (size_t i=0; i<M2t.rows(); i++) {
+    for (size_t j=0; j<M2t.cols(); j++) {
+      M2treturn(i,j) = Value(M2t(i,j));
     }
-    Areturn(ti) = wrap(Atj);
   }
 
-  Rcpp::List Greturn(T);  
+
+  for (size_t i=0; i<C2t.rows(); i++) {
+    for (size_t j=0; j<C2t.cols(); j++) {
+      C2treturn(i,j) = Value(C2t(i,j));
+    }
+  }
+
+
+  for (size_t i=0; i<OmegaT.rows(); i++) {
+    for (size_t j=0; j<OmegaT.cols(); j++) {
+      OmegaTreturn(i,j) = Value(OmegaT(i,j));
+    }
+  }
+
+
+  Rcpp::List Greturn(T);
   for (size_t tt=0; tt<T; tt++) {
     set_Gt(tt);
     Rcpp::NumericMatrix GG(Gt.rows(), Gt.cols());
     for (size_t col=0; col < Gt.cols(); col++) {
       for (size_t row=0; row < Gt.rows(); row++) {
-	GG(row, col) = Value(Gt(row, col));
+  	GG(row, col) = Value(Gt(row, col));
       }
     }
     Greturn(tt) = wrap(GG);
@@ -1260,7 +1278,9 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 			  Named("V1") = wrap(MV1),
 			  Named("V2") = wrap(MV2),
 			  Named("W") = wrap(MW),
-			  Named("A") = wrap(Areturn),
+			  Named("M2t") = wrap(M2treturn),
+			  Named("C2t") = wrap(C2treturn),
+			  Named("OmegaT") = wrap(OmegaTreturn),
 			  Named("Gt") = wrap(Greturn)
 			  );
   return(res);
