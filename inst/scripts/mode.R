@@ -16,7 +16,7 @@ set.seed(1234)
 start.true.pars <- FALSE
 
 mod.name <- "hdlm"
-data.name <- "tti"
+data.name <- "sim"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
@@ -26,17 +26,17 @@ save.file <- paste0("inst/results/",mod.name,"_",data.name,"_mode.Rdata")
 
 flags <- list(include.phi=FALSE,
               include.c=TRUE,
-              include.u=TRUE,
+              include.u=FALSE,
               add.prior=TRUE,
               include.X=TRUE,
               standardize=FALSE,
-              A.scale = 10000000,
+              A.scale = 1000,
               ##A.scale = 1,
               W1.LKJ = TRUE,  # W1.LKJ true means we do LKJ, otherwise same as W2
               fix.V1 = FALSE,
               fix.V2 = FALSE,
               fix.W = FALSE,
-              estimate.M20 = FALSE
+              estimate.M20 = TRUE
               )
 
 nfact.V1 <- 0
@@ -132,7 +132,7 @@ if (nfact.W2 > max.nfact.W2) stop("Too many factors for W2")
 ## We have to include these prior parameters
 
 M20 <- matrix(0,1+P+J,J)
-## M20[1,] <- 25
+M20[1,] <- 15
 ## M20[2:(J+1),] <- -.005
 ## M20[(J+2):(1+P+J),] <- 1
 ## for (j in 1:J) {
@@ -142,8 +142,8 @@ M20 <- matrix(0,1+P+J,J)
 
 if (flags$estimate.M20) {
     M20.mean <- M20
-    M20.cov.row <- 50*diag(1+P+J)
-    M20.cov.col <- 50*diag(J)
+    M20.cov.row <- 10*diag(1+P+J)
+    M20.cov.col <- 10*diag(J)
     prior.M20 <- list(mean=M20,
                       chol.row = t(chol(M20.cov.row)),
                       chol.col = t(chol(M20.cov.col))
@@ -153,7 +153,7 @@ if (flags$estimate.M20) {
     prior.M20 <- list(M20=M20)
 }
 
-C20 <- 50*diag(1+P+J,1+P+J)
+C20 <- .001*diag(1+P+J,1+P+J)
 
 
 E.Sigma <- 0.1 * diag(J) ## expected covariance across brands
@@ -231,7 +231,7 @@ if (flags$add.prior) {
     ## For V1, V2, and W1, W2:   normal or truncated normal priors (if needed)
 
     if (!flags$fix.V1) {        
-        prior.V1 <- list(diag.scale=2, diag.mode=1,
+        prior.V1 <- list(diag.scale=1, diag.mode=.1,
                          fact.scale=1, fact.mode=0)
     } else {
         prior.V1 <-  NULL
@@ -239,14 +239,14 @@ if (flags$add.prior) {
 
 
     if (!flags$fix.V2) {
-        prior.V2 <- list(diag.scale=2, diag.mode=1,
+        prior.V2 <- list(diag.scale=1, diag.mode=.1,
                          fact.scale=1, fact.mode=0)
     } else {
         prior.V2 = NULL
     }
 
     if (!flags$fix.W) {
-        prior.W2 <- list(diag.scale=2, diag.mode=1,
+        prior.W2 <- list(diag.scale=1, diag.mode=.1,
                          fact.scale=.01, fact.mode=0)
         
         ## LKJ prior on W1.  Scale parameter has truncated(0) normal prior
@@ -387,7 +387,7 @@ if (flags$fix.V2) {
 
 
 if (flags$fix.W) {
-    fixed.cov$W <- .1*diag(1+J+P)
+    fixed.cov$W <- .001*diag(1+J+P)
     W1.start <- NULL
     W2.start <- NULL    
 } else {
@@ -460,12 +460,12 @@ opt1 <- optim(start,
              fn=get.f,
              gr=get.df,
              hessian=FALSE,
-             method="CG",
+             method="BFGS",
              control=list(
                fnscale=-1,
                REPORT=1,
                trace=3,
-               maxit=20
+               maxit=200
                )
              )
 

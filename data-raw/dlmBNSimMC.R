@@ -28,7 +28,7 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 }
 
 # create Y
-N <- 42  # number of 'sites'
+N <- 30  # number of 'sites'
 T <- 220  # number of time periods
 Tb <- 0  # number of burnin periods
 J <- 3  # number of equations
@@ -182,7 +182,7 @@ for (t in 1:T) {
     
     epsW <- rmvMN(1, , W, Sigma)
     Theta2t <- Gt %*% Theta2t + epsW
-    Theta2t[2:(J+1),] <- Theta2t[2:(J+1),] + Ht
+    Theta2t[2:(J+1),] <- Theta2t[2:(J+1),] +  sign(Theta2t[2:(J+1),])*Ht
     T2[[t]] <- Theta2t
     
     epsV2 <- rmvMN(1, , V[[2]], Sigma)

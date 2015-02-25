@@ -1156,15 +1156,13 @@ void ads::set_Ht(const int& tt) {
       for (size_t row=0; row<J; row++) {
     	AScalar mm = M2t(row+1, col);
     	AScalar dd = C2t(row+1, row+1) * OmegaT(col, col);
-	//	Pneg(row, col) = exp(pnorm_log(0, mm, dd/ct));
-	//	Ht(row,col) *= 1-2*exp(pnorm_log(0, mm, dd/ct));
-	Ht(row,col) *= -Ht(row,col) * expm1(M_LN2 + pnorm_log(0, mm, dd/ct));
-	// IS dd/ct SO small that it causes underflow, and thus NaN gradient?
+	Pneg(row, col) = pnorm(AScalar(0), mm, dd/ct);
+	//	Ht(row, col) = -Ht(row,col) * erf(-mm * ct * M_SQRT1_2 / dd)
 	assert(my_finite(Ht(row,col)));
       }
     }
     /* } */
-
+    Ht.array() *= 1 - 2*Pneg.array();
   
 } // end set_Ht
 
