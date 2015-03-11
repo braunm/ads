@@ -146,19 +146,16 @@ if (flags$estimate.M20) {
 }
 
 
-asymp <- M20[2:(J+1),]
-
 if (flags$estimate.asymptote) {
-    asymp.mean <- asymp
     asymp.cov.row <- 500*diag(J)
     asymp.cov.col <- 500*diag(J)
-    prior.asymp <- list(mean=asymp,
+    prior.asymp <- list(
                       chol.row = t(chol(asymp.cov.row)),
                       chol.col = t(chol(asymp.cov.col))
                       )
     
 } else {
-    prior.asymp <- list(asymp=asymp)
+    prior.asymp <- list(asymp=M20[2:(J+1),])
 }
 
 C20 <- 50*diag(1+P+J,1+P+J)
@@ -213,15 +210,15 @@ if (flags$add.prior) {
     
     if (flags$include.c) {
 
-        prior.c <- list(mean=-.5, sd=25)
+     ##   prior.c <- list(mean=-.5, sd=25)
  
-        ## prior.c.mean <- 0       
-        ## prior.c <- list(mean.mean=prior.c.mean,
-        ##                 mean.sd=1,
-        ##                 sd.mean=.1,
-        ##                 sd.sd=.5)
+        prior.log.c.mean <- -.5       
+        prior.log.c <- list(mean.mean=prior.log.c.mean,
+                        mean.sd=5,
+                        sd.mean=1,
+                        sd.sd=5)
     } else {
-        prior.c <- NULL;
+        prior.log.c <- NULL;
     }
 
 
@@ -271,7 +268,7 @@ if (flags$add.prior) {
     prior.W1 <- NULL
     prior.W2 <- NULL
     prior.delta <- NULL
-    prior.c <- NULL
+    prior.log.c <- NULL
     prior.u <- NULL
     prior.theta12 <- NULL
 }
@@ -284,7 +281,7 @@ tmp <- list(M20=prior.M20,
             phi=prior.phi,
             theta12=prior.theta12,
             delta=prior.delta,
-            c=prior.c,
+            log.c=prior.log.c,
             u=prior.u,
             V=prior.V,
             W1=prior.W1, W2=prior.W2
@@ -303,7 +300,7 @@ if (flags$estimate.M20) {
 }
 
 if (flags$estimate.asymp) {
-    asymp.start <- asymp
+    asymp.start <- M20[2:(J+1),]
 } else {
     asymp.start <- NULL
 }
@@ -339,13 +336,13 @@ if (start.true.pars) {
 } else {
     if (flags$include.c) {
         ##    logit.c.start <- seq(-3,-1,length=J)
-        log.c.start <- rep(0,J)
-         ## c.mean.log.sd.start <- c(0,0)
-        ## c.off.start <- rep(0,J)
+     ##   log.c.start <- rep(0,J)
+          log.c.mean.log.sd.start <- c(-.5, 1)
+          log.c.off.start <- rep(0,J)
     } else {
-##        c.mean.log.sd.start <- c.off.start <- NULL
-##        logit.c.start <- NULL
-        log.c.start <- NULL
+        log.c.mean.log.sd.start <- c.off.start <- NULL
+        log.c.off.start <- NULL
+##        log.c.start <- NULL
     }
 
  if (flags$include.u) {
@@ -410,7 +407,8 @@ tmp <- list(
     asymp = asymp.start,
     theta12=theta12.start,
  ##   logit.c = logit.c.start,
-    log.c = log.c.start,
+    log.c.mean.log.sd = log.c.mean.log.sd.start,
+    log.c.off = log.c.off.start,
  ##   logit.u = logit.u.start,
     u = u.start,
 ##    c.mean.log.sd=c.mean.log.sd.start,
@@ -579,8 +577,8 @@ if (!flags$fix.W) {
 
 if (flags$include.c){
  ##   sol$cj <- exp(sol$logit.c)/(1+exp(sol$logit.c))
-    ##    sol$cj <- exp(sol$c.mean.log.sd[2]) * sol$c.off + sol$c.mean.log.sd[1]
-    sol$cj <- exp(sol$log.c)
+        sol$cj <- exp(exp(sol$log.c.mean.log.sd[2]) * sol$log.c.off + sol$log.c.mean.log.sd[1])
+    ##sol$cj <- exp(sol$log.c)
  }
 
 if (flags$include.u){
