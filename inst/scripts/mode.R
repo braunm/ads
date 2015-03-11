@@ -134,8 +134,8 @@ for (j in 1:J) {
 
 if (flags$estimate.M20) {
     M20.mean <- M20
-    M20.cov.row <- 100*diag(1+P+J)
-    M20.cov.col <- 100*diag(J)
+    M20.cov.row <- 1000*diag(1+P+J)
+    M20.cov.col <- 1000*diag(J)
     prior.M20 <- list(mean=M20,
                       chol.row = t(chol(M20.cov.row)),
                       chol.col = t(chol(M20.cov.col))
@@ -150,8 +150,8 @@ asymp <- M20[2:(J+1),]
 
 if (flags$estimate.asymptote) {
     asymp.mean <- asymp
-    asymp.cov.row <- 10*diag(J)
-    asymp.cov.col <- 10*diag(J)
+    asymp.cov.row <- 500*diag(J)
+    asymp.cov.col <- 500*diag(J)
     prior.asymp <- list(mean=asymp,
                       chol.row = t(chol(asymp.cov.row)),
                       chol.col = t(chol(asymp.cov.col))
@@ -161,7 +161,7 @@ if (flags$estimate.asymptote) {
     prior.asymp <- list(asymp=asymp)
 }
 
-C20 <- .001*diag(1+P+J,1+P+J)
+C20 <- 50*diag(1+P+J,1+P+J)
 
 
 E.Sigma <- 0.1 * diag(J) ## expected covariance across brands
@@ -213,7 +213,7 @@ if (flags$add.prior) {
     
     if (flags$include.c) {
 
-        prior.c <- list(mean=-.5, sd=.5)
+        prior.c <- list(mean=-.5, sd=25)
  
         ## prior.c.mean <- 0       
         ## prior.c <- list(mean.mean=prior.c.mean,
