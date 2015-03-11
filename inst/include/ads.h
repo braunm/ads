@@ -84,6 +84,10 @@ private:
   MatrixXA mean_M20;
   MatrixXA chol_cov_row_M20;
   MatrixXA chol_cov_col_M20;
+
+  MatrixXA mean_asymp;
+  MatrixXA chol_cov_row_asymp;
+  MatrixXA chol_cov_col_asymp;
   
   AScalar c_mean_pmean;
   AScalar c_mean_psd;
@@ -148,6 +152,7 @@ private:
 
   
   MatrixXA phi; // J x J
+  MatrixXA asymp;
   VectorXA V_log_diag;
   AScalar W1_scale;
   AScalar W2_scale;
@@ -185,6 +190,7 @@ private:
   VectorXA chol_DX_D;
   
   VectorXA c;
+  VectorXA log_c;
   VectorXA u;
   //  VectorXA logit_c;
   // VectorXA logit_u;
@@ -202,6 +208,7 @@ private:
   bool fix_V;
   bool fix_W;
   bool estimate_M20;
+  bool estimate_asymptote;
 
   AScalar A_scale;
     
@@ -241,6 +248,7 @@ ads::ads(const List& params)
   fix_V = as<bool>(flags["fix.V"]);
   fix_W = as<bool>(flags["fix.W"]);
   estimate_M20 = as<bool>(flags["estimate.M20"]);
+  estimate_asymptote = as<bool>(flags["estimate.asymptote"]);
 
   
 
@@ -378,7 +386,7 @@ ads::ads(const List& params)
   
   if (include_c) {
     c.resize(J);
-    //    logit_c.resize(J);
+    log_c.resize(J);
    }
 
   if (include_u) {
@@ -394,6 +402,8 @@ ads::ads(const List& params)
     Pneg.resize(J,J);   
   }
 
+  asymp.resize(J,J);
+
   Rcout << "Allocating memory for intermediate parameters\n";
   
   Gt.resize(1+J+P,1+J+P);
@@ -407,7 +417,6 @@ ads::ads(const List& params)
   OmegaT.resize(J,J);
   QYf.resize(N,J);
   tmpNJ.resize(N,J);
-
 
   Rcout << "Required prior parameters\n";
   
@@ -426,7 +435,20 @@ ads::ads(const List& params)
     const Map<MatrixXd> M20_d(as<Map<MatrixXd> >(priors_M20["M20"]));
     M20 = M20_d.cast<AScalar>();
   }
+
+  mean_asymp.resize(J,J);
   
+  if (estimate_asymptote) {
+    const List priors_asymp = as<List>(priors["asymp"]);    
+    //    const Map<MatrixXd> mean_asymp_d(as<Map<MatrixXd> >(priors_asymp["mean"]));
+    //  mean_asymp = mean_asymp_d.cast<AScalar>();
+    const Map<MatrixXd> chol_cov_row_asymp_d(as<Map<MatrixXd> >(priors_asymp["chol.row"]));
+    chol_cov_row_asymp = chol_cov_row_asymp_d.cast<AScalar>();
+    const Map<MatrixXd> chol_cov_col_asymp_d(as<Map<MatrixXd> >(priors_asymp["chol.col"]));
+    chol_cov_col_asymp = chol_cov_col_asymp_d.cast<AScalar>();
+  }
+
+
   const Map<MatrixXd> C20_d(as<Map<MatrixXd> >(priors["C20"]));
   C20 = C20_d.cast<AScalar>();
 
@@ -593,6 +615,17 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     M20 = MatrixXA::Map(par.derived().data()+ind,1+P+J,J);
     ind += (1+P+J)*J;
   }
+
+  mean_asymp = M20.middleRows(1,J);
+
+  // unwrap asymp, if needed
+
+  if (estimate_asymptote) {
+    asymp = MatrixXA::Map(par.derived().data()+ind,J,J);
+    ind += J*J;
+  } else {
+    asymp = M20.middleRows(1, J);
+  }
   
   // unwrap theta12 and construct Ybar
 
@@ -613,7 +646,7 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
   if (include_c) {
 
     //  logit_c = par.segment(ind, J);
-    c = par.segment(ind, J);
+    log_c = par.segment(ind, J);
     ind += J;
      
     /* c_mean = par(ind++); //ind increments after pull */
@@ -623,7 +656,7 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     /* ind += J; */
     /* logit_c.array() = c_sd * c_off.array() + c_mean; */
 
-    //   c.array() = logit_c.array().exp()/(1+logit_c.array().exp()); 
+    c.array() = log_c.array().exp();
    }
 
 
@@ -947,7 +980,7 @@ AScalar ads::eval_hyperprior() {
 
       for (int jj=0; jj<J; jj++) {      
 	//	prior_c += dlogitbeta_log(logit_c(jj), c_a, c_b);
-	prior_c += dnorm_log(c(jj), c_pmean, c_psd);
+	prior_c += dnorm_log(log_c(jj), c_pmean, c_psd); // on LOG c
       }      
     }
     
@@ -985,16 +1018,25 @@ AScalar ads::eval_hyperprior() {
 				 chol_cov_col_M20,
 				 false);
     }
+
+
+    AScalar prior_asymp = 0;
+    if (estimate_asymptote) {
+      prior_asymp = MatNorm_logpdf(asymp, mean_asymp,
+				   chol_cov_row_asymp,
+				   chol_cov_col_asymp,
+				   false);      
+    }
     
     AScalar prior_logit_delta = dlogitbeta_log(logit_delta, delta_a, delta_b);
-    AScalar res= prior_c + prior_u + prior_logit_delta + prior_theta12 + prior_phi + prior_mats + prior_M20;
+    AScalar res= prior_c + prior_u + prior_logit_delta + prior_theta12 + prior_phi + prior_mats + prior_M20 + prior_asymp;
     
     return(res);
 }
 
 // Afunc
-AScalar ads::Afunc(const AScalar& aT, const AScalar& A_scale) {
-  AScalar res = log( 1.0 + aT );
+AScalar ads::Afunc(const AScalar& aT, const AScalar& s) {
+  AScalar res = log( 1.0 + aT/s);
   return(res);
 }
 
@@ -1010,6 +1052,7 @@ void ads::set_Gt(const int& tt) {
   Gt(0,0) = 1.0 - delta;
   for (int j=0; j<J; j++) {
     Gt(0, j+1) = Afunc(A[tt](j), A_scale);
+
     
     if (include_c) {
       if (include_u) {
@@ -1019,6 +1062,7 @@ void ads::set_Gt(const int& tt) {
 	// c, not u
 	Gt(j+1, j+1) = 1.0 - c(j);
       }
+      Gt(j+1,j+1) -= (c(j) + delta) * AjIsZero[tt](j);     
     } else {
       if (include_u) {
 	// u, not c
@@ -1027,9 +1071,8 @@ void ads::set_Gt(const int& tt) {
 	// neither c nor u
 	Gt(j+1, j+1) = 1.0;
       }
+      Gt(j+1,j+1) -= delta * AjIsZero[tt](j);
     }
-
-    Gt(j+1,j+1) -= delta * AjIsZero[tt](j);
   } // end loop over J
 
   
@@ -1045,7 +1088,16 @@ void ads::set_Gt(const int& tt) {
 void ads::set_Ht(const int& tt) {
 
   Ht.setZero();
-  Ht.array().colwise() += delta * AjIsZero[tt].array(); //H1t
+
+  for (int j=0; j<J; j++) {
+    AScalar tmp;
+    if (include_c) {
+      tmp = c(j) + delta;
+    } else {
+      tmp = delta;
+    }
+    Ht.col(j).array() = tmp * AjIsZero[tt].array() * asymp.col(j).array();
+  }
   
   if (include_phi) {
     Ht += E[tt].asDiagonal() * phi; // H2t
@@ -1053,9 +1105,9 @@ void ads::set_Ht(const int& tt) {
     
   /* // Estimate probability that sign(qij)<0 */
   
-  AScalar ct = nuT - P - 2*J;
-  Eigen::Matrix<AScalar, Dynamic, Dynamic> Pneg(J,J);
-  Pneg.setZero();
+  /* AScalar ct = nuT - P - 2*J; */
+  /* Eigen::Matrix<AScalar, Dynamic, Dynamic> Pneg(J,J); */
+  /* Pneg.setZero(); */
   
   /* if (ct<30) {     */
   /*   // use CDF of student T */
@@ -1070,17 +1122,17 @@ void ads::set_Ht(const int& tt) {
     /* } */
   /* } else { */
   /*   // use CDF of normal     */
-    for (size_t col=0; col<J; col++) {
-      for (size_t row=0; row<J; row++) {
-    	AScalar mm = M2t(row+1, col);
-    	AScalar dd = C2t(row+1, row+1) * OmegaT(col, col);
-	Pneg(row, col) = pnorm(AScalar(0), mm, dd/ct);
-	//	Ht(row, col) = -Ht(row,col) * erf(-mm * ct * M_SQRT1_2 / dd)
-	assert(my_finite(Ht(row,col)));
-      }
-    }
+    /* for (size_t col=0; col<J; col++) { */
+    /*   for (size_t row=0; row<J; row++) { */
+    /* 	AScalar mm = M2t(row+1, col); */
+    /* 	AScalar dd = C2t(row+1, row+1) * OmegaT(col, col); */
+    /* 	Pneg(row, col) = pnorm(AScalar(0), mm, dd/ct); */
+    /* 	//	Ht(row, col) = -Ht(row,col) * erf(-mm * ct * M_SQRT1_2 / dd) */
+    /* 	assert(my_finite(Ht(row,col))); */
+    /*   } */
     /* } */
-    Ht.array() *= 1 - 2*Pneg.array();
+    /* /\* } *\/ */
+    /* Ht.array() *= 1 - 2*Pneg.array(); */
   
 } // end set_Ht
 

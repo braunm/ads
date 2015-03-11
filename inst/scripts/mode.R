@@ -9,7 +9,7 @@ library(trustOptim)
 library(plyr)
 library(reshape2)
 library(Rcgmin)
-##library(ads)
+
 
 set.seed(1234)
 
@@ -30,11 +30,12 @@ flags <- list(include.phi=FALSE,
               add.prior=TRUE,
               include.X=TRUE,  
               A.scale = 100000,
-              ##A.scale = 1,
+       ##       A.scale = 1,
               W1.LKJ = TRUE,  # W1.LKJ true means we do LKJ, otherwise same as W2
               fix.V = FALSE,
               fix.W = FALSE,
-              estimate.M20 = TRUE
+              estimate.M20 = TRUE,
+              estimate.asymptote = TRUE
               )
 
 nfact.V <- 0
@@ -68,6 +69,13 @@ F1 <- mcmod$F1[1:T]
 F2 <- mcmod$F2[1:T]
 A <- mcmod$A[1:T]
 ##A <- llply(mcmod$A[1:T],function(x) return(x/flags$A.scale))
+## A2 <- as.relistable(A2)
+## tmp <- unlist(A2)
+## mean.A <- mean(tmp[tmp>0])
+## sd.A <- sd(tmp[tmp>0])
+## tmp[tmp>0] <- (tmp[tmp>0]-mean.A)/sd.A
+## tmp[tmp!=0] <- tmp[tmp!=0] - min(tmp[tmp!=0]) + 1
+## A <- relist(tmp)
 
 if (flags$include.phi) {
   E <- mcmod$E[1:T]
@@ -117,17 +125,17 @@ if (nfact.W2 > max.nfact.W2) stop("Too many factors for W2")
 
 M20 <- matrix(0,1+P+J,J)
 M20[1,] <- 15
-## M20[2:(J+1),] <- -.005
-## M20[(J+2):(1+P+J),] <- 1
-## for (j in 1:J) {
-##     M20[J+1+j,j] <- -2
-##     M20[j+1,j] <- .25
-## }
+M20[2:(J+1),] <- -.005
+M20[(J+2):(1+P+J),] <- 1
+for (j in 1:J) {
+    M20[J+1+j,j] <- -2
+    M20[j+1,j] <- .25
+}
 
 if (flags$estimate.M20) {
     M20.mean <- M20
-    M20.cov.row <- 1000*diag(1+P+J)
-    M20.cov.col <- 1000*diag(J)
+    M20.cov.row <- 100*diag(1+P+J)
+    M20.cov.col <- 100*diag(J)
     prior.M20 <- list(mean=M20,
                       chol.row = t(chol(M20.cov.row)),
                       chol.col = t(chol(M20.cov.col))
@@ -135,6 +143,22 @@ if (flags$estimate.M20) {
     
 } else {
     prior.M20 <- list(M20=M20)
+}
+
+
+asymp <- M20[2:(J+1),]
+
+if (flags$estimate.asymptote) {
+    asymp.mean <- asymp
+    asymp.cov.row <- 10*diag(J)
+    asymp.cov.col <- 10*diag(J)
+    prior.asymp <- list(mean=asymp,
+                      chol.row = t(chol(asymp.cov.row)),
+                      chol.col = t(chol(asymp.cov.col))
+                      )
+    
+} else {
+    prior.asymp <- list(asymp=asymp)
 }
 
 C20 <- .001*diag(1+P+J,1+P+J)
@@ -189,7 +213,7 @@ if (flags$add.prior) {
     
     if (flags$include.c) {
 
-        prior.c <- list(mean=.5, sd=.25)
+        prior.c <- list(mean=-.5, sd=.5)
  
         ## prior.c.mean <- 0       
         ## prior.c <- list(mean.mean=prior.c.mean,
@@ -239,8 +263,9 @@ if (flags$add.prior) {
         prior.W2 <- NULL
     }
     
-} else {
-    
+} else {    
+    prior.M20 <- NULL
+    prior.asymp <- NULL
     prior.phi <- NULL
     prior.V <- NULL
     prior.W1 <- NULL
@@ -252,6 +277,7 @@ if (flags$add.prior) {
 }
 
 tmp <- list(M20=prior.M20,
+            asymp = prior.asymp,
             C20=C20,
             Omega0=Omega0,
             nu0=nu0,
@@ -274,6 +300,12 @@ if (flags$estimate.M20) {
     M20.start <- M20
 } else {
     M20.start <- NULL
+}
+
+if (flags$estimate.asymp) {
+    asymp.start <- asymp
+} else {
+    asymp.start <- NULL
 }
 
 if (flags$include.X) {
@@ -307,13 +339,13 @@ if (start.true.pars) {
 } else {
     if (flags$include.c) {
         ##    logit.c.start <- seq(-3,-1,length=J)
-        c.start <- rep(.2,J)
+        log.c.start <- rep(0,J)
          ## c.mean.log.sd.start <- c(0,0)
         ## c.off.start <- rep(0,J)
     } else {
 ##        c.mean.log.sd.start <- c.off.start <- NULL
 ##        logit.c.start <- NULL
-        c.start <- NULL
+        log.c.start <- NULL
     }
 
  if (flags$include.u) {
@@ -375,9 +407,10 @@ if (flags$fix.W) {
 
 tmp <- list(
     M20 = M20.start,
+    asymp = asymp.start,
     theta12=theta12.start,
  ##   logit.c = logit.c.start,
-    c = c.start,
+    log.c = log.c.start,
  ##   logit.u = logit.u.start,
     u = u.start,
 ##    c.mean.log.sd=c.mean.log.sd.start,
@@ -427,9 +460,9 @@ opt1 <- optim(start,
              method="BFGS",
              control=list(
                fnscale=-1,
-               REPORT=1,
+               REPORT=5,
                trace=3,
-               maxit=100
+               maxit=300
                )
              )
 
@@ -456,7 +489,7 @@ opt3 <- trust.optim(opt2$par,
                         contract.factor=.4,
                         expand.factor=2,
                         expand.threshold.radius=.85,
-                        report.freq = 5L
+                        report.freq = 10L
                         )
                     )
 
@@ -473,7 +506,7 @@ opt <- trust.optim(opt3$solution,
                        preconditioner=0,
                        stop.trust.radius=1e-12,
                        contract.factor=.7,
-                       report.freq=5L
+                       report.freq=10L
                      )
                    )
 
@@ -547,7 +580,7 @@ if (!flags$fix.W) {
 if (flags$include.c){
  ##   sol$cj <- exp(sol$logit.c)/(1+exp(sol$logit.c))
     ##    sol$cj <- exp(sol$c.mean.log.sd[2]) * sol$c.off + sol$c.mean.log.sd[1]
-    sol$cj <- sol$c
+    sol$cj <- exp(sol$log.c)
  }
 
 if (flags$include.u){
