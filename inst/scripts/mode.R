@@ -13,8 +13,6 @@ library(Rcgmin)
 
 set.seed(1234)
 
-start.true.pars <- FALSE
-
 mod.name <- "hdlm"
 data.name <- "tti"
 
@@ -306,55 +304,32 @@ if (flags$estimate.asymp) {
 }
 
 if (flags$include.X) {
-    if (start.true.pars) {
-        theta12.start <- true.pars$theta12
-    } else {
-        theta12.start <- matrix(0,K,J)
-    }
+    theta12.start <- matrix(0,K,J)   
 } else {
-  theta12.start <- NULL
+    theta12.start <- NULL
 }
 
-if (start.true.pars) {
-    if(flags$include.c) {
-    ##     c.mean.log.sd.start <- true.pars$c.mean.log.sd
-    ##     c.off.start <- true.pars$c.off
-    ## } else {
-    ##     c.mean.log.sd.start <- c.off.start  <- NULL
-        ## }
-    }
-
-    if(flags$include.u) {
-    ##     u.mean.log.sd.start <- true.pars$u.mean.log.sd
-    ##     u.off.start <- true.pars$u.off
-    ## } else {
-        ##      u.mean.log.sd.start <- u.off.start <- NULL
-        ## }
-    }
-
-    logit.delta.start <- true.pars$logit.delta
+if (flags$include.c) {
+    ##    logit.c.start <- seq(-3,-1,length=J)
+    ##   log.c.start <- rep(0,J)
+    log.c.mean.log.sd.start <- c(-.5, 1)
+    log.c.off.start <- rep(0,J)
 } else {
-    if (flags$include.c) {
-        ##    logit.c.start <- seq(-3,-1,length=J)
-     ##   log.c.start <- rep(0,J)
-          log.c.mean.log.sd.start <- c(-.5, 1)
-          log.c.off.start <- rep(0,J)
-    } else {
-        log.c.mean.log.sd.start <- c.off.start <- NULL
-        log.c.off.start <- NULL
-##        log.c.start <- NULL
-    }
-
- if (flags$include.u) {
-         u.start <- rep(.2,J)
-        ## u.mean.log.sd.start <- c(0,0)
-        ## u.off.start <- rep(0,J)        
-    } else {
-##       u.mean.log.sd.start <- u.off.start <- NULL
-        u.start <- NULL
-    } 
-    logit.delta.start <- 0    
+    log.c.mean.log.sd.start <- c.off.start <- NULL
+    log.c.off.start <- NULL
+    ##        log.c.start <- NULL
 }
+
+if (flags$include.u) {
+    u.start <- rep(.2,J)
+    ## u.mean.log.sd.start <- c(0,0)
+    ## u.off.start <- rep(0,J)        
+} else {
+    ##       u.mean.log.sd.start <- u.off.start <- NULL
+    u.start <- NULL
+} 
+logit.delta.start <- 0    
+
 
 
 if (flags$include.phi) {
