@@ -28,8 +28,7 @@ flags <- list(include.phi=FALSE,
               include.c=TRUE,
               include.u=FALSE,
               add.prior=TRUE,
-              include.X=TRUE,
-              standardize=FALSE,
+              include.X=TRUE,  
               A.scale = 100000,
               ##A.scale = 1,
               W1.LKJ = TRUE,  # W1.LKJ true means we do LKJ, otherwise same as W2
@@ -63,11 +62,7 @@ if (flags$include.X) K <- mcmod$dimensions$K else K <- 0
 P <- mcmod$dimensions$P
 
 Y <- mcmod$Y[1:T]
-if (flags$standardize) {
-  Y.mean <- mean(acast(melt(Y),Var1~Var2,fun.aggregate=mean))
-  Y.sd <- mean(acast(melt(Y),Var1~Var2,fun.aggregate=sd))
-  Y <- llply(Y,scale,center=rep(Y.mean,J),scale=rep(Y.sd,J))
-}
+
 
 F1 <- mcmod$F1[1:T]
 F2 <- mcmod$F2[1:T]
@@ -82,11 +77,6 @@ if (flags$include.phi) {
 
 if (flags$include.X) {
   X <- mcmod$X[1:T]
-  if (flags$standardize) {
-    X.mean <- colMeans(acast(melt(X),Var1~Var2,fun.aggregate=mean))
-    X.sd <- colMeans(acast(melt(X),Var1~Var2,fun.aggregate=sd))
-    X <- llply(X,scale,center=X.mean, scale=X.sd)
-  }
 } else {
   if (K!=0) stop("If not including X, K must be zero.")
   X <- NULL
