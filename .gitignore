@@ -7,3 +7,12 @@ data-raw/fetch_data.R
 .*~
 .DS_Store
 *.diff
+_region_.*
+*.aux
+*.log
+*.synctex.gz
+*.blg
+*.bcf
+*.bbl
+prv_*.log
+

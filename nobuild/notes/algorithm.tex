@@ -37,7 +37,7 @@
 \newcommand{\eps}{\varepsilon}
 \newcommand{\Igtz}{\mathbb{I}}
 %%\newcommand{\Igtz}{\mathbf{I}}
-
+\newcommand{\qbar}{\bar{q}}
 
 
 \newcommand{\relphantom}[1]{\mathrel{\phantom{#1}}}
@@ -46,6 +46,7 @@
 
 \title{Implementation notes for HDLM ad spend model}
 \author{Andr\'e Bonfrer and Michael Braun}
+\date{April 15, 2015}
 
 \begin{document}
 \maketitle
@@ -221,23 +222,44 @@ and the effect of competing brands' advertising on the focal brand's sales.
 
 One way to build dynamic advertising effectiveness is by using a differential equation with respect
 to time, of brand $j$'s advertising:
-\[
-\frac{dq_j}{dt} = -a(A_j)q_j +(1-\Igtz(A_j)) \delta (1 - q_j) 
-\]
-If advertising is positive, then it wears out as a function of $a()$ given above (e.g. $a(A) = c + wA$).  
-If advertising is turned off, then there is a rejuvenation effect given by $\delta (1 - q_j)$. 
-Naik et al (1998) point out that, if advertising is turned off, $q_{jt}$ tends to the following value:
-\[
-\lim_{t \rightarrow \infty} q_{jt} ~=  \frac{\delta}{c+\delta}
-\]
+\begin{align}
+\frac{dq_j}{dt} = -a(A_j)q_j +(1-\Igtz(A_j)) \delta (\qbar_j - q_j) 
+\end{align}
 
-The evolution of advertising effectiveness is then (let $dq = q_t - q_{t-1}$ and $dt=1$):
-\begin{eqnarray}
-q_{jt} - q_{jt-1} & = & -a(A_j) q_{jt-1} + (1-\Igtz(A_j))\delta (1- q_{jt-1})\nonumber\\
-q_{jt} & = & q_{jt-1} -a(A_j) q_{jt-1} + (1-\Igtz(A_j))\delta (1- q_{jt-1})\nonumber\\
-& = & q_{jt-1} \left[1-a(A_j) -\delta (1-\Igtz(A_j))\right]  + \delta (1- \Igtz(A_j))
-\label{eqn:dq1}
-\end{eqnarray}
+If $a(A_j)=c_j+u_jA_j$, then
+
+\begin{align}
+  \label{eq:1}
+  \frac{dq_j}{dt} = -\left(c_j+u_jA_j\right)q_j +(1-\Igtz(A_j)) \delta (\qbar_j - q_j) 
+\end{align}
+
+
+Solving this differential equation gives us
+\begin{align}
+  \label{eq:2}
+  q_j(t)&=
+\begin{cases}
+\dfrac{\delta\qbar}{c_j+\delta}+Ke^{-\left(c+\delta\right)t}&A_j=0\\
+Ke^{-\left(c+u_jA_j\right)t}&A_j>0
+\end{cases}
+\end{align}
+
+If there is no ad spend,
+$\lim\limits_{t\to\infty}q_j(t)=\dfrac{\delta\qbar}{c_j+\delta}$. When
+there is ad spend, $\lim\limits_{t\to\infty}q_j(t)=0$.
+
+In discrete time, 
+\begin{align}
+  \label{eq:3}
+  q_{jt}-q_{j,t-1}&=-\left(c_j+u_jA_j\right)+\delta\left(1-\Igtz(A_j)\right)\left(\qbar-q_{j,t-1}\right)\\
+&=-\left[c_j+u_jA_j+\delta\left(1-\Igtz(A_j)\right)\right]q_{j,t-1}+\delta\left(1-\Igtz(A_j)\right)\qbar\\
+q_{jt}&=\left[1-c_j-u_jA_j-\delta\left(1-\Igtz(A_j)\right)\right]q_{j,t-1}+\delta\left(1-\Igtz(A_j)\right)\qbar
+\end{align}
+
+
+START HERE
+
+
 
 A few notes about this.  First, it is only valid if $q>0$. For the cross effectiveness of 
 advertising in our competitive model, we need to allow for this to be negative.  If $q<0$ then we need a different
