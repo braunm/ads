@@ -23,7 +23,7 @@ save.file <- paste0("inst/results/",mod.name,"_",data.name,"_mode.Rdata")
 
 flags <- list(include.phi=FALSE,
               include.c=TRUE,
-              include.u=TRUE,
+              include.u=FALSE,
               add.prior=TRUE,
               include.X=TRUE,
               A.scale = 1000000,

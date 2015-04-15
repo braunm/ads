@@ -12,7 +12,7 @@ set.seed(10503)
 
 include.phi <- FALSE
 include.c <- TRUE
-include.u <- TRUE
+include.u <- FALSE
 
 # needed function for draws from a matrix normal
 # M = matrix of means, C is left variance, S is right variance
@@ -43,7 +43,7 @@ Cvec <- c(.04, .16, .21)            # wearout per period
 Uvec <- c(-.04, .20, .10)           # wearout due to repition
 
 
-Theta2.0 <- matrix(rep(0, 1 + J + P), nrow = (1 + J + P), ncol = J)
+Theta2.0 <- matrix(rep(0, 1+J + P), nrow = (1+J+P), ncol = J)
 Theta2.0[1, ] <- c(.01, .16, .08)
 Theta2.0[1 + 1:J, ] <- -0.005
 # Theta2.0[1+1:J,]<- 0
@@ -93,8 +93,8 @@ for (t in 1:T) {
 # time varying component
 F1l <- F1ml <- list()
 for (t in 1:T) {
-    F1l[[t]] <- matrix(0, nrow = N, ncol = N * (1 + P))
-    F1ml[[t]] <- Matrix(0, nrow = N, ncol = N * (1 + P))
+    F1l[[t]] <- matrix(0, nrow = N, ncol = N * (1+P))
+    F1ml[[t]] <- Matrix(0, nrow = N, ncol = N * (1+P))
     for (i in 1:N) {
         .draw <- c(1, log(rexp(P)))
         F1l[[t]][i, ((i-1) * (P+1) + 1):((i-1) * (P+1)+P+1)] <- .draw
@@ -146,9 +146,9 @@ for (t in 1:T) {
             }
         } else {
             if (include.u) {
-                Gt[j+1,j+1] <- 1 - Uvec[j]*Ac[t,j] - (Cvec[j]+delta)*(Ac[t,j]==0)
+                Gt[j+1,j+1] <- 1 - Uvec[j]*Ac[t,j] - delta*(Ac[t,j]==0)
             } else {
-                Gt[j+1, j+1] <- 1 - (Cvec[j]+delta)*(Ac[t,j]==0)
+                Gt[j+1, j+1] <- 1 - delta*(Ac[t,j]==0)
             }
         }
     }
@@ -156,9 +156,11 @@ for (t in 1:T) {
     ## Innovation component
     Ht <- matrix(0, nr = J, nc = J)
     for (j in 1:J) {
-        for(k in 1:J) Ht[j,k] <- ( delta + Cvec[j] ) * ( A[t,j]==0 ) * ( q0[j,k] )
-        if (include.phi) {
-            Ht[j,] <- Ht[j,] + phi[j,]*E[t,j]
+        for(k in 1:J) {
+            Ht[j,k] <- ( delta + Cvec[j] ) * ( A[t,j]==0 ) * ( q0[j,k] )
+            if (include.phi) {
+                Ht[j,] <- Ht[j,] + phi[j,]*E[t,j]
+            }
         }
     }
 
