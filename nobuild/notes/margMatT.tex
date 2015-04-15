@@ -1,0 +1,269 @@
+\documentclass[letter,11pt]{article}
+
+\usepackage[pdftex]{graphicx}
+
+\usepackage{geometry}
+\usepackage[singlespacing]{setspace}
+\usepackage[page]{appendix}
+%%\usepackage[color]{showkeys}
+
+%%\definecolor{labelkey}{rgb}{1,.5,0.2}
+%%\definecolor{refkey}{rgb}{0,0,0.8}
+
+%\usepackage{float}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{verbatim}
+\usepackage{mathpazo}
+\usepackage{caption}
+\usepackage{parskip}
+
+\geometry{left=1in,right=1in,top=1in,bottom=1in}
+\DeclareMathOperator\sgn{sgn}
+\DeclareMathOperator\Prob{Prob}
+\DeclareMathOperator\diag{diag}
+\DeclareMathOperator\erf{erf}
+
+
+
+\newcommand{\thetabar}{\bar\theta}
+\newcommand{\thetaij}{\theta_{ij}}
+\newcommand{\kron}{\otimes}
+\newcommand{\eps}{\varepsilon}
+\newcommand{\Igtz}{\mathbb{I}}
+\newcommand{\K}{\mathcal{K}}
+\newcommand{\A}{\mathcal{A}}
+\newcommand{\M}{\mathcal{M}}
+
+
+
+\newcommand{\relphantom}[1]{\mathrel{\phantom{#1}}}
+
+
+\usepackage[natbib=true,
+citestyle=authoryear-comp,
+style=authoryear,
+bibencoding=utf8]{biblatex}
+
+\ExecuteBibliographyOptions{maxcitenames=1,
+  maxbibnames=99,
+  citetracker=true,
+  dashed=false,
+  doi=false,
+  mergedate=false,
+  isbn=false}
+  
+\addbibresource{/Users/braunm/Documents/References/braun_refs.bib}
+
+
+\setlength{\bibitemsep}{\parskip}
+\AtEveryCitekey{\ifciteseen{}{\defcounter{maxnames}{3}}}
+\DeclareFieldFormat[article,incollection,unpublished]{title}{#1} %No quotes for article titles
+\DeclareFieldFormat[thesis]{title}{\mkbibemph{#1}} % Theses like book
+                                % titles
+\DeclareFieldFormat{pages}{#1} %% no pp prefix before page numbers
+\renewbibmacro{in:}{%
+  \ifentrytype{article}{}{ % Don't print In: for journal articles
+  \printtext{\bibstring{in}\intitlepunct}} %% but use elsewhere
+}
+\renewbibmacro*{volume+number+eid}{%
+  \printfield{volume}%
+  \printfield{number}%
+  \setunit{\addcomma\space}%
+  \printfield{eid}}
+\DeclareFieldFormat[article]{volume}{\mkbibbold{#1}}
+\DeclareFieldFormat[article]{number}{\mkbibparens{#1}}
+\DeclareFieldFormat[article]{date}{#1}
+\AtEveryBibitem{\clearfield{day}}
+\renewbibmacro*{issue+date}{% print month only
+  \printtext{%
+    \printfield{issue}%
+    \setunit*{\addspace}%
+\printtext{\printfield{month}}}
+  \newunit}
+
+\renewbibmacro*{publisher+location+date}{% no print year
+  \printlist{location}%
+  \iflistundef{publisher}
+    {\setunit*{\addcomma\space}}
+    {\setunit*{\addcolon\space}}%
+  \printlist{publisher}%
+  \setunit*{\addcomma\space}%
+%%\printdate
+  \newunit}
+
+\renewcommand*{\nameyeardelim}{~} %no comma in cite
+
+
+
+
+
+
+\title{Marginal Distribution of an Element of a Matrix-T R.V.}
+
+\begin{document}
+\maketitle
+Let $X\sim MatT(\mu,R,Q,\nu)$, where $X$ and $\mu$ are $p\times q$
+matrices, $R$ is a $p \times p$ matrix, and $Q$ is a $q \times q$
+matrix.  The degrees of freedom is $\nu\ge p+q$. In the sequel, define
+$c=\nu-p-q+1$.
+
+Let $a$ be a $q$-dimensional vector and let $b$ be a  $p$-dimensional
+vector.  Define
+\begin{align}
+  \label{eq:1}
+  t=\frac{ca'(X-\mu)'b}{(a'Qa)(b'Rb)}
+\end{align}
+
+From \citet[p. 116]{KotzNadarajah2004}, $t$ has a Student's t
+distribution with $c$ degrees of freedom.  Therefore,
+\begin{align}
+  \label{eq:2}
+  f(t)=\frac{\Gamma(\frac{c+1}{2})}{\Gamma(\frac{c}{2})\sqrt{c\pi}}\left(1+\frac{t^2}{c}\right)^{-\frac{c+1}{2}}
+\end{align}
+
+Suppose $a_j$ is all zeros, except for a 1 in the $j^{th}$ element,
+and suppose $b_i$ is all zeros, except for a 1 in the $i^{th}$
+element.  That means that
+\begin{align}
+  \label{eq:3}
+&a'(X-\mu)'b=x_{ij}-\mu_{ij}\\
+&a'Qa=Q_{jj}\\
+&b'Rb=R_{ii}\\
+&t=\frac{c(x_{ij}-\mu_{ij})}{R_{ii}Q_{jj}} \\
+&\frac{dt}{dx_{ij}}=\frac{c}{R_{ii}Q_{jj}}
+\end{align}
+The elements $R_{ii}$ and $Q_{jj}$ are diagonal elements from the
+covariance matrices, so they are always positive.
+
+Let
+$\K=\displaystyle\frac{\Gamma(\frac{c+1}{2})\sqrt{c}}{\Gamma(\frac{c}{2})\sqrt{\pi}R_{ii}Q_{jj}}$.
+By changing variables and including the Jacobian,
+\begin{align}
+  \label{eq:4}
+  f(x_{ij})=\K\left(1+\frac{c(x_{ij}-\mu_{ij})^2}{R_{ii}^2Q_{jj}^2}\right)^{-\frac{c+1}{2}}
+\end{align}
+
+This is a non-standardized Student's t distribution with mean
+$\mu_{ij}$ and scalaing parameter
+$\sigma=\displaystyle\frac{R_{ii}Q_{jj}}{c}$.  Note that this is not
+the same as a non-central t distribution, which is what is in R.  That
+means we need to compute the pdf and cdf ourselves.
+
+We want to know the probability that $x_{ij}<0$.  Let
+$z=\displaystyle\frac{\mu\sqrt{c}}{R_{ii}Q_{jj}}$. Through the magic of
+Mathematica, we get
+\begin{align}
+  \label{eq:5}
+  F(0)=\frac{1}{2}-\K\mu~_2F_1\left(\frac{1}{2},\frac{c+1}{2};\frac{3}{2}; -z^2\right)
+\end{align}
+
+This is not so hard to compute, but we can simplify some more.  Applying the transformation in Equation 15.8.1 in \citet{NIST2010}.
+\begin{align}
+  \label{eq:6}
+  \Prob(x_{ij}<0) =\frac{1}{2}-\K\mu \left(1+z^2\right)^{-\frac{1}{2}}~_2F_1\left(\frac{1}{2},1-\frac{c}{2};\frac{3}{2};\frac{z^2}{z^2+1}\right)
+\end{align}
+
+Using Equation 8.17.7 in \citet{NIST2010}, we can write this probability in
+terms of an incomplete beta function $\mathbb{B}(\cdot)$.
+\begin{align}
+  \label{eq:7}
+  \Prob(x_{ij}<0) &=\frac{1}{2}-\K\mu
+  \left(1+z^2\right)^{-\frac{1}{2}}~_2F_1\left(\frac{1}{2},1-\frac{c}{2};\frac{3}{2};\frac{z^2}{z^2+1}\right)\\
+&=\frac{1}{2}-\K\mu \left(1+z^2\right)^{-\frac{1}{2}}
+\frac{1}{2}\left(\frac{z^2}{1+z^2}\right)^{-\frac{1}{2}}\mathbb{B}\left(\frac{z^2}{1+z^2};\frac{1}{2},\frac{c}{2}\right)
+\end{align}
+
+When we substitute back $\K$ and $z$, and remember that
+$\sqrt{\pi}=\Gamma(\frac{1}{2})$, lots of stuff cancels out.  The
+probability reduces to a \emph{regularized}
+beta function $\widetilde{\mathbb{B}}(\cdot)$.
+\begin{align}
+  \label{eq:8}
+  \Prob(x_{ij}<0)=\frac{1}{2}\left[1-\sgn(\mu)\widetilde{\mathbb{B}}\left(\frac{c\mu^2}{c\mu^2+R_{ii}^2Q_{jj}^2};\frac{1}{2},\frac{c}{2}\right)\right]
+\end{align}
+
+(The sgn function returns -1 if $\mu<0$, 0 if $\mu=0$ and 1 if $\mu> 0$).  Note that the regularized beta function is equivalent to the cdf of a
+beta distribution.  This function is available in most statistical packages.
+
+For automatic differentiation, we will need the derivative of the
+incomplete beta function.
+\begin{align}
+  \label{eq:9}
+  \frac{d\mathbb{B}(x;a,b)}{dx}=x^{a-1}(1-x)^{b-1}
+\end{align}
+
+Since $c$ is fixed and known, we do not need the derivative with
+respect to the other arguments of the incomplete beta function.  This
+makes life much easier.
+
+It might be even faster to use a normal approximation to the
+non-standard t distribution. As $c$ gets large, $f(x_{ij})$ approaches
+a normal distribution with standard deviation
+$\sigma=\displaystyle\frac{R_{ii}Q_{jj}}{c}$.  Since $c$ gets updated
+after each period, the normal approximation might work very well, very
+early.  Whether this is advisable depends on how fast the system can
+compute the normal cdf.
+
+\section{Specifics}
+
+For updating $H_t$, we need to consider the posterior distribution of
+$\theta_{2t}$:
+\begin{align}
+  \label{eq:10}
+  \theta_{2t}\sim Mat\_T(M_{2,t-1},C_{2,t-1},\Omega_{t-1},\nu_{t-1})
+\end{align}
+The reason we use $t-1$ is that we are assuming advertising is
+purchased at the beginning of the period, and the effectiveness of the
+ads affects period $t$ sales.  Therefore, we cannot use period $t$
+sales to update the latent parameters.  Besides, this is the only way
+to get the recursion to work.
+
+Bayesian updating of the inverse Wishart for $\Sigma$ gives us
+\begin{align}
+  \label{eq:11}
+  \nu_t&=\nu_{t-1}+N\\
+\Omega_t&=\Omega_{t-1}+(Y_t-f_t)'Q_t^{-1}(Y_t-f_t)
+\end{align}
+Because $\theta_{2t}$ has $1+J+P$ rows and $J$ columns, $\nu_0$ must
+be greater than $P+2J+1$.  
+
+Define
+\begin{align}
+  \label{eq:13}
+S_t=\diag(C_{2t})\diag(\Omega_t)'
+\end{align}
+which is the outer product of the diagonals of
+$C_{2t}$ and $\Omega_t$.
+
+Any element $\theta{2,ijt}$ has a non-standardized Student t
+distribution with parameters $M_{2,ijt}$,$S_{ijt}$ and $\nu_t-P-2J$.  Specifically,
+\begin{align}
+  \label{eq:14}
+  f(\theta_{2,ijt})&=\frac{\Gamma\left(\frac{\nu_t-P-2J+1}{2}\right)}{\Gamma\left(\frac{\nu_t-P-2J}{2}\right)\sqrt{\pi
+      (\nu_t-P-2J)} S_{ijt}}
+\left(1+\frac{1}{\nu_t-P-2J}\left(\frac{\theta_{2,ijt}-M_{2,ijt}}{S_{ijt}}\right)^2\right)^{-\frac{\nu_t-P-2J+1}{2}}\\
+\Prob(\theta_{2,ijt}<0)&=\frac{1}{2}\left[1-\sgn(M_{2.ijt})\widetilde{\mathbb{B}}\left(\frac{\left(\nu_t-P-2J\right)M_{2,ijt}^2}{\left(\nu_t-P-2J\right)M_{2,ijt}^2+S_{ijt}^2};\frac{1}{2},\frac{\nu_t-P-2J}{2}\right)\right]
+\end{align}
+
+When $\nu_t$ becomes large, we can use the normal approximation to the t.
+\begin{align}
+  \label{eq:15}
+  \theta_{2,ijt}\sim N\left(M_{2,ijt},\frac{S_{ijt}}{\nu_t-P-2J}\right)
+\end{align}
+
+Writing the cdf at zero in terms of the error function,
+\begin{align}
+  \label{eq:16}
+  \Prob(\theta_{2,ijt}<0)=\frac{1}{2}\left[1+\erf\left(\frac{-\left(\nu_t-P-2J\right)M_{2,ijt}}{\sqrt{2}S_{ijt}}\right)\right]
+\end{align}
+
+
+
+
+
+\printbibliography
+
+
+
+\end{document}

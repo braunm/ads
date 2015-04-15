@@ -1,0 +1,298 @@
+% !TEX TS-program = pdflatex
+% !TEX encoding = UTF-8 Unicode
+
+% This is a simple template for a LaTeX document using the "article" class.
+% See "book", "report", "letter" for other types of document.
+
+\documentclass[11pt]{article} % use larger type; default would be 10pt
+
+\usepackage[utf8]{inputenc} % set input encoding (not needed with XeLaTeX)
+
+%%% Examples of Article customizations
+% These packages are optional, depending whether you want the features they provide.
+% See the LaTeX Companion or other references for full information.
+
+%%% PAGE DIMENSIONS
+\usepackage{geometry} % to change the page dimensions
+\geometry{a4paper} % or letterpaper (US) or a5paper or....
+% \geometry{margins=2in} % for example, change the margins to 2 inches all round
+% \geometry{landscape} % set up the page for landscape
+%   read geometry.pdf for detailed page layout information
+
+\usepackage{graphicx} % support the \includegraphics command and options
+
+% \usepackage[parfill]{parskip} % Activate to begin paragraphs with an empty line rather than an indent
+
+%%% PACKAGES
+\usepackage{booktabs} % for much better looking tables
+\usepackage{array} % for better arrays (eg matrices) in maths
+\usepackage{paralist} % very flexible & customisable lists (eg. enumerate/itemize, etc.)
+\usepackage{verbatim} % adds environment for commenting out blocks of text & for better verbatim
+\usepackage{subfig} % make it possible to include more than one captioned figure/table in a single float
+% These packages are all incorporated in the memoir class to one degree or another...
+
+%%% HEADERS & FOOTERS
+\usepackage{fancyhdr} % This should be set AFTER setting up the page geometry
+\pagestyle{fancy} % options: empty , plain , fancy
+\renewcommand{\headrulewidth}{0pt} % customise the layout...
+\lhead{}\chead{}\rhead{}
+\lfoot{}\cfoot{\thepage}\rfoot{}
+
+%%% SECTION TITLE APPEARANCE
+\usepackage{sectsty}
+\allsectionsfont{\sffamily\mdseries\upshape} % (See the fntguide.pdf for font help)
+% (This matches ConTeXt defaults)
+
+%%% ToC (table of contents) APPEARANCE
+\usepackage[nottoc,notlof,notlot]{tocbibind} % Put the bibliography in the ToC
+\usepackage[titles,subfigure]{tocloft} % Alter the style of the Table of Contents
+\renewcommand{\cftsecfont}{\rmfamily\mdseries\upshape}
+\renewcommand{\cftsecpagefont}{\rmfamily\mdseries\upshape} % No bold!
+
+%%% END Article customizations
+
+%%% The "real" document content comes below...
+
+\title{Hierarchical Dynamic Linear Models}
+\author{Andr\'e Bonfrer, Michael Braun}
+%\date{} % Activate to display a given date or no date (if empty),
+         % otherwise the current date is printed 
+
+\begin{document}
+\maketitle
+
+\section{General setup}
+
+A $k$ level hierarchical dynamic linear model (HDLM) can be defined as (we define the top of the
+hierarchy as the $k$th level, the bottom is the $0$th level):
+\begin{eqnarray}
+\theta_{i-1,t} & = & F_{it}\Theta_{it} + v_{it} ~~~ \forall i = 1,\ldots, k \\
+\theta_{k,t} & = & G_t \Theta_{k,t-1} + H_t + w_t 
+\end{eqnarray}
+with, typically, $\Theta_{0t} = Y_t$ being some observed outcome (here log sales),
+$v_{it} \sim N(0,V_{it},\Sigma)$ and $w_t \sim N(0,W_t,\Sigma)$.  Note that we allow for
+time varying covariance matrixes.  The distribution
+$N(0,V_t,\Sigma)$ is a matrix-variate normal, with left variance $V_t$ and right variance $\Sigma$. 
+
+Let $q$ represent the number of equations, and $r_0$ represent the number of parameters at 
+the bottom level of the hierarchy.  For ease of exposition, let all response parameters ($\Theta$) and covariance parameters
+$V_{it}$ and $W_t$ be grouped as $\Omega$ and refer to all past data at time $t$ as $D=\{D_1,D_2,\ldots,D_{T}\}$.  
+The likelihood for $Y=\{Y_1,Y_2,\ldots,Y_T\}$ (each $Y_t$ is of dimension $r_0 \times q$), for $T$ time periods, can be written as:
+\begin{equation}
+P(Y \mid D,\Omega) = \prod_{t=1}^T 2 \pi^{-r_0q/2} \mid Q_t \mid^ {-q/2} \mid \Sigma \mid^{-r_0/2} 
+\exp\left[ -\frac{1}{2} tr\left\{(Y_t - f_t)' Q_t^{-1} (Y_t - f_t) \Sigma^{-1}\right\}\right]
+\end{equation}
+where (we start by having available, $M_{k,0}$ and $C_{k,0}$ as initial values)
+\begin{eqnarray}
+f_t & = & F_{1t} a_{1t} \\
+a_{it} & = & F_{i+1,t} a_{i+1} ~~~ \forall i=1,\ldots,k-1 \\
+a_{kt} & = & G_t M_{k,t-1} + H_t\\
+R_{kt} & = & G_t C_{k,t-1} G'_t + W_t\\
+R_{it} & = & F_{i+1,t} R_{i+1,t} F'_{i+1,t} + V_{i+1,t} ~~~ \forall i=1,\ldots, k-1\\
+Q_t & = & F_{1t} R_{1t} F'_{1t} + V_{1t}\\
+E_t & = & Y_t - f_t \\
+S_{it} & = & R_{it} E'_{0it}  ~~~ \forall i=1,\ldots, k\\
+C_{it} & = & R_{it} - S_{it} Q_t^{-1} S'_{it} \\
+M_{i,t} & = & a_{it} + S_{it} Q^{-1}_t E_t  ~~~ \forall i=1,\ldots, k\\
+S_t & = & S_{t-1} + E'_t Q_t^{-1} E_t \\
+n_t & = & n_{t-1} + r_0
+\end{eqnarray}
+The notation $E_{ijt}$ is used to denote a transformation through the levels
+by premultiplying the lower level $F$ matrix successively by the higher levels.  
+Formally, $E_{ijt} = F_{i+1,t} F_{i+2,t}\ldots F_{j,t}, ~ i<j$.  
+
+The priors for $\Theta_{k0}$ and $\Sigma$, are jointly distributed
+as Normal Inverse Wishart $(\Theta_{k0},\Sigma)\mid D_0 \sim NIW(M_{k0},C_{k0},n_0,S_0)$ which in turn is 
+written as (with $\Sigma$ being of dimension $q\times q$ and $X$ being of dimension $r\times d$:
+\begin{equation}
+\label{eqn:NIW}
+p(\Theta_{k0},\Sigma) \propto \mid \Sigma \mid ^{-q+(r+d)/2} \times \exp\left\{ -tr[(S+(\Theta_{k0}-M_{k0})' C_{k0}^{-1} (\Theta_{k0}-M_{k0}))\Sigma^{-1}]/2\right\}  
+\end{equation}
+
+\subsection{A case study: application to cross-city wearout effects}
+
+The application involves a national brand, determining an allocation of a budget for television advertising expenditure over
+the entire country.  Managers require estimates of how each city's "goodwill" evolves, and measure each city's goodwill.  
+There are two media choices for advertising expenditure, one is national advertising and one is city level (spot TV) advertising.
+%There is also a choice of how much to spend on each theme.  
+
+Our data comprises of $J$ brands, each advertising every week, for $T$ weeks.  Advertising expenditure
+on television is national (there is a more local form of television advertising, known as "spot" advertising, 
+but that usually represents a small fraction of total expenditure for television).  
+
+The sales data consists of sales for each brand, each week.  Sales are known to be functions of prices, 
+promotions, and seasonal factors (e.g. Van Heerde).  The "cross" effects of prices and promotions are often
+included, to allow for brands to draw customers toward them, from competing brands.   In stable categories (e.g. laundry detergents) this translates into market share effects.  Advertising also generates cross effects.  In addition, we allow for "goodwill" to be generated, representing the baseline attraction of a brand at a point in time.  
+
+\subsubsection{A non-hierarchical model for decay, wear in and wear out}
+We begin with the simple version for purposes of illustration as to how
+the "goodwill" and "advertising quality" metrics evolve over time.
+We take the case of a single firm using multiple advertising themes (represented by copies, e.g. could be a 
+persuasion theme, a demand stimulation theme, etc.).  
+Following Naik et al (1998), and Bass et al (2008), a brand's advertising (goodwill) stock  evolves as a function of the quality
+and quantity of advertising expenditure (over $L$ themes):
+\[
+\frac{dB}{dt} = \sum_{l=1}^L \tilde{g}(A_{lt}) \kappa_{lt} - \delta B
+\]
+where $\kappa_{lt}$ is the the efficacy of an advertising theme at any point in time.  This in turn evolves as follows:
+\[
+\frac{d\kappa_l}{dt} = (1-I(A_{lt}))\delta(1-\kappa_l)-(c_h + u_l A_{lt}) \kappa_l 
+\]
+where $c_l$ is a copy wearout and $u_l$ is a ``repitition wearout'' parameter for theme $l$, the former being based on the age
+of the copy, the latter capturing wearout based on extended exposure to the same advertising (therefore a function of ad expenditure).  
+The symbol $I(x)$ is a dummy variable ($=1$ if $x>0$ and $0$ otherwise).  The decay paramater is $\delta$ and
+represents how much "forgetting" there exists.   There are two components: one exists if advertising is ``on'', which is 
+\[
+\frac{d\kappa_l}{dt} = -(c_l+ u_l A_{lt}) \kappa_l
+\]
+the other is when advertising is ``off'':
+\[
+\frac{d\kappa_l}{dt} = \delta(1-\kappa_l)- c_l \kappa_l 
+\]
+Adding in a component for the random shock to the evolution equation above, this can be set up as a dlm (non-hierarchical) with:
+\begin{eqnarray}
+\label{eqn:dlm1}
+Y_t & = & F_t \Theta_{1t} +  \mathbf{X}_{t} \mathbf{\beta} +  v_{1t}\nonumber\\
+\Theta_{1t} & = & G_t \Theta_{1t-1} + H_t + \mathbf{w}_t
+\end{eqnarray}
+where $\beta$ is a $P \times 1$ vector of parameters (non time varying)\footnote{The case of multiple 
+firms, or multiple brands, would require $Y_t$ to be a vector.  Consequently, $F_t$ would need to be a 
+matrix with a corresponding block-diagonal structure.  This is also true if multiple, simultaneous
+equations are being modeled (e.g. advertising)}, $\mathbf{X}_t$ is a $1\times P$ set of covariates (e.g. effect of price or promotions).  
+The random terms are $v_{1t} \sim N(0,V_t)$,  $w_t \sim N(0,W_t)$ and with the evolution matrix ($G_t$):
+\begin{equation}
+\label{eqn:Gt1}
+\begin{array}{ll}
+      G_t = & \left[\begin{array}{cccc}
+		 (1-\delta) & \tilde{g}(A_{1t})& \ldots & \tilde{g}(A_{Lt}) \\
+		0 & (1-c_1-u_1 A_{1t}) - \delta(1-I(A_{1t})) & \ldots & 0 \\
+\vdots & 0 & \ddots & 0\\
+
+		0 & 0 & \ldots & (1-c_L-u_L A_{Lt}) - \delta(1-I(A_{Lt})) \\
+		\end{array}\right]
+\end{array}
+\end{equation}
+and 
+\begin{equation}
+H_t =  \left[ \begin{array}{c}
+	0 \\
+	\delta(1-I(A_{1t})\\
+\vdots\\
+	\delta(1-I(A_{lt})\\
+\vdots\\
+	\delta(1-I(A_{Lt})\\
+	\end{array}
+\right]
+\end{equation}
+Finally, $F_t$ is of dimension $1\times (L+1)$ which is $F_t=\left[ 1~~0~\ldots~0 \right]$.  This captures
+a latent structure for the "intercept", or goodwill as a function of advertising.   
+
+With $F_t$ substituted in (\ref{eqn:dlm1}), allows sales to be a function of goodwill, plus covariates.  Goodwill ($B_t$) evolves as a 
+function of advertising quality of each of the themes, multiplied by the expenditure on each theme:
+\[
+B_t = (1-\delta) B_{t-1} + \sum_{l=1}^L \tilde{g} (A_{lt}) \kappa_{lt-1} + w_{0t}
+\]
+and the quality of each advertising theme evolves as:
+\begin{eqnarray}
+\kappa_{lt} & = & \left[(1-c_l-u_l A_{lt}) - \delta(1-I(A_{lt})) \right] \kappa_{lt-1} + \delta(1-I(A_{lt})) + w_{lt}
+\end{eqnarray}
+The additive random terms are stacked into $\mathbf{w}_t = \{ w_{0t}, w_{1t}, \ldots, w_{Lt} \}\sim N(0,W_t)$.
+\subsubsection{Hierarchical model}
+The hierarchical model is different from the non-hierarchical model, in that we have a number of cities
+for which we have the same data as above.  We assume that most of the parameters are city-specific,
+and are drawn from a distribution across cities.  We now have $J$ competing brands that all advertise, 
+though not always simultaneously.  In the below model, we simplify to allow only one theme per brand (here we 
+refer to this as total national advertising).  
+
+Each of the brands has a ``quality'' of its advertising, $\kappa_{jk}$, here defined as how much a dollar spent by brand
+$k$ can affect the goodwill of brand $j$.  When $j \neq k$, this is analagous to the cross-competitive effect often
+used in sales response models, but here applies to the quality of that advertising expenditure.   
+
+So now the evolution equation for brand $j$ is a function of advertising of all competing brands $k \in \{ 1,\ldots, J \}$
+via interactions between qualities and corresponding expenditures:
+\begin{eqnarray}
+\label{eqn:b1t}
+B_{jt} & = & (1-\delta) B_{jt-1} + \sum_{k=1}^J \tilde{g} (A_{kt}) \kappa_{jkt-1} +  w_{0jt}
+\end{eqnarray}
+The quality component of each brand's advertising evolves as:
+\begin{eqnarray}
+\kappa_{jkt} & = & \left((1-c_k-u_k A_{kt}) - \delta(1-I(A_{kt})) \right) \kappa_{jkt-1} + \delta(1-I(A_{kt})) + w_{jkt}
+\end{eqnarray}
+The way to read this is, $\kappa_{ijt}$ is the quality of $j$'s advertising relevant to the goodwill of brand $i$.   This allows
+us to capture the direct effect of competition, on the sales of the focal brand.  The competitive effect in this specification
+is on goodwill, so we expect this to be negative.  The stochastic component to do with the evolution of
+the parameters is now assumed to be drawn from a matrix-normal distribution:
+\begin{eqnarray}
+\mathbf{w}_{t} =\left[ \begin{array}{ccc} 
+			w_{01t} &\ldots & w_{0Jt} \\
+			w_{11t} & \ldots  & w_{1Jt}   \\
+\vdots\\
+			w_{j1t}   & \ldots & w_{jJt}  \\
+&\ldots\\
+			\end{array} \right] \sim N(0,W_t, \Sigma)
+\end{eqnarray}
+The notation $N(M,C,\Sigma)$ introduces a matrix-normal distribution, which has a left variance $C$ and 
+right variance of $\Sigma$, and is equivalent to the multivariate normal $N(vec(M), \Sigma \otimes C)$.
+
+This gives us the structure below: 
+\begin{eqnarray}
+Y_t & = & F_{1t} \Theta_{1t} + \mathbf{X}_{t} \mathbf{\beta}  +  v_{1t}\nonumber\\
+\Theta_{1t} & = & F_{2t} \Theta_{2t}  +  v_{2t}\nonumber\\
+\Theta_{2t} & = & G_t \Theta_{2t-1} + H_t + w_t
+\end{eqnarray}
+The observed outcome data is contained in $Y_t$ which is a $I \times J$ matrix containing
+sales for each brand (contained in the $j$th column of $Y_t$ and each city ($i$th row).
+Accordingly, $F_{1t}$ is a $I \times I(J+1)$ matrix, $\Theta_{1t}$ is dimension $I(J+1) \times J$.  
+
+The parameters contained in $\Theta_{2t}$, can be thought of as mean level parameters for the 
+top level of the hierarchy.  $\Theta_{2t}$ is now a $J$ column matrix (dimension is $(J+1) \times J$):
+\begin{equation}
+\Theta_{2t} =\left[ \begin{array}{ccc} 
+			B_{1t}  & \ldots & B_{Jt} \\
+			\kappa_{11t}  &\ldots & \kappa_{J1t}   \\
+			&\vdots\\
+			\kappa_{1Jt}  &\ldots & \kappa_{JJt}  \\
+			\end{array} \right]
+\end{equation}
+
+The next level in the hierarchy maps the mean levels to the city specific levels.  We have $I$ cities 
+of data.  In this regard, $F_{2t}$ is able
+to make each parameter in the top level equation a function of either covariates or just of the mean level
+across cities.  For example, specifying $F_{2t}$ as a stacked matrix of $I$ identity matrixes, each of dimension $(J+1) \times (J+1)$\footnote{Making each parameter a function of covariates will obviously change this structure.}:
+\[
+F_{2t} = \{ \mathbf{1}_{J+1} ;  \ldots ; \mathbf{1}_{J+1}\}
+\]
+which is of dimension $I(J+1) \times (J+1)$.  
+This makes each row of the $\Theta_{2t}$ parameter a mean value, with a deviation for each
+city.  We now have goodwill parameters ($B_{ijt}$) estimated for each brand and each city $i$.  
+Eg. goodwill for brand $j$ for city $i$ is:
+\[
+B_{ijt} = B_{jt} + v_{2t}  
+\]
+with $v_{2t} \sim N(0,  V_2, \Sigma)$.  
+
+The evolution matrix now only specified on the mean levels (across cities) for the components of advertising.
+This is the same as (\ref{eqn:Gt1}) but now the evolution occurs across brands' advertising: 
+\begin{equation}
+\begin{array}{ll}
+      G_t = & \left[\begin{array}{cccl}
+		 (1-\delta) & \tilde{g}(A_{1t}) & \ldots & \tilde{g}(A_{Jt}) \\
+		0 & (1-c_1-u_1 A_{1t}) - \delta(1-I(A_{1t})) & \ldots & 0 \\
+\vdots & 0 & \ddots \\
+		0 & 0 &  & (1-c_J-u_J A_{Jt}) - \delta(1-I(A_{Jt})) \\
+		\end{array}\right]
+\end{array}
+\end{equation}
+This framework could be used in a number of ways. 
+For example, we can include different themes in the response functions, and study how best to allocate expenditures
+given some allocation of themes.   Alternatively, the same theme could be studied from a competitive
+effects perspective.   
+% A final part of this specification is to allow competitive interference
+%to affect the value of goodwill.  In the above specification we adjust (\ref{eqn:b1ta} ) and (\ref{eqn:b1tb}) 
+%to include competitive interference in a way that dampens the impact of the advertising:
+
+The specification above will be included in (\ref{eqn:NIW}), and we combine multivariate normal specifications
+for these parameters, across brands.  Estimation of the wearin and wearout parameters is done using adaptive rejection
+sampling.    The remainder of the parameters can be estimated using Gibbs steps.  
+
+\end{document}

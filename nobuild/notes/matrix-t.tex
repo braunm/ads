@@ -1,0 +1,296 @@
+\documentclass[letter,10pt]{article}
+
+\usepackage[pdftex]{graphicx}
+
+\usepackage{geometry}
+\usepackage{natbib}
+\usepackage[singlespacing]{setspace}
+\usepackage[page]{appendix}
+\usepackage[color]{showkeys}
+
+\definecolor{labelkey}{rgb}{1,.5,0.2}
+\definecolor{refkey}{rgb}{0,0,0.8}
+
+%\usepackage{float}
+\usepackage{amsmath}
+\usepackage{verbatim}
+\usepackage{mathpazo}
+\usepackage{caption}
+
+\bibpunct[, ]{(}{)}{;}{a}{}{,}
+\bibliographystyle{ormsv080}
+
+\DeclareMathOperator\logit{logit}
+\DeclareMathOperator\Prob{Prob}
+\DeclareMathOperator\vecop{vec }
+\DeclareMathOperator\tr{tr}
+
+\newcommand{\thetabar}{\bar\theta}
+\newcommand{\thetaij}{\theta_{ij}}
+\newcommand{\kron}{\otimes}
+\newcommand{\eps}{\varepsilon}
+\newcommand{\Igtz}{\mathbb{I}}
+\newcommand{\K}{\mathcal{K}}
+\newcommand{\A}{\mathcal{A}}
+\newcommand{\M}{\mathcal{M}}
+
+
+
+\newcommand{\relphantom}[1]{\mathrel{\phantom{#1}}}
+
+\geometry{left=1in,right=1in,top=1in,bottom=1in}
+
+\title{Matrix T derivation}
+
+\begin{document}
+\maketitle
+
+
+\section{Joint-conditional method}
+
+
+Let's start with the density of $Y$, conditional on $\Sigma$.
+\begin{align}
+  \label{eq:py}
+  P(Y|\Sigma,\cdot)&=\prod_{t=1}^T\left( 2\pi\right)^{-\frac{NJ}{2}}|Q_t|^{-\frac{J}{2}}|\Sigma|^{-\frac{N}{2}}\exp\left[-\frac{1}{2}\tr\left[\left(Y_t-f_t\right)
+        'Q_t^{-1}\left(Y_t-f_t\right)\Sigma^{-1}\right]\right]\\
+&=\left(2\pi\right)^{-\frac{NJT}{2}}\left(\prod_{t=1}^T|Q_t|^{-\frac{J}{2}}\right)|\Sigma|^{-\frac{NT}{2}}\exp\left[-\frac{1}{2}\tr\left[\sum_{t=1}^T\left(Y_t-f_t\right)'Q_t^{-1}\left(Y_t-f_t\right)\Sigma^{-1}\right]\right]\\
+&=\K|\Sigma|^{-\frac{NT}{2}}\exp\left[-\frac{1}{2}\tr\left(\A\Sigma^{-1}\right)\right]
+\end{align}
+
+where
+\begin{align}
+  \label{eq:2}
+  \K&=\left(2\pi\right)^{-\frac{NJT}{2}}\left(\prod_{t=1}^T|Q_t|^{-\frac{J}{2}}\right)
+\end{align}
+and
+\begin{align}
+  \label{eq:defA}
+  \A&=\sum_{t=1}^T\left(Y_t-f_t\right)'Q_t^{-1}\left(Y_t-f_t\right)
+\end{align}
+
+
+Next, we give $\Sigma$ an inverse-Wishart prior.
+\begin{align}
+  \label{eq:pSig}
+  P\left(\Sigma|\cdot\right)&=\M|\Sigma|^{-\frac{\nu_0-J+1}{2}}\exp\left[-\frac{1}{2}\tr\left(\Omega_0\Sigma^{-1}\right)\right]
+\end{align}
+where
+\begin{align}
+  \label{eq:defM}
+  \M&=\frac{|\Omega_0|^{\frac{\nu_0}{2}}}{2^{\frac{J\nu_0}{2}}\Gamma_J\left(\frac{\nu_0}{2}\right)}
+\end{align}
+
+
+The $\Gamma_J(\cdot)$ term is the multivariate gamma function.
+
+Combining terms, and setting up the integral, we get
+\begin{align}
+  \label{eq:3}
+  P(Y|\cdot)&=\K\M\int |\Sigma|^{-\frac{NT+\nu_0-J+1}{2}}\exp\left[-\frac{1}{2}\tr\left(\left(\Omega_0+\A\right)\Sigma^{-1}\right)\right]~d\Sigma
+\end{align}
+Notice that the integrand looks a lot like an inverse-Wishart density
+itself, but with $NT+\nu_0$ degrees of freedom and scale parameter
+$(\Omega_0+\A)$.  Since integrals of densities over the entire domain of
+the variable of interest must equal 1, we know that
+\begin{align}
+  \label{eq:1}
+ \int |\Sigma|^{-\frac{NT+\nu_0-J+1}{2}}\exp\left[-\frac{1}{2}\tr\left(\left(\Omega_0+\A\right)\Sigma^{-1}\right)\right]~d\Sigma= \frac{2^{\frac{(NT+\nu_0)J}{2}}\Gamma_J\left(\frac{NT+\nu_0}{2}\right)}{|\Omega_0+\A|^{\frac{NT+\nu_0}{2}}}
+\end{align}
+(The right side of that equation is the inverse of the normalizing constant for the
+inverse Wishart).
+
+Therefore, by substitution, we get
+\begin{align}
+  \label{eq:4}
+  P(Y|\cdot)&=\K\M
+  \left(\frac{2^{\frac{(NT+\nu_0)J}{2}}\Gamma_J\left(\frac{NT+\nu_0}{2}\right)}{|\Omega_0+\A|^{\frac{NT+\nu_0}{2}}}\right)\\
+&=\left(\prod_{t=1}^T|Q_t|^{-\frac{J}{2}}\right)\pi^{-\frac{NTJ}{2}}\frac{\Gamma_J\left(\frac{NT+\nu_0}{2}\right)}{\Gamma_J\left(\frac{\nu_0}{2}\right)}\frac{|\Omega_0|^{\frac{\nu_0}{2}}}{|\Omega_0+\sum_{t=1}^T\left(Y_t-f_t\right)'Q_t^{-1}\left(Y_t-f_t\right)|^{\frac{NT+\nu_0}{2}}}
+\end{align}
+
+
+\section{Bayes updating method}
+
+The data likelihood at time $t$, conditional on all past data, is
+\begin{align}
+  \label{eq:5}
+  P(Y_t|Y_{1:t-1},\Sigma,\cdot)&=\left( 2\pi\right)^{-\frac{NJ}{2}}|Q_t|^{-\frac{J}{2}}|\Sigma|^{-\frac{N}{2}}\exp\left[-\frac{1}{2}\tr\left[\left(Y_t-f_t\right)
+        'Q_t^{-1}\left(Y_t-f_t\right)\Sigma^{-1}\right]\right]
+\end{align}
+Suppose we place an inverse-Wishart prior on $\Sigma$, with $\nu_0$
+degrees of freedom and scale parameter $\Omega_0$.  Since the matrix
+normal and inverse Wishart densities form a conjugate pair, the
+posterior density of $\Sigma$ is also inverse Wishart, with updates:
+\begin{align}
+  \label{eq:6}
+%  \nu_{t+1}&\leftarrow\nu_{t-1}+N\\  corrected below
+  \nu_{t}&\leftarrow\nu_{t-1}+N\\  
+\Omega_t&\leftarrow\Omega_{t-1}+a_t
+\end{align}
+
+where $a_t=\left(Y_t-f_t\right)
+        'Q_t^{-1}\left(Y_t-f_t\right)$.
+
+Therefore, for a single period $t$, we can integrate out $\Sigma$ by
+integrating over the posterior density of $\Sigma$, conditional on
+accumulated knowledge through time $t-1$.  This involves integrating
+over an inverse Wishart$(\nu_{t-1},\Omega_{t-1})$ density.
+\begin{align}
+  \label{eq:7}
+  P(Y_t|Y_{1:t-1},\cdot)&=
+\left(
+    2\pi\right)^{-\frac{NJ}{2}}|Q_t|^{-\frac{J}{2}}\frac{|\Omega_{t-1}|^{\frac{\nu_{t-1}}{2}}}{2^{\frac{J\nu_{t-1}}{2}}\Gamma_J\left(\frac{\nu_{t-1}}{2}\right)}\int |\Sigma|^{-\frac{N+\nu_{t-1}+J+1}{2}}\exp\left[-\frac{1}{2}\tr\left[\left(\Omega_{t-1}+a_t\right)\Sigma^{-1}\right]\right] d\Sigma
+\end{align}
+
+Given the updates for $\nu_t$ and $\Omega_t$, we can rewrite this as
+\begin{align}
+  \label{eq:8}
+    P(Y_t|Y_{1:t-1},\cdot)&=
+\left(
+    2\pi\right)^{-\frac{NJ}{2}}|Q_t|^{-\frac{J}{2}}\frac{|\Omega_{t-1}|^{\frac{\nu_{t-1}}{2}}}{2^{\frac{J\nu_{t-1}}{2}}\Gamma_J\left(\frac{\nu_{t-1}}{2}\right)}\int
+  |\Sigma|^{-\frac{\nu_t+J+1}{2}}\exp\left[-\frac{1}{2}\tr\left[\Omega_t\Sigma^{-1}\right]\right]
+  d\Sigma\\
+&=\pi^{-\frac{NJ}{2}}|Q_t|^{-\frac{J}{2}}\frac{\Gamma_J\left(\frac{\nu_t}{2}\right)}{\Gamma_J\left(\frac{\nu_{t-1}}{2}\right)}\frac{|\Omega_{t-1}|^{\frac{\nu_{t-1}}{2}}}{|\Omega_t|^{\frac{\nu_t}{2}}}
+\end{align}
+
+To get the full data likelihood, we note that a $t-1$ term in one
+period is the $t$ term in the next period, so the only $\nu$ and
+$\Omega$ terms that do not get canceled out are the prior parameters
+$\nu_0$ and $\Omega_0$, and the posterior parameters after the last
+observed period.  Those posteriors are
+\begin{align}
+  \label{eq:10}
+\nu_T&\leftarrow\nu_0+TN\\
+  \Omega_T&\leftarrow\Omega_0+\sum_{t=1}^Ta_t=\Omega_0+\A
+\end{align}
+Thus, we get the following data likelihood
+\begin{align}
+  \label{eq:9}
+  P(Y|\cdot)&=\prod_{t=1}^TP(Y_t|y_{1:t-1},\cdot)\\
+&=\pi^{-\frac{NJT}{2}}\left(\prod_{t=1}^T|Q_t|^{-\frac{J}{2}}\right)\frac{\Gamma_J\left(\frac{\nu_0+TN}{2}\right)}{\Gamma_J\left(\frac{\nu_0}{2}\right)}\frac{|\Omega_0|^{-\frac{\nu_0}{2}}}{|\Omega_0+\sum_{t=1}^T\left(Y_t-f_t\right)'Q_t^{-1}\left(Y_t-f_t\right)|^{\frac{\nu_0+TN}{2}}}
+\end{align}
+which is exactly what we got when we used the joint-conditional method.
+
+
+
+\section{Matrix Normal Bayesian Estimation of linear parameters}
+
+Let's suppose we have a model (conditional on $V_1$ and $\Sigma$ and on state variables $\Theta_{11t}$):
+\[
+Y^*_t = Y_t - F_{11t} \Theta_{11t} = F_{12t} \Theta_{12} + v_{1t}
+\]
+with $Y_t$ being $N \times J$, $F_{12t}$ is a covariate matrix (dimension $N\times K$).  The term $v_{1t}$ has a 
+matrix normal distribution $N(0,V_1,\Sigma)$, assumed known.  We put a prior on $\Theta_{12}$ as $N(\underline{\Theta},\underline{S},\Sigma)$.  
+With $\underline{S}$ being $K\times K$, $V_1$ is $N\times N$, $\underline{\Theta}$ is $K \times J$, as is $\Theta_{12}$.  Finally, $\Sigma$ is $J \times J$.
+
+This means the posterior distribution is:
+\begin{eqnarray}
+P(\Theta | \Sigma, Y^*_t, F_{12t},V_1)  = & (2\pi)^{-\frac{NJ}{2}} |V_1|^{-\frac{J}{2}} |\Sigma|^{-\frac{N}{2}} 
+(2\pi)^{-\frac{NK}{2}} |\underline{S}|^{\frac{K}{2}} |\Sigma|^{-\frac{N}{2}} 
+\nonumber\\
+& \exp\left(  -tr\frac{1}{2}\left[\left\{(Y^*_t-F_{12t} \Theta_{12})' V^{-1} (Y^*_t-F_{12t} \Theta_{12}) + (\Theta_{12} - \underline{\Theta}_{12})'\underline{S}^{-1}(\Theta_{12} - \underline{\Theta}_{12})
+\Sigma^{-1} \right\}\right] \right)\nonumber\\
+=&(2\pi)^{-\frac{N(J+K)}{2}} |V_1|^{-\frac{J}{2}} |\Sigma|^{-\frac{2N}{2}} 
+ |\underline{S}|^{\frac{K}{2}}  
+\nonumber\\
+& \exp\left(  -tr\frac{1}{2}\left[(Y^*_t-F_{12t} \Theta_{12})' V^{-1} (Y^*_t-F_{12t} \Theta_{12}) + (\Theta_{12} - \underline{\Theta}_{12})'\underline{S}^{-1}(\Theta_{12} - \underline{\Theta}_{12})
+\Sigma^{-1} \right] \right)
+\label{eqn:ft}
+\end{eqnarray}
+Focusing on the term in the exponential trace, before the post-multiplication of the $\Sigma^{-1}$ term (both quadratics are dimension $J\times J$ so are conformable for the trace):
+\begin{eqnarray}
+= (Y^*_t-F_{12t} \Theta_{12})' V^{-1} (Y^*_t-F_{12t} \Theta_{12}) + (\Theta_{12} - \underline{\Theta}_{12})'\underline{S}^{-1}(\Theta_{12} - \underline{\Theta}_{12})\nonumber\\
+\end{eqnarray}
+expanding out the quadratic terms:
+\begin{eqnarray}
+= {Y^*_t}' V^{-1} Y^*_t - (F_{12t} \Theta_{12})' V^{-1} Y^*_t - Y^*_t V^{-1}F_{12t}\Theta_{12} +(F_{12t}\Theta_{12})' V^{-1} F_{12t}\Theta_{12}\nonumber\\
++ \Theta_{12}' \underline{S}^{-1} \Theta_{12} - \underline{\Theta}_{12}' \underline{S}^{-1} \Theta_{12} - \Theta_{12}' \underline{S}^{-1} \underline{\Theta}_{12} + \underline{\Theta}_{12}'\underline{S}^{-1} \underline{\Theta}_{12}
+\end{eqnarray}
+dropping terms that do not depend on $\Theta_{12}$:
+\begin{eqnarray}
+=  (F_{12t} \Theta_{12})' V^{-1} Y^*_t - Y^*_t V^{-1}F_{12t}\Theta_{12} +(F_{12t}\Theta_{12})' V^{-1} F_{12t}\Theta_{12}\nonumber\\
++ \Theta_{12}' \underline{S}^{-1} \Theta_{12} - \underline{\Theta}_{12}' \underline{S}^{-1} \Theta_{12} - \Theta_{12}' \underline{S}^{-1} \underline{\Theta}_{12} 
+\end{eqnarray}
+which can be rewritten:
+\begin{eqnarray}
+\Theta_{12}' \left[ F_{12t}' V^{-1} F_{12t} + \underline{S}^{-1} \right]\Theta_{12}~~ -  \Theta_{12}' \left[F_{12t}'V^{-1}Y^*_t - \underline{S}^{-1} \underline{\Theta}_{12}\right] - \left[ {Y^*_t}' V^{-1} F_{12t} +\underline{\Theta}_{12}' \underline{S}^{-1} \right] \Theta_{12} 
+\end{eqnarray}
+Then for the magic bit. We write $\mathbf{A} =   F_{12t}' V^{-1} F_{12t} + \underline{S}^{-1} $, and $\mathbf{b} =  F_{12t}'V^{-1}Y^*_t - \underline{S}^{-1} \underline{\Theta}_{12}$,
+and recognizing that $V$ and $\underline{S}$ are symmetric.  Then we have:
+\begin{eqnarray}
+\Theta_{12}' \mathbf{A} \Theta_{12}  -  \Theta_{12}' \mathbf{b} - \mathbf{b}' \Theta_{12} 
+\end{eqnarray}
+We can complete the square by adding a term that does not depend on $\Theta_{12}$, we use: $\mathbf{b}' \mathbf{A}^{-1} \mathbf{b}$.  
+\begin{eqnarray}
+\Theta_{12}' \mathbf{A} \Theta_{12}  -  \Theta_{12}' \mathbf{b} - \mathbf{b}' \Theta_{12}  + \mathbf{b}' \mathbf{A}^{-1} \mathbf{b}
+\end{eqnarray}
+Noting that $A$ is symmetric
+and invertible (it is the weighted sum of two symmetric and full rank matrixes), the identity matrix $\mathbf{I} = \mathbf{A}^{-1} \mathbf{A} = \mathbf{A} \mathbf{A}^{-1}$
+then we can rewrite the above as:
+\begin{eqnarray}
+\Theta_{12}' \mathbf{A} \Theta_{12}  -  \Theta_{12}' \mathbf{A}\mathbf{A}^{-1} \mathbf{b} - \mathbf{b}' \mathbf{A}^{-1}\mathbf{A} \Theta_{12} + \mathbf{b}' \mathbf{A}^{-1}\mathbf{A}\mathbf{A}^{-1} \mathbf{b}
+\end{eqnarray}
+Now let us denote $\hat{\Theta}_{12} = \mathbf{A}^{-1} \mathbf{b}$ and $\hat{S} = \mathbf{A}^{-1}$.
+Then we can write:
+\begin{eqnarray}
+\Theta_{12}' \hat{S}^{-1} \Theta_{12}  -  \Theta_{12}' \hat{S}^{-1} \hat{\Theta}_{12} - \hat{\Theta}_{12}\hat{S}^{-1} \Theta_{12} + \hat{\Theta}_{12}' \hat{S}^{-1} \hat{\Theta}_{12}
+\end{eqnarray}
+which we can factor to rewrite:
+\begin{eqnarray}
+(\Theta_{12} - \hat{\Theta}_{12})' \hat{S}^{-1} (\Theta_{12} - \hat{\Theta}_{12})
+\end{eqnarray}
+Substituting back in the trace above in (\ref{eqn:ft}), we therefore have that the posterior conditional for $\Theta_{12}$ is $N(\hat{\Theta}_{12},\hat{S},\Sigma)$.  
+The full expression for each moment is:
+\begin{eqnarray}
+\hat{\Theta}_{12} & = &  \mathbf{A}^{-1} \mathbf{b} = \left[  F_{12t}' V^{-1} F_{12t} + \underline{S}^{-1} \right]^{-1} F_{12t}'V^{-1}Y^*_t - \underline{S}^{-1} \underline{\Theta}_{12}\\
+\hat{S} & =  & \mathbf{A}^{-1} = \left[ F_{12t}' V^{-1} F_{12t} + \underline{S}^{-1} \right]^{-1}
+\end{eqnarray}
+
+
+This was for just one $Y_t^*$.  Let's stack all of them together, so that $Y^* = \left[ Y^*_1 \vdots  Y^*_t \vdots \ldots \vdots Y^*_T\right]$, and same with $F_{12}$, so that dimension of $Y^*$ is $NT\times  J$ and of $F_{12}$ is $NT\times K$.  
+The matrix $\Theta_{12}$ is still the same.  Now the variance matrix can be written as $\tilde{V}_1 = I_T \kron V_1$, being dimension
+$NT \times NT$.  For the likelihood, we have a matrix normal so that $Y^* \sim N(F_{12}\Theta_{12},\tilde{V}_1, \Sigma)$. 
+The above logic still applies as above.  I wonder if we can rewrite this to avoid having to calculate the large matrix $\bar{V}$.
+
+\begin{eqnarray}
+P(\Theta | \Sigma, Y^*_t, F_{12t},V_1)  &= & (2\pi)^{-\frac{NK}{2}} |\underline{S}|^{\frac{K}{2}} |\Sigma|^{-\frac{N}{2}}   \exp\left(  -tr\frac{1}{2}\left[ (\Theta_{12} - \underline{\Theta}_{12})'\underline{S}^{-1}(\Theta_{12} - \underline{\Theta}_{12})\Sigma^{-1} \right]\right) \nonumber\\
+ & \times & \prod_{t=1}^T (2\pi)^{-\frac{NJ}{2}} |V_1|^{-\frac{J}{2}} |\Sigma|^{-\frac{N}{2}} 
+\exp\left(  -tr\frac{1}{2}\left[\left\{(Y^*_t-F_{12t} \Theta_{12})' V^{-1} (Y^*_t-F_{12t} \Theta_{12})\Sigma^{-1}  \right\}\right] \right)\nonumber\\
+\end{eqnarray}
+So pulling the product in (and focusing on the second part of the right hand side):
+\begin{eqnarray}
+P(\Theta | \Sigma, Y^*_t, F_{12t},V_1)  &= & (2\pi)^{-\frac{NK}{2}} |\underline{S}|^{\frac{K}{2}} |\Sigma|^{-\frac{N}{2}}   \exp\left(  -tr\frac{1}{2}\left[ (\Theta_{12} - \underline{\Theta}_{12})'\underline{S}^{-1}(\Theta_{12} - \underline{\Theta}_{12})\Sigma^{-1} \right]\right) \nonumber\\
+ & \times &  (2\pi)^{-\frac{TNJ}{2}} |V_1|^{-\frac{TJ}{2}} |\Sigma|^{-\frac{TN}{2}} 
+\exp\left(  -tr\frac{1}{2}\left[\sum_{t=1}^T\left\{(Y^*_t-F_{12t} \Theta_{12})' V^{-1} (Y^*_t-F_{12t} \Theta_{12})\Sigma^{-1}  \right\}\right] \right)\nonumber\\
+\end{eqnarray}
+Focusing on the terms in the exponential, expanding the quadratic (and dropping the terms not depending on $\Theta_{12}$, we get:
+\begin{eqnarray}
+=  \sum_{t=1}^T (F_{12t} \Theta_{12})' V^{-1} Y^*_t - \sum_{t=1}^T  Y^*_t V^{-1}F_{12t}\Theta_{12} +\sum_{t=1}^T   (F_{12t}\Theta_{12})' V^{-1} F_{12t}\Theta_{12}\nonumber\\
++ \Theta_{12}' \underline{S}^{-1} \Theta_{12} - \underline{\Theta}_{12}' \underline{S}^{-1} \Theta_{12} - \Theta_{12}' \underline{S}^{-1} \underline{\Theta}_{12} 
+\end{eqnarray}
+which can be rewritten:
+\begin{eqnarray}
+\Theta_{12}' \left[ \sum_{t=1}^T \left(F_{12t}' V^{-1} F_{12t}\right) + \underline{S}^{-1} \right]\Theta_{12}~~ -  \Theta_{12}' \left[\sum_{t=1}^T \left( F_{12t}'V^{-1}Y^*_t \right) - \underline{S}^{-1} \underline{\Theta}_{12}\right] - \left[ \sum_{t=1}^T \left( {Y^*_t}' V^{-1} F_{12t} \right) +\underline{\Theta}_{12}' \underline{S}^{-1} \right] \Theta_{12} 
+\end{eqnarray}
+so using the trick from earlier, we write $\mathbf{A} =   \sum_{t=1}^T \left( F_{12t}' V^{-1} F_{12t}\right) + \underline{S}^{-1} $, and $\mathbf{b} = \sum_{t=1}^T \left(F_{12t}'V^{-1}Y^*_t \right) - \underline{S}^{-1} \underline{\Theta}_{12}$, then following the logic
+from above we have:
+\begin{eqnarray}
+\hat{\Theta}_{12} & = &  \mathbf{A}^{-1} \mathbf{b} = \left[  \sum_{t=1}^T \left(F_{12t}' V^{-1} F_{12t}\right) + \underline{S}^{-1} \right]^{-1} \sum_{t=1}^T \left(F_{12t}'V^{-1}Y^*_t\right) - \underline{S}^{-1} \underline{\Theta}_{12}\\
+\hat{S} & =  & \mathbf{A}^{-1} = \left[\sum_{t=1}^T \left(F_{12t}' V^{-1} F_{12t} \right) + \underline{S}^{-1} \right]^{-1}
+\end{eqnarray}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\end{document}
