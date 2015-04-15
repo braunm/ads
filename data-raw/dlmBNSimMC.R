@@ -4,8 +4,6 @@
 # include functions
 rm(list = ls())
 
-library(dlm)
-library(LearnBayes)
 library(Matrix)
 library(trustOptim)
 
@@ -69,7 +67,7 @@ JFF <- list()
 
 # advertising covariates
 A <- (matrix(runif(J * T), nr = T, nc = J) > 0.5) *
-    matrix(runif(J * T, max = exp(9)), nrow = T, ncol = J)  # total 'advertising' across all sites, for each equation 
+    matrix(runif(J * T, max = exp(9)), nrow = T, ncol = J)  # total 'advertising' across all sites, for each equation
 
 # scale/center A Ac<-scale(A)
 Ac <- A / 1e+06
@@ -127,16 +125,15 @@ Y <- NULL
 Yl <- list()
 for (t in 1:T) {
     FF[[1]] <- F1l[[t]]
-    
-    F2t <- dlm::bdiag(matrix(c(1, rep(0, J)), nc = 1 + J), diag(P))
+
+    F2t <- Matrix::bdiag(matrix(c(1, rep(0, J)), nc = 1 + J), diag(P))
     for (n in 2:N) {
         F2t <- rbind(F2t,
-                     dlm::bdiag(matrix(c(1, rep(0, J)), 
-                                       nc = 1 + J), diag(P))
+                     Matrix::bdiag(matrix(c(1, rep(0, J)), nc = 1 + J), diag(P))
                      )
     }
     FF[[2]] <- F2t
-    
+
     Gt <- diag(1 + J + P)
     Gt[1,1] <- (1 - delta)
     Gt[1, 1 + (1:J)] <- gA[t, ]
@@ -155,7 +152,7 @@ for (t in 1:T) {
             }
         }
     }
-        
+
     ## Innovation component
     Ht <- matrix(0, nr = J, nc = J)
     for (j in 1:J) {
@@ -164,19 +161,19 @@ for (t in 1:T) {
             Ht[j,] <- Ht[j,] + phi[j,]*E[t,j]
         }
     }
-    
+
     # add evolution stochastic component
     epsW <- rmvMN(1, , W, Sigma)
     Theta2t <- Gt %*% Theta2t + epsW
     Theta2t[2:(J+1),] <- Theta2t[2:(J+1),] +  sign(Theta2t[2:(J+1),])*Ht
     T2[[t]] <- Theta2t
-    
+
     # add unit level stochastic components (V1 and V2)
     epsV2 <- rmvMN(1, , V[[2]], Sigma)
     Theta1t <- FF[[2]] %*% Theta2t + epsV2
     T1[[t]] <- Theta1t
     epsV1 <- rmvMN(1, , V[[1]], Sigma)
-    
+
     Yt <- FF[[1]] %*% Theta1t + F12l[[t]] %*% Theta12 + epsV1
 
     Y <- rbind(Y, as.vector(Yt))
@@ -198,7 +195,7 @@ for (i in (Tb + 1):T) {
     F12[[i - Tb]] <- F12l[[i]]
     F1m[[i - Tb]] <- F1ml[[i]]
     F1[[i - Tb]] <- F1l[[i]]
-    Y[[i - Tb]] <- Yl[[i]]
+    Y[[i - Tb]] <- as(Yl[[i]],"matrix")
 }
 
 if (Tb > 0) { ## if there is burnin
@@ -231,7 +228,7 @@ for (t in 1:T) {
     F2[[t]] <- t(as(F2[[t]], "dgCMatrix"))
 }
 
-mcmod <- list(dimensions = dimensions, Y = Y, E = El, A = Al, X = F12, 
+mcmod <- list(dimensions = dimensions, Y = Y, E = El, A = Al, X = F12,
     F1 = F1m, F2 = F2)
 
 truevals <- list(T1=T1true, T2=T2true, Theta12=Theta12, V=V, Sigma=Sigma, W=W,

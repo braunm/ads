@@ -8,7 +8,6 @@ library(numDeriv)
 library(trustOptim)
 library(plyr)
 library(reshape2)
-library(Rcgmin)
 
 
 set.seed(1234)
@@ -26,7 +25,7 @@ flags <- list(include.phi=FALSE,
               include.c=TRUE,
               include.u=TRUE,
               add.prior=TRUE,
-              include.X=TRUE,  
+              include.X=TRUE,
               A.scale = 1000000,
        ##       A.scale = 1,
               W1.LKJ = FALSE,  # W1.LKJ true means we do LKJ, otherwise same as W2
@@ -49,7 +48,7 @@ get.hyperprior <- function(P, ...) return(cl$get.hyperprior(P))
 
 load(data.file)
 #print("hello")
-#dn <- paste0("mcmod",data.name) 
+#dn <- paste0("mcmod",data.name)
 #data(list=dn)
 #mcmod <- eval(parse(text=dn))
 
@@ -138,7 +137,7 @@ if (flags$estimate.M20) {
                       chol.row = t(chol(M20.cov.row)),
                       chol.col = t(chol(M20.cov.col))
                       )
-    
+
 } else {
     prior.M20 <- list(M20=M20)
 }
@@ -151,7 +150,7 @@ if (flags$estimate.asymptote) {
                       chol.row = t(chol(asymp.cov.row)),
                       chol.col = t(chol(asymp.cov.col))
                       )
-    
+
 } else {
     prior.asymp <- list(asymp=M20[2:(J+1),])
 }
@@ -165,7 +164,7 @@ Omega0 <- (nu0-J-1)*E.Sigma
 
 ## The following priors are optional
 
-if (flags$add.prior) { 
+if (flags$add.prior) {
     if (flags$include.phi) {
         ## prior on phi:  matrix normal with sparse covariances
         mean.phi <- matrix(0,J,J)
@@ -173,15 +172,15 @@ if (flags$add.prior) {
         cov.col.phi <- 10*diag(J)
         chol.cov.row.phi <- t(chol(cov.row.phi))
         chol.cov.col.phi <- t(chol(cov.col.phi))
-        
-        prior.phi <- list(mean=mean.phi,      
-                          chol.row = chol.cov.row.phi,      
+
+        prior.phi <- list(mean=mean.phi,
+                          chol.row = chol.cov.row.phi,
                           chol.col = chol.cov.col.phi
                           )
     } else {
         prior.phi <- NULL
     } ## end include.phi
-    
+
     if (flags$include.X) {
         ## prior on theta12:  matrix normal with sparse covariances
         mean.theta12 <- matrix(0,K,J)
@@ -189,7 +188,7 @@ if (flags$add.prior) {
         cov.col.theta12 <- 500*diag(J) ## across brand within covariates
         chol.cov.row.theta12 <- t(chol(cov.row.theta12))
         chol.cov.col.theta12 <- t(chol(cov.col.theta12))
-        
+
         prior.theta12 <- list(mean=mean.theta12,
                               chol.row = chol.cov.row.theta12,
                               chol.col = chol.cov.col.theta12
@@ -197,17 +196,17 @@ if (flags$add.prior) {
     } else {
         prior.theta12 <- NULL
     }
-    
+
     ## prior on logit.delta.  transformed beta with 2 parameters
-    
+
     ##  prior.delta <- list(a=1,b=5)
     prior.delta <- list(a=1,b=1)
-    
+
     ## prior on c.mean and u.mean:  normal
     ## prior on c.sd and u.sd:  truncated normal
-    
+
     if (flags$include.c) {
-        prior.log.c.mean <- -.5       
+        prior.log.c.mean <- -.5
         prior.log.c <- list(mean.mean=prior.log.c.mean,
                         mean.sd=5,
                         sd.mean=5,
@@ -217,7 +216,7 @@ if (flags$add.prior) {
     }
 
     if (flags$include.u) {
-        prior.log.u.mean <- -3       
+        prior.log.u.mean <- -3
         prior.log.u <- list(mean.mean=prior.log.u.mean,
                             mean.sd=1,
                             sd.mean=5,
@@ -226,10 +225,10 @@ if (flags$add.prior) {
         prior.log.u <- NULL;
     }
 
-    
+
     ## For V, W1 and W2:   normal or truncated normal priors (if needed)
 
-    if (!flags$fix.V) {        
+    if (!flags$fix.V) {
         prior.V <- list(diag.scale=1, diag.mode=1,
                          fact.scale=1, fact.mode=0)
     } else {
@@ -239,9 +238,9 @@ if (flags$add.prior) {
     if (!flags$fix.W) {
         prior.W2 <- list(diag.scale=1, diag.mode=1,
                          fact.scale=.01, fact.mode=0)
-        
+
         ## LKJ prior on W1.  Scale parameter has truncated(0) normal prior
-        
+
         if (flags$W1.LKJ) {
             prior.W1 <- list(scale.mode=0, scale.s=1, eta=1)
         } else {
@@ -252,8 +251,8 @@ if (flags$add.prior) {
         prior.W1 <- NULL
         prior.W2 <- NULL
     }
-    
-} else {    
+
+} else {
     prior.M20 <- NULL
     prior.asymp <- NULL
     prior.phi <- NULL
@@ -299,7 +298,7 @@ if (flags$estimate.asymp) {
 }
 
 if (flags$include.X) {
-    theta12.start <- matrix(0,K,J)   
+    theta12.start <- matrix(0,K,J)
 } else {
     theta12.start <- NULL
 }
@@ -321,8 +320,8 @@ if (flags$include.u) {
     log.u.mean.log.sd.start <- u.off.start <- NULL
     log.u.off.start <- NULL
 }
- 
-logit.delta.start <- 0    
+
+logit.delta.start <- 0
 
 
 
@@ -345,14 +344,14 @@ if (flags$fix.V) {
 } else {
     V.length <- N + N*nfact.V - nfact.V*(nfact.V-1)/2
     ##V.start <- (1:V.length)/10
-    ## V.start <- rnorm(V.length) - 3  
+    ## V.start <- rnorm(V.length) - 3
     V.start <- rep(0,V.length)
 }
 
 if (flags$fix.W) {
     fixed.cov$W <- .001*diag(1+J+P)
     W1.start <- NULL
-    W2.start <- NULL    
+    W2.start <- NULL
 } else {
     if (flags$W1.LKJ) {
         W1.length <- dim.W1*(dim.W1-1)/2 + 1
@@ -430,16 +429,10 @@ opt1 <- optim(start,
 
 opt2 <- opt1
 
-## opt2 <- Rcgmin(opt1$par,
-##                fn=function(x) -get.f(x),
-##                gr=function(x) -get.df(x),
-##                control=list(trace=2,
-##                    maxit=31)
-##                )
 
-opt3 <- trust.optim(opt2$par,                    
+opt3 <- trust.optim(opt2$par,
                     fn=get.f,
-                    gr=get.df,       
+                    gr=get.df,
                     method="BFGS",
                     control=list(
                         report.level=5L,
@@ -475,7 +468,7 @@ opt <- trust.optim(opt3$solution,
 
 opt$par <- opt$solution
 
-                     
+
 sol.vec <- relist(opt$par, skeleton=start.list)
 
 recover.cov.mat <- function(v, d, nfact) {
@@ -486,7 +479,7 @@ recover.cov.mat <- function(v, d, nfact) {
 
   S <- diag(exp(v[1:d]))
   if (nfact>0) {
-    F <- matrix(0,nrow=d,ncol=nfact)    
+    F <- matrix(0,nrow=d,ncol=nfact)
     ind <- d+1
     for (j in 1:nfact) {
       F[j:d,j] <- v[ind:(ind+d-j)]
@@ -520,9 +513,9 @@ recover.corr.mat <- function(v, d) {
         if (j<d) W[(j+1):d,j] <- W[j,j]*Z[(j+1):d,j]
     }
     X <- a*tcrossprod(W)
-    return(X)           
+    return(X)
 }
- 
+
 sol <- sol.vec
 sol$delta <- exp(sol$logit.delta)/(1+exp(sol$logit.delta))
 
