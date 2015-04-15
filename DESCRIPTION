@@ -1,9 +1,8 @@
 Package: ads
 Title: internal hdlm project
 Version: 0.0.0.9000
-Authors@R: "Michael Braun <braunm@smu.edu> [aut, cre], Andre Bonfrer
-    <andre.bonfrer@anu.edu.au> [aut, cre]"
-Description: What the package does (one paragraph)
+Authors@R: c(person("Michael","Braun", role=c("aut","cre"), email="braunm@smu.edu"), person("Andre","Bonfrer",role="aut", email="abonfrer@me.com"))
+Description: Internal project.  Do not distribute.
 Depends:
     R (>= 3.1.2),
     Rcpp (>= 0.11.3),
