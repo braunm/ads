@@ -14,7 +14,7 @@ library(Rcgmin)
 set.seed(1234)
 
 mod.name <- "hdlm"
-data.name <- "tti"
+data.name <- "sim"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
@@ -29,7 +29,7 @@ flags <- list(include.phi=FALSE,
               include.X=TRUE,  
               A.scale = 1000000,
        ##       A.scale = 1,
-              W1.LKJ = TRUE,  # W1.LKJ true means we do LKJ, otherwise same as W2
+              W1.LKJ = FALSE,  # W1.LKJ true means we do LKJ, otherwise same as W2
               fix.V = FALSE,
               fix.W = FALSE,
               estimate.M20 = TRUE,
@@ -210,7 +210,7 @@ if (flags$add.prior) {
         prior.log.c.mean <- -.5       
         prior.log.c <- list(mean.mean=prior.log.c.mean,
                         mean.sd=5,
-                        sd.mean=1,
+                        sd.mean=5,
                         sd.sd=5)
     } else {
         prior.log.c <- NULL;
@@ -220,7 +220,7 @@ if (flags$add.prior) {
         prior.log.u.mean <- -3       
         prior.log.u <- list(mean.mean=prior.log.u.mean,
                             mean.sd=1,
-                            sd.mean=1,
+                            sd.mean=5,
                             sd.sd=1)
     } else {
         prior.log.u <- NULL;

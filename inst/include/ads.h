@@ -85,9 +85,9 @@ private:
   MatrixXA chol_cov_row_M20;
   MatrixXA chol_cov_col_M20;
 
-  MatrixXA mean_asymp;
-  MatrixXA chol_cov_row_asymp;
-  MatrixXA chol_cov_col_asymp;
+  MatrixXA mean_qbar;
+  MatrixXA chol_cov_row_qbar;
+  MatrixXA chol_cov_col_qbar;
   
   AScalar log_c_mean_pmean;
   AScalar log_c_mean_psd;
@@ -150,7 +150,7 @@ private:
 
   
   MatrixXA phi; // J x J
-  MatrixXA asymp;
+  MatrixXA qbar;
   VectorXA V_log_diag;
   AScalar W1_scale;
   AScalar W2_scale;
@@ -399,7 +399,7 @@ ads::ads(const List& params)
     Pneg.resize(J,J);   
   }
 
-  asymp.resize(J,J);
+  qbar.resize(J,J);
 
   Rcout << "Allocating memory for intermediate parameters\n";
   
@@ -433,14 +433,14 @@ ads::ads(const List& params)
     M20 = M20_d.cast<AScalar>();
   }
 
-  mean_asymp.resize(J,J);
+  mean_qbar.resize(J,J);
   
   if (estimate_asymptote) {
-    const List priors_asymp = as<List>(priors["asymp"]);    
-    const Map<MatrixXd> chol_cov_row_asymp_d(as<Map<MatrixXd> >(priors_asymp["chol.row"]));
-    chol_cov_row_asymp = chol_cov_row_asymp_d.cast<AScalar>();
-    const Map<MatrixXd> chol_cov_col_asymp_d(as<Map<MatrixXd> >(priors_asymp["chol.col"]));
-    chol_cov_col_asymp = chol_cov_col_asymp_d.cast<AScalar>();
+    const List priors_qbar = as<List>(priors["asymp"]);    
+    const Map<MatrixXd> chol_cov_row_qbar_d(as<Map<MatrixXd> >(priors_qbar["chol.row"]));
+    chol_cov_row_qbar = chol_cov_row_qbar_d.cast<AScalar>();
+    const Map<MatrixXd> chol_cov_col_qbar_d(as<Map<MatrixXd> >(priors_qbar["chol.col"]));
+    chol_cov_col_qbar = chol_cov_col_qbar_d.cast<AScalar>();
   }
 
 
@@ -600,15 +600,15 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     ind += (1+P+J)*J;
   }
 
-  mean_asymp = M20.middleRows(1,J);
+  mean_qbar = M20.middleRows(1,J);
 
-  // unwrap asymp, if needed
+  // unwrap qbar, if needed
 
   if (estimate_asymptote) {
-    asymp = MatrixXA::Map(par.derived().data()+ind,J,J);
+    qbar = MatrixXA::Map(par.derived().data()+ind,J,J);
     ind += J*J;
   } else {
-    asymp = M20.middleRows(1, J);
+    qbar = M20.middleRows(1, J);
   }
   
   // unwrap theta12 and construct Ybar
@@ -978,16 +978,16 @@ AScalar ads::eval_hyperprior() {
     }
 
 
-    AScalar prior_asymp = 0;
+    AScalar prior_qbar = 0;
     if (estimate_asymptote) {
-      prior_asymp = MatNorm_logpdf(asymp, mean_asymp,
-				   chol_cov_row_asymp,
-				   chol_cov_col_asymp,
+      prior_qbar = MatNorm_logpdf(qbar, mean_qbar,
+				   chol_cov_row_qbar,
+				   chol_cov_col_qbar,
 				   false);      
     }
     
     AScalar prior_logit_delta = dlogitbeta_log(logit_delta, delta_a, delta_b);
-    AScalar res= prior_log_c + prior_log_u + prior_logit_delta + prior_theta12 + prior_phi + prior_mats + prior_M20 + prior_asymp;
+    AScalar res= prior_log_c + prior_log_u + prior_logit_delta + prior_theta12 + prior_phi + prior_mats + prior_M20 + prior_qbar;
     
     return(res);
 }
@@ -1052,7 +1052,7 @@ void ads::set_Ht(const int& tt) {
     } else {
       tmp = delta;
     }
-    Ht.col(j).array() = tmp * AjIsZero[tt].array() * asymp.col(j).array();
+    Ht.col(j).array() = tmp * AjIsZero[tt].array() * qbar.col(j).array();
   }
   
   if (include_phi) {
@@ -1189,6 +1189,19 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
     }
     Greturn(tt) = wrap(GG);
   }
+    
+  Rcpp::List Hreturn(T);
+    for (size_t tt=0; tt<T; tt++) {
+        set_Ht(tt);
+        Rcpp::NumericMatrix HH(Ht.rows(), Ht.cols());
+        for (size_t col=0; col < Ht.cols(); col++) {
+            for (size_t row=0; row < Ht.rows(); row++) {
+                HH(row, col) = Value(Ht(row, col));
+            }
+        }
+        Hreturn(tt) = wrap(HH);
+    }
+
 
   List res = List::create(Named("c") = wrap(LC),
 			  Named("u") = wrap(LU),
@@ -1199,6 +1212,7 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 			  Named("C2t") = wrap(C2treturn),
 			  Named("OmegaT") = wrap(OmegaTreturn),
 			  Named("Gt") = wrap(Greturn)
+              Named("Ht") = wrap(Hreturn)
 			  );
   return(res);
 			  			  

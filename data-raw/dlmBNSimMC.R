@@ -1,4 +1,5 @@
-str# dlmBNSimMC.R Hierarchical simulation of BN model for MC estimation
+# dlmBNSimMC.R Hierarchical simulation of BN model for MC estimation
+# This version uses qt = (1-c-uA - (c+d)Z)q_t-1 + (c+d)Zm as the DE
 
 # include functions
 rm(list = ls())
@@ -15,6 +16,8 @@ include.phi <- FALSE
 include.c <- TRUE
 include.u <- TRUE
 
+# needed function for draws from a matrix normal
+# M = matrix of means, C is left variance, S is right variance
 rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
     ## set.seed(153)
     L <- chol(S) %x% chol(C)
@@ -34,11 +37,12 @@ Tb <- 0  # number of burnin periods
 J <- 3  # number of equations
 P <- J  # number of time varying covariates per city (excluding intercept)
 K1 <- 2  # number of non time varying covariates per city at top level (including intercept)
+
 ##Cvec <- rnorm(J, mean = 0.1, sd = 0.03)  # wearout per period
 ##Uvec <- rnorm(J, mean = 0.15, sd = 0.05)  # wearout due to repetition
 
-Cvec <- c(.04, .36, .91)
-Uvec <- c(-.04, .40, .20)
+Cvec <- c(.04, .16, .21)            # wearout per period
+Uvec <- c(-.04, .20, .10)           # wearout due to repition
 
 
 Theta2.0 <- matrix(rep(0, 1 + J + P), nrow = (1 + J + P), ncol = J)
@@ -51,6 +55,9 @@ for (j in 1:J) {
     Theta2.0[1+j, j] <- 0.25
     # Theta2.0[1+J+j,j]<- 0 Theta2.0[1+j,j]<- 0
 }
+
+q0 <- matrix(-0.5,ncol=J,nrow=J)
+diag(q0) <- 0.5
 
 ## parameters
 delta <- 0.047
@@ -65,18 +72,9 @@ A <- (matrix(runif(J * T), nr = T, nc = J) > 0.5) *
     matrix(runif(J * T, max = exp(9)), nrow = T, ncol = J)  # total 'advertising' across all sites, for each equation 
 
 # scale/center A Ac<-scale(A)
- Ac <- A / 1e+06
-##Ac <- log1p(A)
+Ac <- A / 1e+06
 
-## WHAT IS aA?
-
-## aA <- matrix(0, nr = T, nc = J)
-## colnames(aA) <- paste("aA", 1:J, sep = ".")
-## for (j in 1:J) {
-##     aA[, j] <- 1 - Cvec[j] - Uvec[j] * Ac[,j] - delta * (1-(A[,j] > 0))
-## }
-
-
+# log transformed A
 gA <- log(1+A)
 
 E <- rpois(T * J, 0.5)  # incidence of new creatives
@@ -145,50 +143,40 @@ for (t in 1:T) {
     for (j in 1:J) {
         if (include.c) {
             if (include.u) {
-                Gt[j+1,j+1] <- 1 - Cvec[j] - Uvec[j]*Ac[t,j]
+                Gt[j+1,j+1] <- 1 - Cvec[j] - Uvec[j]*Ac[t,j] - (Cvec[j]+delta)*(Ac[t,j]==0)
             } else {
-                Gt[j+1,j+1] <- 1 - Cvec[j]
+                Gt[j+1,j+1] <- 1 - Cvec[j] - (Cvec[j]+delta)*(Ac[t,j]==0)
             }
         } else {
             if (include.u) {
-                Gt[j+1,j+1] <- 1 - Uvec[j]*Ac[t,j]
+                Gt[j+1,j+1] <- 1 - Uvec[j]*Ac[t,j] - (Cvec[j]+delta)*(Ac[t,j]==0)
             } else {
-                Gt[j+1, j+1] <- 1
+                Gt[j+1, j+1] <- 1 - (Cvec[j]+delta)*(Ac[t,j]==0)
             }
         }
     }
         
-    ## innovation component which switches signs if the underlying state
-    ## variable does (simplified here)
+    ## Innovation component
     Ht <- matrix(0, nr = J, nc = J)
     for (j in 1:J) {
-        Ht[j,] <- delta * (A[t,j]==0)
+        for(k in 1:J) Ht[j,k] <- ( delta + Cvec[j] ) * ( A[t,j]==0 ) * ( q0[j,k] )
         if (include.phi) {
             Ht[j,] <- Ht[j,] + phi[j,]*E[t,j]
         }
     }
     
- ##   for (k in 1:J) {
-        ## if(Theta2t[1+j,k] < 0) Ht[1+j,k] <- -delta*(1-(A[t,j]>0)) -
-        ## Evec[j,k]*E[t,j] # if it is below zero else Ht[j+1,k] <-
-        ## delta*(1-(A[t,j]>0)) + Evec[j,k]*E[t,j] # if above if(Theta2t[1+j,k]
-        ## < 0) Ht[1+j,k] <- - Evec[j,k]*E[t,j] # if it is below zero else
-        ## Ht[j+1,k] <- Evec[j,k]*E[t,j] # if above if(j!=k) Ht[1+j,k] <-
-        ## -delta*(1-(A[t,j]>0)) - e[j]*E[t,j] # if it is below zero else
-        ## Ht[j+1,k] <- delta*(1-(A[t,j]>0)) + e[j]*E[t,j] # if above
-        ##       Ht[j, k] <- Evec[j, k] * E[t, j]
-   ## }
-
-    
+    # add evolution stochastic component
     epsW <- rmvMN(1, , W, Sigma)
     Theta2t <- Gt %*% Theta2t + epsW
     Theta2t[2:(J+1),] <- Theta2t[2:(J+1),] +  sign(Theta2t[2:(J+1),])*Ht
     T2[[t]] <- Theta2t
     
+    # add unit level stochastic components (V1 and V2)
     epsV2 <- rmvMN(1, , V[[2]], Sigma)
     Theta1t <- FF[[2]] %*% Theta2t + epsV2
     T1[[t]] <- Theta1t
     epsV1 <- rmvMN(1, , V[[1]], Sigma)
+    
     Yt <- FF[[1]] %*% Theta1t + F12l[[t]] %*% Theta12 + epsV1
 
     Y <- rbind(Y, as.vector(Yt))
