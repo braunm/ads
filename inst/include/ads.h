@@ -1211,7 +1211,7 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 			  Named("M2t") = wrap(M2treturn),
 			  Named("C2t") = wrap(C2treturn),
 			  Named("OmegaT") = wrap(OmegaTreturn),
-			  Named("Gt") = wrap(Greturn)
+			  Named("Gt") = wrap(Greturn),
               Named("Ht") = wrap(Hreturn)
 			  );
   return(res);
