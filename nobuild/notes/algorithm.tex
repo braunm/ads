@@ -1,0 +1,694 @@
+\documentclass[letter,10pt]{article}
+
+\usepackage[pdftex]{graphicx}
+
+\usepackage{geometry}
+\usepackage{natbib}
+\usepackage[singlespacing]{setspace}
+\usepackage[page]{appendix}
+\usepackage[color]{showkeys}
+
+\definecolor{labelkey}{rgb}{1,.5,0.2}
+\definecolor{refkey}{rgb}{0,0,0.8}
+
+\usepackage[T1]{fontenc}
+%\usepackage{float}
+\usepackage{amsmath}
+%%\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{verbatim}
+\usepackage{mathpazo}
+%%\usepackage[charter]{mathdesign}
+\usepackage{caption}
+
+\bibpunct[, ]{(}{)}{;}{a}{}{,}
+\bibliographystyle{ormsv080}
+
+\DeclareMathOperator\logit{logit}
+\DeclareMathOperator\Prob{Prob}
+\DeclareMathOperator\vecop{vec }
+\DeclareMathOperator\tr{tr}
+\DeclareMathOperator\etr{etr}
+
+
+\newcommand{\thetabar}{\bar\theta}
+\newcommand{\thetaij}{\theta_{ij}}
+\newcommand{\kron}{\otimes}
+\newcommand{\eps}{\varepsilon}
+\newcommand{\Igtz}{\mathbb{I}}
+%%\newcommand{\Igtz}{\mathbf{I}}
+
+
+
+\newcommand{\relphantom}[1]{\mathrel{\phantom{#1}}}
+
+\geometry{left=1in,right=1in,top=1in,bottom=1in}
+
+\title{Implementation notes for HDLM ad spend model}
+\author{Andr\'e Bonfrer and Michael Braun}
+
+\begin{document}
+\maketitle
+
+
+\section*{Definitions of symbols}
+\begin{table}[h]\centering
+\begin{tabular}{cp{4in}l}
+Symbol&Definition&Dimension\\
+\hline
+$l = 1\mathellipsis L $& hierarchy level index (level 1 is city, level 2 is national)  &\\
+$j=1\mathellipsis J$&brand index&\\
+$i=1\mathellipsis N$&city index&\\
+$t=1\mathellipsis T$&time index&\\
+$k=1\mathellipsis K$&time invariant covariate index at level 1&\\
+$p=1\mathellipsis P$&time varying covariate index at level 1&\\
+\hline
+&{\bf Observed data}&\\
+$Y_t$&dependent variable.  Sales by city and brand&$N\times J$\\
+$F_{11t}$&Data ('explanatory variables') matrix.  Sparse 0/1&$N\times N(1+P)$\\
+$F_{12t}$&Data ('explanatory variables') matrix.  Sparse 0/1&$N\times K$\\
+$F_{2t}$&Hierarchical matrix.  &$N(1+P)\times (1+J+P)$\\
+$A_t$&ad spend by city, brand&$N\times J$\\
+$F_{12t}$&covariate matrix for the 1st hierarchy level (by city, time varying, but observed)&$N\times P$\\
+\hline
+&{\bf Prior parameters (predetermined)}&\\
+$M_{20}$&some prior matrix-normal parameter for
+$\Theta_{20}$&$(1+J+P)\times J$\\
+$C_{20}$&some prior matrix-normal parameter for $\Theta_{20}$&$(1+J+P)\times(1+J+P)$\\
+$\Omega_0$&prior inverse Wishart scale parameter matrix for $\Sigma$& $J\times J$\\
+$\nu_0$&prior inverse Wishart degrees of freedom parameter for $\Sigma$&scalar\\
+&other hyperprior parameters go here&\\
+\hline
+&{\bf parameters that need to be estimated}&\\
+$\Theta_{12}$&time invariant coefficients on city and brand specific covariates, non time varying (covariates are $F_{12t})$&$K\times J$\\
+$\Theta_{11t}$&time varying coefficients on city and brand specific covariates (covariates are $F_{11t})$&$N(1+P)\times J$\\
+$\Theta_{2t}$&time varying (mean) coefficients (covariates can be introduced in $F_{2t})$&$(1+J+P)\times J$\\
+$c$&vector of copy wearout parameters, brand-specific&$J$\\
+$u$&vector of ad wearout parameters, brand-specific&$J$\\
+$\phi$&matrix of ad wearout parameters, brand-specific&$J\times J$\\
+$\delta$&decay parameter, $0<\delta <1$&scalar\\
+$V_1$&city level covariance matrix&$N\times N$\\
+$V_2$&hierarchical covariance matrix (across model components)&$N(1+P)\times N(1+P)$\\
+$W$&evolution covariance matrix (over time)&$(1+J+P)\times (1+J+P)$\\
+\hline
+&{\bf Intermediate terms}&\\
+$\tilde{G}_t$&evolution matrix (upper triangular)&$(1+J+P)\times(1+J+P)$\\
+$\tilde{H}_t$&matrix depending on $\delta$ and $A_t$&$(1+J+P)\times J$\\
+$a_{2t}$&mean for prior distribution of $\Theta_{2t} \mid D_{t-1}$&$(1+J+P)\times J$\\
+%$a_{1t}$&&$N(J+1)\times J$\\
+$f_t$&mean of predictive distribution for $Y_t\mid D_{t-1}$ &$N\times J$\\
+$Q_t$&covariance of predictive distribution for $Y_t\mid D_{t-1}$&$N\times N$\\
+%$M_{1t}$&not needed? Can we remove?&$N(J+1)\times J$\\
+$R_{1t}$&covariance for prior distribution of $\Theta_{1t}\mid D_{t-1}$&$N(1+P)\times N(1+P)$\\
+$R_{2t}$&covariance for prior distribution of $\Theta_{2t}\mid D_{t-1}$&$(1+J+P)\times(1+J+P)$\\
+$M_{2t}$&mean of posterior distribution $\Theta_{2t}\mid D_{t}$ &$(1+J+P)\times J$\\
+$C_{2t}$&covariance for posterior distribution $\Theta_{2t}\mid D_{t}$ &$(1+J+P)\times (1+J+P)$\\
+%$S_{1t}$&not needed? Can we remove?&$N(J+1)\times N$\\
+$S_{2t}$&used to translate variance from previous level &$(1+J+P)\times N$\\
+%$\Omega_t$&prior inverse Wishart scale parameter matrix for $\Sigma\mid D_{t-1}$& $J\times J$\\
+%$\nu_t$&prior inverse Wishart degrees of freedom parameter for $\Sigma\mid D_{t-1}$&scalar\\
+\end{tabular}
+\end{table}
+
+\section{Two-level hierarchical model}
+
+Assume we have outcome (e.g sales) data for $J$ brands, in $N$ cities, and observe these data
+over $T$ time periods.   We represent this outcome ($Y_t$) at time $t$ as a $N\times J$ matrix, 
+with the rows representing city level 
+observations, and columns representing brand sales (outcome) data.  
+We have a hierachy of city level at the lowest (each city has its own sales) and at the
+highest level we have dynamics at the mean level (e.g. mean prices, or the effects of national level advertising).  
+This is written as:
+\begin{eqnarray}
+Y_{t} & = & F_{11t} \Theta_{11t} + F_{12t} \Theta_{12} + v_{1t} \\
+\Theta_{11t} & = & F_{2t}\Theta_{2t} + v_{2t}  \\
+\Theta_{2t} & = & \tilde{G}_t \Theta_{2,t-1} + \tilde{H}_t + w_t 
+\end{eqnarray}
+
+The components that affect each city's sales directly, are in the $F_{12t}$ matrix, with a corresponding 
+non-time varying coefficient matrix.   The time varying component at the city level is contained in the 
+$F_{11t} \Theta_{11t}$ component.  In addition we have an innovation function (sometimes called a control variable) in the 
+evolution equation, $H_t$.  This component shifts elements of $\Theta_{2t}$ but is not relative to it.  
+
+We use a matrix normal distribution for all covariance terms:
+\begin{eqnarray} 
+v_{lt} \mid \Sigma, V_l \sim N(0,V_l,\Sigma)\\
+w_{t} \mid \Sigma, W \sim N(0,W,\Sigma)
+\end{eqnarray}
+Each matrix normal distribution has a left and right variance matrix, e.g. $V_1,\Sigma$ respectively.  
+The right variance governs (column) cross equation covariatance.  The left variance captures row covariance, which is either
+concurrent ($V_l$) or time based variation ($W$).  The left variance  $V_1$ represents variation across
+cities.  The left variance $V_2$ represents concurrent variance across mean values for different state variables.  
+We can simplify notation a bit by using a set $\Psi = \{V_1,V_2,W\}$.
+
+At the first level we have $\bar{Y}_t = Y_t - F_{12t} \Theta_{12}$, which does not 
+have a hierarchical counterpart (i.e. homogenous response to covariates contained in $F_{12t}$).  
+The $\Theta_{11t}$ component then has both time varying and non-time varying 
+heterogeneous responses.  
+We can rewrite our HDLM as:\begin{eqnarray}
+\bar{Y}_{t} & = & F_{11t} \Theta_{11t} + v_{1t} \\
+\Theta_{11t} & = & F_{2t}\Theta_{2t} + v_{2t}  \\
+\Theta_{2t} & = & \tilde{G}_t \Theta_{2,t-1} + \tilde{H}_t + w_t 
+\end{eqnarray}
+We use the tilde ($\tilde{\cdot}$) in the above to represent intermediate variables (those that depend on other parameters).  
+
+\section*{Data likelihood}
+
+We write the data likelihood, recognising that 
+simple substitutions can be made to take care of the time invariant and homogenous parameters.
+Let $D_{t-1}$ represent all information (including state variables) available at time $t$.  So $D_0$ is initial 
+information about the states and priors.  
+At any time period, $\Sigma \mid D_{t-1}$ is distributed as an Inverse Wishart ($IW(\nu_{t-1},\Omega_{t-1}$).
+For any time period, the joint density of the data $Y_t$ and $\Sigma$ is a matrix
+normal inverse Wishart (or a product of a matrix normal with inverse Wishart):
+\begin{align}
+P(\bar{Y},\Sigma\mid \mathcal{D}_0,\Psi)&=\prod_{t=1}^T P(\bar{Y}_t \mid \Sigma, D_{t-1},\Psi) P(\Sigma \mid D_{t-1},\Psi) \\
+%&=  \prod_{t=1}^T   (2\pi)^{-\frac{NJ}{2}}|Q_t|^{-\frac{J}{2}}|\Sigma|^{-\frac{N}{2}}\exp\left[
+%  -\frac{1}{2}\tr\left(\left(
+%      Y_t-f_t\right)'Q_t^{-1}\left(Y_t-f_t\right)\Sigma^{-1}\right)\right]\\
+& = \prod_{t=1}^T   (2\pi)^{-\frac{NJ}{2}}|Q_t|^{-\frac{J}{2}}|\Sigma|^{-\frac{N}{2}}\exp\left[
+  -\frac{1}{2}\tr\left(\left(
+      \bar{Y}_t-f_t\right)'Q_t^{-1}\left(\bar{Y}_t-f_t\right)\Sigma^{-1}\right)\right] \nonumber\\
+& ~~~~~~ \times IW(\nu_{t-1},\Omega_{t-1})
+\end{align}
+Integrating out $\Sigma$ (see our technical appendix on matrix T) gives the following data likelihood:
+\begin{align}
+  P(\bar{Y}|\cdot)&=\prod_{t=1}^TP(\bar{Y}_t|y_{1:t-1},\cdot)\nonumber\\
+\label{eq:LL-T}
+&= \mathcal{K} \left(\prod_{t=1}^T|Q_t|^{-\frac{J}{2}}\right)|\Omega_0+\sum_{t=1}^T\left(\bar{Y}_t-f_t\right)'Q_t^{-1}\left(\bar{Y}_t-f_t\right)|^{-\frac{\nu_0+TN}{2}}
+\end{align}
+where:
+\[
+\mathcal{K} = \pi^{-\frac{NJT}{2}}\frac{\Gamma_J\left(\frac{\nu_0+TN}{2}\right)}{\Gamma_J\left(\frac{\nu_0}{2}\right)}|\Omega_0|^{-\frac{\nu_0}{2}}
+\]
+
+
+
+
+\section{Theoretical development of the dynamic hierarchical effects of advertising}
+
+In our application (FMCG), we take the perspective of a national-level marketing manager observing city  
+level observations of sales and prices, allocating an advertising expenditure over time and across cities.  
+We focus on the effectiveness of network advertising, which as a unit of analysis is observed only at a national level.
+That is, each city is exposed to the same network television patterns.  Effectiveness is a dynamic function of 
+the content in the creatives used in the campaign.  At any time, there are a number of distinct creatives
+observed in the market place.  The manager can choose to spend on existing/past creatives, or to invest in 
+and launch a new creative.  The industry setting is such that there 
+are a total of $J$ competitors.  Expenditure allocation decisions are made on a continuous time basis but 
+we use weekly level sales data so we convert the expenditures to a weekly level.  
+
+In the full competitive model, all covariates (advertising, price and promotions) have both an own
+and cross effect.   In the matrix normal set up of
+the HDLM above, this is automatically specified by having a matrix normal of the brand sales in the columns,
+and the covariates are each brands' covariates.  
+
+In addition to competitive effects and competitive interference effects, the effectiveness of
+the advertising campaign wears out over time.  This is because of the wearout of individual messages.  
+In line with past work (e.g. Naik et al 1998,  Bass et al 2008, Braun and Moe 2012), we think 
+of ad effectiveness for each brand $j$ creative $m$, denoted by $q_{mjt}$.  
+
+We abstract from any individual message and 
+start with the standard Nerlove-Arrow type evolution of "brand" or overall "advertising"
+effectiveness (defined as the ability for a dollar spent on advertising to lift sales volume), represented by:
+\begin{equation}
+\label{eqn:bqj1}
+B_{jt} = (1-\delta) B_{jt-1} + q_{jt-1} g(A_{ijt})  
+\end{equation}
+where $g(\cdot)$ is some transformation of advertising ($=0$ if
+$A_{ijt}=0$).
+We will return to the issue of including competitive effects of a focal brand's advertising, multiple media messages
+and the effect of competing brands' advertising on the focal brand's sales. 
+
+One way to build dynamic advertising effectiveness is by using a differential equation with respect
+to time, of brand $j$'s advertising:
+\[
+\frac{dq_j}{dt} = -a(A_j)q_j +(1-\Igtz(A_j)) \delta (1 - q_j) 
+\]
+If advertising is positive, then it wears out as a function of $a()$ given above (e.g. $a(A) = c + wA$).  
+If advertising is turned off, then there is a rejuvenation effect given by $\delta (1 - q_j)$. 
+Naik et al (1998) point out that, if advertising is turned off, $q_{jt}$ tends to the following value:
+\[
+\lim_{t \rightarrow \infty} q_{jt} ~=  \frac{\delta}{c+\delta}
+\]
+
+The evolution of advertising effectiveness is then (let $dq = q_t - q_{t-1}$ and $dt=1$):
+\begin{eqnarray}
+q_{jt} - q_{jt-1} & = & -a(A_j) q_{jt-1} + (1-\Igtz(A_j))\delta (1- q_{jt-1})\nonumber\\
+q_{jt} & = & q_{jt-1} -a(A_j) q_{jt-1} + (1-\Igtz(A_j))\delta (1- q_{jt-1})\nonumber\\
+& = & q_{jt-1} \left[1-a(A_j) -\delta (1-\Igtz(A_j))\right]  + \delta (1- \Igtz(A_j))
+\label{eqn:dq1}
+\end{eqnarray}
+
+A few notes about this.  First, it is only valid if $q>0$. For the cross effectiveness of 
+advertising in our competitive model, we need to allow for this to be negative.  If $q<0$ then we need a different
+dynamic:
+\[
+\frac{dq_j}{dt} = -a(A_j) - (1-\Igtz(A_j)) \delta (1 + q_j) 
+\]
+which allows advertising effectiveness to return to a larger negative value if advertising for
+that brand is switched off.  If advertising is switched off, it has the same asymptote as before, 
+but negative in value\footnote{\baselineskip 12pt Our issues with the identification of $c$ 
+means we set this to $0$.  The obvious implication is that the asymptotic value of $q$ is then 
+equal to one.}:
+\[
+\lim_{t \rightarrow \infty} q_{jt} ~=  -\frac{\delta}{c+\delta}
+\]
+
+This leads to the following:
+\begin{eqnarray}
+q_{jt} - q_{jt-1} & = & -a(A_j) q_{jt-1} - (1-\Igtz(A_j))\delta (1+ q_{jt-1})\nonumber\\
+q_{jt} & = & q_{jt-1} -a(A_j) q_{jt-1} - (1-\Igtz(A_j))\delta (1+ q_{jt-1})\nonumber\\
+& = & q_{jt-1} \left[1-a(A_j) -\delta (1-\Igtz(A_j))\right]  - \delta (1- \Igtz(A_j))
+\label{eqn:dq2}
+\end{eqnarray}
+The only difference between (\ref{eqn:dq1}) and (\ref{eqn:dq2}) is the "innovation" component ( $sign(q) \delta(1-\Igtz(A_j))$)
+which depends on the sign of the advertising effectiveness component.  See below for how
+we include the innovation component (it does not enter $\tilde{G}_t$).
+
+Second, we want to incorporate new creatives.  For this, we propose the differential equation:
+\[
+\frac{dq_j}{dt} = -a(A_j)q_j +(1-\Igtz(A_j)) \delta (1 - sign(q_j) q_j) + sign(q_j) \phi_j E_j
+\]
+where $E_j$ is some metric for new creatives.  E.g. it could count the number of new
+creatives being used (or the proportion of the creatives that have not been shown before).  
+
+
+\subsection{Specifying $\Theta_{2t}$}
+
+The matrix $\Theta_{2t}$ is a (dense)  matrix of time varying parameters 
+(also called state variables).  Without the $P\times J$ matrix of time varying parameters, the rows of this correspond to 
+
+\begin{equation}
+\begin{array}{ll}
+      \Theta_{2t} = & \left[\begin{array}{cccl}
+		 B_{1t} & B_{2t} &\ldots & B_{Jt} \\
+		q_{11t} & q_{21t} & \ldots & q_{J1t} \\
+		q_{12t} & q_{22t} & \ldots & q_{J2t} \\
+	\vdots\\
+		q_{1Jt} & q_{21t} & \ldots & q_{JJt} \\
+
+		\end{array}\right]
+\end{array}
+\label{eqn:t2a}
+\end{equation} 
+with $F_{2t}$ being the matrix (dimension $N \times (J+1)$) that translates these states to the city level.  For example, corresponding
+to the above:
+\begin{equation}
+\begin{array}{ll}
+      F_{2t} = & \left[\begin{array}{cccl}
+		1 & 0 & 0 & 0\\
+		1 & 0 & 0 & 0\\
+\vdots\\
+		1 & 0 & 0 & 0\\
+		\end{array}\right]
+\end{array}
+\label{eqn:t2b}
+\end{equation} 
+The zero elements of this matrix make the ad effectiveness parameters/states latent, with their
+role only being played in the evolution matrix below.   For (\ref{eqn:t2a}) and (\ref{eqn:t2b}) they combine
+to provide a $N\times J$ matrix which just depends on the intercept ($B_{jt}$ in \ref{eqn:bqj1}).  
+
+\subsubsection{Adding time varying effects of other covariates}
+
+To add time varying effects of other covariates, we add in rows corresponding to each effect to $\Theta_{2t}$, e.g. 
+adding $J$ rows\footnote{\baselineskip 12pt This is a bit confusing, but because we have cross effects for each covariate we add, then 
+adding in just price adds $P=J$ covariates. If we allow two types of covariates (e.g. price and promotion) then
+$P=J+J$}, 
+a price "mean" parameter for each price variable (i.e. this is the mean value for the price elasticity across cities): 
+\begin{equation}
+\begin{array}{ll}
+      \Theta_{2t} = & \left[\begin{array}{cccl}
+		 B_{1t} & B_{2t} &\ldots & B_{Jt} \\
+		q_{11t} & q_{21t} & \ldots & q_{J1t} \\
+		q_{12t} & q_{22t} & \ldots & q_{J2t} \\
+	\vdots\\
+		q_{1Jt} & q_{21t} & \ldots & q_{JJt} \\
+
+		\theta^p_{11t} & \theta^p_{21t} & \ldots & \theta^p_{J1t} \\
+		\theta^p_{12t} & \theta^p_{22t} & \ldots & \theta^p_{J2t} \\
+	\vdots\\
+		\theta^p_{1Jt} & \theta^p_{21t} & \ldots & \theta^p_{JJt} \\
+
+		\end{array}\right]
+\end{array}
+\end{equation} 
+Then $F_{2t}$ becomes (with dimension $N(1+P)\times (1+J+P)$) :
+\begin{equation}
+\begin{array}{ll}
+      F_{2t} = & \left[\begin{array}{cccccccc}
+		1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+		0 &0 &0 &0 &1 &\ldots &0 &0\\
+		0 & 0 & 0 & 0 & 0 &1 & 0 &0\\
+		0 & 0 & 0 & 0 & 0 & 0 &\ddots &0\\
+		0 & 0 & 0 & 0 & 0 &0 &0 & 1\\
+\vdots\\
+		1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+		0 &0 &0 &0 &1 &\ldots &0 &0\\
+		0 & 0 & 0 & 0 & 0 &1 & 0 &0\\
+		0 & 0 & 0 & 0 & 0 & 0 &\ddots &0\\
+		0 & 0 & 0 & 0 & 0 &0 &0 & 1\\
+\vdots\\
+		1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+		0 &0 &0 &0 &1 &\ldots &0 &0\\
+		0 & 0 & 0 & 0 & 0 &1 & 0 &0\\
+		0 & 0 & 0 & 0 & 0 & 0 &\ddots &0\\
+		0 & 0 & 0 & 0 & 0 &0 &0 & 1\\
+		\end{array}\right]
+\end{array}
+\end{equation} 
+
+
+\subsection{Specifying $F_{11t}$}
+
+The city level matrix of $F_{11t}$ is the mean for the distribution of $\bar{Y}_t$ as a (simple additive) function
+of the covariates (and latent space) at the city level.  Without any additional time varying effects of covariates,
+this is an $N\times N$ identity matrix:
+\begin{equation}
+\begin{array}{ll}
+      F_{11t} = & \left[\begin{array}{cccl}
+		 1 & 0 & \ldots & 0 \\
+		0 & 1 & \ldots & 0 \\
+\vdots & 0 & \ddots \\
+		0 & 0 & \ldots & 1 \\
+
+		\end{array}\right]
+\end{array}
+\end{equation}
+
+The addition of city specific price covariates, for which the effects vary over time, then the matrix is $N\times N(1+P)$
+where $P$ corresponds to the number of covariates (times $J$).  For example, consider adding price for $J$ brands,
+we will add $P=J$ covariates to $F_{11t}$:
+\begin{equation}
+\begin{array}{ll}
+      F_{11t} = & \left[\begin{array}{cccccccccccc}
+		 1 & p_{11t} & p_{1jt} & \ldots &p_{1Jt}\ldots & 0 &&&&&\ldots &0\\
+\vdots\\
+		0 &0 &0 &0 &\ldots & 1 & p_{n1t} & p_{njt} & \ldots &p_{nJt}  & \ldots & 0 \\
+\vdots & 0 & \ddots \\
+		\end{array}\right]
+\end{array}
+\end{equation}
+where $p_{njt}$ is price in city $n$ for brand $j$ at time $t$.   In the above, the dimension would be $N \times N(1+P)$.
+
+
+\subsection{Specifying $\tilde{G}_t$}
+
+The corresponding "evolution" matrix $\tilde{G}_t$ is $(J+1+P)\times(J+1+P)$, and is upper triangular.  We illustrate
+this below by ignoring the $\tilde{G}_t$ component for the $P$ time varying components (which would just be an identity matrix 
+of dimension $P \times P$). Let
+$\tilde{g}(A_{jt})$ be some transformation function of ad spend for
+brand $j$ at time $t$.  The function $\Igtz(\cdot)$ is an indicator
+function that takes a value of 1 if the argument is greater than zero,
+and 0 otherwise.\footnote{If we allow for different "cross" effect wearouts, then we have an evolution matrix for each brand.  We would no longer
+be able to use the matrix normal T distribution for this, and would have the following $j$th evolution matrix 
+premultiplying the $j$th column of $\Theta_{2t}$:
+\begin{equation}
+\begin{array}{ll}
+      \tilde{G}_{jt} = & \left[\begin{array}{cccl}
+		 (1-\delta) & \tilde{g}(A_{1t}) & \ldots & \tilde{g}(A_{Jt}) \\
+		0 & (1-c_{1j}-u_{1j} A_{1t}) - \delta(1-\Igtz(A_{1t})) & \ldots & 0 \\
+\vdots & 0 & \ddots \\
+		0 & 0 &  & (1-c_{Jj}-u_{Jj} A_{Jt} - \delta(1-\Igtz(A_{Jt})) \\
+		\end{array}\right]
+\end{array}
+\end{equation}}  
+
+\begin{equation}
+Here\begin{array}{ll}
+      \tilde{G}_t = & \left[\begin{array}{cccl}
+		 (1-\delta) & \tilde{g}(A_{1t}) & \ldots & \tilde{g}(A_{Jt}) \\
+		0 & (1-c_1 - u_1 A_{1t}) - \delta(1-\Igtz(A_{1t})) & \ldots & 0 \\
+\vdots & 0 & \ddots \\
+		0 & 0 &  & (1-c_J - u_J A_{Jt}) - \delta(1-\Igtz(A_{Jt})) \\
+		\end{array}\right]
+\end{array}
+\end{equation}
+
+
+
+
+\subsection*{Computing $H_t$}
+
+The innovation component adds an amount to each state parameter, and for each 
+brand.  Therefore the dimension of the matrix $\tilde{H}_t$ is $(1+J+P)\times J$, and depends 
+on ad spend and the parameter $\delta$.  Again ignoring any additional time varying effects of 
+covariates (so $P=0$) we have:
+\begin{equation}
+H^1_t = \left[ \begin{array}{ccccc}
+	0 & \ldots & 0 & \ldots &0\\
+	sign(q_{11}) \delta(1-\Igtz(A_{1t}))   &\ldots &sign(q_{j1}) \delta(1-\Igtz(A_{1t})) &\ldots &sign(q_{J1}) \delta(1-\Igtz(A_{1t}))  \\
+\vdots &\ddots \\
+	sign(q_{1j}) \delta(1-\Igtz(A_{jt}))     &sign(q_{kj}) \delta(1-\Igtz(A_{jt}))\\
+\vdots &&& \ddots\\
+	sign(q_{1J}) \delta(1-\Igtz(A_{Jt})) & \ldots &&&	sign(q_{JJ}) \delta(1-\Igtz(A_{Jt}))\\
+	\end{array}
+\right]
+\end{equation}
+
+\begin{equation}
+H^2_t = \left[ \begin{array}{ccccc}
+	0 & \ldots & 0 & \ldots &0\\
+	sign{q_{11}}\phi_{11} E_{1t} & sign{q_{21}}\phi_{21} E_{1t} &\ldots &&sign{q_{J1}}\phi_{J1} E_{1t}\\
+\vdots &\ddots \\
+	sign{q_{1j}}\phi_{1j}  E_{jt}& \ldots &sign{q_{jj}}\phi_{jj} E_{jt} &\ldots &sign{q_{Jj}}\phi_{Jj} E_{jt}\\
+\vdots\\
+	sign{q_{1J}}\phi_{1J} E_{Jt}& sign{q_{2J}}\phi_{2J} E_{Jt} &\ldots &&sign{q_{JJ}}\phi_{JJ} E_{Jt}\\
+	\end{array}
+\right]
+\end{equation}
+Then $\tilde{H}_t = H^1_t + H^2_t$.  Once again, there will be an additional $P$ rows to $\tilde{H}_t$ corresponding
+to additional time varying covariates.  
+
+
+
+\section*{Iterative estimation}
+
+To estimate the likelihood in Equation (\ref{eq:LL-T}), we need to
+compute $\bar{Y}_t$, $f_t$, and $Q_t$.  The matrix $Y_t$ is the observed,
+dependent variable, so we need to get $f_t$ and $Q_t$, and $\bar{Y}_t = Y_t - F_{12t} \Theta_{12}$.  
+Conditional on estimates from time $t-1$, and all data and prior information, we can
+follow the following algorithm at time $t$.  
+
+\begin{enumerate}
+\item Compute $\tilde{G}_t$ using $A_t$, $c, u$, $\phi$ and $\delta$, then $\tilde{G}_t$ to include any 
+additional time varying effects for covariates. 
+Similarly, create $\tilde{H}_t$ including $P\times J$ matrix of zeros.  
+\item Set $a_{2t}=\tilde{G}_tM_{2,t-1}+\tilde{H}_t$.
+\item Set $f_t=F_{11t}F_{2t}a_{2t}$.
+\item Set $R_{2t}=\tilde{G}_tC_{2,t-1}\tilde{G}_t'+W$
+\item Set $R_{1t}=F_{2t}R_{2t}F_{2t}'+V_2$
+\item Set $Q_t=F_{11t}R_{1t}F_{11t}'+V_1$
+\item Set $S_{2t}=R_{2t}\left[F_{11t}F_{2t}\right]'$
+\item Set $M_{2t}=a_{2t}+S_{2t}Q_t^{-1}(\bar{Y}_t-f_t)$
+\item Set $C_{2t}=R_{2t}-S_{2t}Q_t^{-1}S_{2t}'$
+%\item Set $\nu_t = \nu_{t-1} + N$
+%\item Set $\Omega_t = \Omega_{t-1} + E_t' Q_t^{-1} E_t$
+\end{enumerate}
+Then, iterate over $t$ to estimate the data likelihood.  Note that the homogenous time invariant component 
+at level 1 of the hierarchy is handled by the transformed variable, $\bar{Y}_t$ which appears in the posterior and can 
+be numerically estimated.    
+
+\section*{Data structures}
+
+The matrices $A$ ($T\times J$) and $F_{12t}$  are standard, dense covariate structures.  
+The matrix $F_{11t}$ is given above, and is sparse.  Similary with $F_{2t}$.  
+We separated out the time-invariant homogenous effects in $F_{12t}\Theta_{12}$, so 
+the matrix $F_{12t}$ is $N\times K$.  These are non hierarchical and non time varying in their effects.   
+
+
+\section*{Specifying parameters}
+
+Table \ref{tab:parameters} summarizes the parameters that need to be
+estimated, assuming that the covariance matrices are stationary.  The
+number of parameters lists is the number of \emph{unique} elements.
+For example, in a symmetric matrix there are, at most, $k(k+1)/2$
+unique parameters.  But this can still be a large number, so we should
+think about some kind of dimensionality reduction.
+\begin{table}[h]\centering
+  \begin{tabular}{lllll}
+Symbol&Note&Num Pars (if dense)&Reduce by...&reduced parameters\\
+\hline
+$V_1$&symmetric pos-def&$N(N+1)/2$&make diagonal&$N$\\
+&&&spatial structure&something $>N$\\
+$V_2$&symmetric pos-def&\parbox{2.5cm}{$[N^2(1+P)^2+N(1+P)]/2$}&block diagonal?&$N(2+P(3+P))/2$\\
+$W$&symmetric pos-def&$(1+J+P)(2+J+P)/2$&diagonal& (1+J+P)\\
+&&&block diagonal& 1 + J(J+1)/2 + P(P+1)/2\\
+$\delta$&scalar between 0 and 1&1&&\\
+%$\lambda$ & scalar $>$zero\\\\
+$\phi$ & dense matrix	&$J \times J$ &make symmetric & J(J+1)/2\\
+$c,u$&\parbox{3cm}{vector, likely positive and close to zero, and may be negative}&J each&&\\
+$\Theta_{12}$& \parbox{3cm}{time invariant homogenous coefficient matrix}&$K\times J$&no intercept&
+  \end{tabular}
+\caption{Parameters to be estimated}
+\label{tab:parameters}
+\end{table}
+
+To estimate these parameters, we should transform them all to be
+unbounded.  Otherwise, we need to modify the GDS algorithm to handle
+constrained optimization and simulation (which is possible, but
+tedious and uninteresting).
+
+For the dense cases of $V_1$, $V_2$ and $W$, typically we would
+estimate the elements of the lower Cholesky decomposition (taking logs
+of the diagonal elements to ensure that they are positive).  If we add
+structure to those matrices, we need to reconsider the
+transformation.  However, block diagonals should still allow us to use
+the Cholesky decomposition approach.  
+
+\section*{Priors}
+
+We need to choose initial values for $M_{20}$ and $C_{20}$.  What do
+these matrices mean, intuitively?  They indicate prior information about the
+starting states (the means across cities).  This could come from theory, another process, or could be made
+quite diffuse.  For example, the way we specify the ad effectiveness (above) 
+could provide us with some prior on the initial state that is constrained to be 
+close to 0.  Similary, our understanding of price sensitivity is around $-1$ to $-2$
+so we could provide such a information as a prior.   Of particular interest is
+the "new" creative effectiveness.  The overall effect of this should be 
+somewhat proportional to the effect of the base campaign.  
+
+Prior on $\delta$:  if $\delta$ really is between 0 and 1, we could
+make the prior uniform.  But is that realistic?  We probably want a
+density that places zero probability at 0 and 1, or at least 0.  Does
+the literature give us any prior information about what this decay
+parameter should be?  Yes, it says that $\delta$ is usually around $0.1-0.2$ (for
+weekly data).  We could use a beta$(1,3)$ as a prior.  One problem this
+may raise (in the GDS) is that the parameter is constrained between zero and
+one.  
+
+Priors on $c_{1:J}$ and $u_{1:J}$:  depends on the domain.  Are they
+all between 0 and 1.  Also, could they be correlated?  Would it make
+sense that if one brand had high wearout, another brand could as well?
+Do we have prior information on this?  Again, $c$ depends on the 
+ad effectiveness value, but is unlikely to be much different from 0.  
+The $w$ value depends on the scale used for advertising expenditure
+and is expected to be positive.    The $\phi$ parameters are likely to be small
+since it is unlikely any one creative can have a substantial impact on the 
+overall effectiveness of the campaign.  
+
+Priors on $V_1$, $V_2$ and $W$:  first, we need better intuition about
+what these matrices represent.  Then, we can come up with a range of
+reasonable values for the parameters.  Given the complexity of the
+model, we will need to regularize it with prior information.  And it
+would be good to give these priors careful though.  Way too many
+marketers are careless with their ``uninformative'' priors.
+
+\section*{Prediction}
+
+Once we estimate these top-level parameters, we might want to simulate
+data.  That means we need posterior predictive distributions of $Y$.
+Can we do that without simulating the $\Theta$ parameters directly?
+Note that we do not collect any $\Theta$ draws during the estimation
+process, since they are all integrated out.  We should be able to use
+forward filtering, backward sampling (possibly with smoothing) to obtain
+the city level state variables.  
+
+
+\subsection{Focus on initial qualities}
+The accommodation of initial qualities could be a possible extension.   
+Several possible outcomes could have some interesting implications.  First, 
+consider if the distribution across creatives is quite broad, i.e. there is wide heterogeneity
+in the quality of ads drawn (might want to discuss some of the creative agency literature). 
+This would likely have a quite different outcome in terms of the decision to draw
+new ads (and the number of creatives being displayed) than if the heterogeneity is
+quite low.  As a "hunch" we may expect the manager to want to try more creatives, sticking
+with the ones that seem to be high quality, but drawing new creatives if it is of low quality.
+We may also expect that the pattern of expenditure is quite different - with more
+pulsing behavior if the ad is high quality, but perhaps some initial pattern to 
+'learn' about the quality of the advertisement once introduced.  Need to also consider
+how pre-testing of creatives may change these results.  
+
+The problem with the estimation of this is in the size of the evolution matrix required
+which for just the advertising part (instead of a $J+1$ by $J+1$ matrix) requires a 
+matrix which is of dimension equal to (with rather sloppy notation) $m+1$ by $m+1$ where $m$ is the total number of creatives across brands.   We start by seeing if we can 
+collapse this across creatives somehow.  
+
+\subsubsection{Additional to be done:}
+The most important is to include interference effects for each advertising component.  
+\begin{itemize}
+\item Analytics on how to launch ads over time (constant noise).  Each ad has fixed
+cost and variable cost of creating.  The variable cost is assumed measured by $g(\cdot)$.
+\item How much does noise impact the pattern of spending for a focal brand?
+\item Analytically derive the optimal number of creatives to run at any time, and
+look at how this depends on the variability in inital quality.  Perhaps consider a 
+choice of creative media agency?  One with high variability, but low average quality,
+one with low variability?  If it's a beta distribution we could also look at the media agencies
+that sometimes produce a hit, sometimes a complete flop, versus one that is more 
+reliable "average" quality.  
+\item Advanced - investigate optimal "pulsing" strategy
+\end{itemize}
+
+
+\end{document}
+
+
+
+We go back to just one brand.  Define the "total impact" of any brand's advertising
+as the part on the right hand side of (\ref{eqn:bqj1}):
+\begin{equation}
+\label{eqn:Baq}
+\sum_{i=1}^m q_{ijt} I(\tau_{ji} \geq t) g(A_{ijt}) 
+\end{equation}
+Note that the indicator $I(\tau_{ji}\geq t)$ is associated with the quality parameter
+rather than the quantity of the advertising.  This distinction is important - some readers
+might note that having $g(A_{ijt})=0$ when the advertising for that creative has not started
+would supplant the need to have this indicator. However, that
+is not equivalent to the quality being given a zero weight.  Formally, 
+$g(A_{ijt}) = 0$ does not imply that $I(\tau_{ji}\geq t)$ is zero, but $I(\tau_{ji}<t$ (the 
+complement of $I(\tau_{ji}\geq t)$) does imply that $g(A_{ijt})=0$.  The indicator
+is essential to keep track of which ads have started and which have not, and the
+dynamics begin after $\tau_i$ for each ad.  If $g(A_{it})=0$ for any one period the
+evolution of $q_{jit}$ continues based on the specification for wearout and forgetting.
+ 
+We could rewrite the ad quality equation (\ref{eqn:Baq}) by multiplying by 
+$\frac{\sum_{i=1}^m g(A_{ijt})}{\sum_{i=1}^m g(A_{ijt})}$.
+So that we define the average quality (as a kind of geometric weighted average) as:
+\begin{equation}
+\tilde{q}_{jt}= \sum_{i=1}^m q_{ijt} I(\tau_{ji} \geq t) s(A_{ijt})  
+\end{equation}
+where $s(A_{ijt}) = \frac{g(A_{ijt})}{\sum_{i=1}^m g(A_{ijt})}$ and we can rewrite the brand equation in (\ref{eqn:bqj1}) as:
+\begin{equation}
+\label{eqn:bqj2}
+B_{jt} = (1-\delta) B_{jt} + \tilde{q}_{jt} \sum_{i=1}^m g(A_{ijt})
+\end{equation} 
+With this specification, the question becomes how do we compactly write
+an expression for the differential equation $\frac{d\tilde{q}_j}{dt}$?  We note that
+this can be written as:
+\begin{equation}
+\label{eqn:dqt}
+\frac{d\tilde{q}_j}{dt} = \sum_{i=1}^m \left[\frac{dq_{ij}}{dt} I(\tau_{ji} \geq t) s(A_{ijt}) + q_{ij} \frac{dI(\tau_{ji} \geq t) s(A_{ijt})}{dt} \right]
+\end{equation}
+We write the evolution of the quality of creative $i$ as:
+\[
+\frac{dq_i}{dt} = -a(A_{it})q_i + (1-I(A_{it}))\delta (q_{i\tau}^0-q_i) 
+\] 
+%So that we rewrite the average quality evolution in (\ref{eqn:dqt}) (recognizing for a normalized time increment $dt=1$, %$d\tilde{q}=\tilde{q}_t - \tilde{q}_{t-1}~~\forall t$) as:
+%\begin{eqnarray}
+%\tilde{q}_t & = & \tilde{q}_{t-1} + \sum_{i=1}^m  \left(-a(A_{it})q_{i,t-1} + (1-I(A_{it}))\delta (q_{i\tau}^0-q_{i,t-1})\right)  %I(\tau_{i} \geq t) s(A_{it})\nonumber\\
+%& = & \sum_{i=1}^m q_{i,t-1} I(\tau_{i} \geq t-1) s(A_{i,t-1}) +  \sum_{i=1}^m  \left(-a(A_{it})q_{i,t-1} + (1-I(A_{it}))\delta %(q_{i\tau}^0-q_{i,t-1})\right)  I(\tau_{i} \geq t) s(A_{it})\nonumber
+%\end{eqnarray}
+ 
+Writing (\ref{eqn:bqj2}) as a function 
+\begin{eqnarray}
+\tilde{q}_t 	& = & \tilde{q}_{i,t-1} + \sum_{i=1}^m \left[dq_{it} I(\tau_i \geq t) s(A_{it}) + q_{i,t-1}  \left(I(\tau_i \geq t) s(A_{it})-I(\tau_i \geq t-1)s(A_{i,t-1})\right) \right]\nonumber\\
+		& = & \sum_{i=1}^m q_{i,t-1} I(\tau_i \geq t-1) s(A_{it-1}) \nonumber\\
+& & + \left[ \left(-a(A_{it})q_{i,t-1}+(1-I(A_{it}))\delta (q_{i\tau}^0-q_{it-1})\right)  s(A_{it}) + q_{i,t-1} \left( I(\tau_i \geq t) s(A_{it})- I(\tau_i \geq t-1) s(A_{i,t-1})\right) \right]\nonumber\\
+& = & \sum_{i=1}^m q_{i,t-1} I(\tau_i \geq t-1) s(A_{it-1}) \nonumber\\
+& & + \left( q_{i,t-1} \left(1-a(A_{it})-(1-I(A_{it}))\delta \right)+ (1-I(A_{it}))\delta q_{i\tau}^0\right)  I(\tau_i \geq t) s(A_{it}) \nonumber\\ &&+~q_{i,t-1}\left( I(\tau_i \geq t) s(A_{it})- I(\tau_i \geq t-1) s(A_{i,t-1}) \right) \nonumber\\
+& = & \sum_{i=1}^m q_{i,t-1} I(\tau_i \geq t-1) s(A_{it-1}) \nonumber\\
+& & + \left[\left( q_{i,t-1} \left(1-a(A_{it})-(1-I(A_{it}))\delta \right)\right) I(\tau_i \geq t) s(A_{it}) 
++ q_{i,t-1} \left(I(\tau_i \geq t) s(A_{it})-I(\tau_i \geq t-1) s(A_{i,t-1})\right) \right]\nonumber\\
+&&+ (1-I(A_{it}))\delta q_{i\tau}^0I(\tau_i \geq t) s(A_{it})\nonumber\\
+%%%%%
+& = & \sum_{i=1}^m q_{i,t-1} I(\tau_i \geq t-1) s(A_{it-1}) \nonumber\\
+& & + \left( q_{i,t-1} \left[\left(1-a(A_{it})-(1-I(A_{it}))\delta \right)\right) I(\tau_i \geq t) s(A_{it}) +  \left( I(\tau_i \geq t) s(A_{it})- I(\tau_i \geq t-1)s(A_{i,t-1})\right)\right]\nonumber\\
+&&+ (1-I(A_{it}))\delta q_{i\tau}^0I(\tau_i \geq t) s(A_{it})\nonumber\\
+& = & \sum_{i=1}^m q_{i,t-1} I(\tau_i \geq t-1) s(A_{it-1}) \nonumber\\
+& &  q_{i,t-1} I(\tau_i \geq t-1) s(A_{it-1}) \left[\left(1-a(A_{it})-(1-I(A_{it}))\delta \right) \frac{I(\tau_i \geq t) s(A_{it})}{ I(\tau_i \geq t-1) s(A_{it-1})} +  \frac{I(\tau_i \geq t) s(A_{it})}{ I(\tau_i \geq t-1) s(A_{it-1})} -1 \right]\nonumber\\
+&&+ (1-I(A_{it}))\delta q_{i\tau}^0I(\tau_i \geq t) s(A_{it})\nonumber\\
+& = & \sum_{i=1}^m q_{i,t-1} I(\tau_i \geq t-1) s(A_{it-1}) \left(\left[\left(1-a(A_{it})-(1-I(A_{it}))\delta \right) \frac{I(\tau_i \geq t) s(A_{it})}{ I(\tau_i \geq t-1) s(A_{it-1})} +  \frac{I(\tau_i \geq t) s(A_{it})}{ I(\tau_i \geq t-1) s(A_{it-1})}  \right]\right)\nonumber\\
+&&\sum_{i=1}^m (1-I(A_{it}))\delta q_{i\tau}^0I(\tau_i \geq t) s(A_{it})\nonumber\\
+\end{eqnarray}
+
+%\tilde{q}_{t}  & = & \sum_{i=1}^m q_{t-1} I(\tau_i \geq t-1) s(A_{i,t-1})+ \sum_{i=1}^m (q_{i,t}-q_{i,t-1}) I(\tau_{i} \geq t) %s(A_{i,t}) \nonumber\\ & + & q_{i,t} (I(\tau_{i} \geq t) s(A_{i,t})-I(\tau_{i} \geq t-1) s(A_{i,t-1}))\nonumber\\
+%& = &  \sum_{i=1}^m q_{t-1} I(\tau_i \geq t-1) s(A_{i,t-1})+ \sum_{i=1}^m (q_{i,t}-q_{i,t-1}) I(\tau_{i} \geq t) s(A_{i,t}) %\nonumber\\ & + & q_{i,t} (I(\tau_{i} \geq t) s(A_{i,t})-I(\tau_{i} \geq t-1) s(A_{i,t-1}))\nonumber

@@ -6,5 +6,11 @@
 ^\\.gitignore$
 ^\\.DS\_Store
 README\.md
-inst/old
-data-raw
+inst/old/*
+data-raw/*
+^README\.Rmd$
+^README-.*\.png$
+README\.R
+^NEWS\.md$
+^cran-comments\.md$
+^nobuild\/.*$
