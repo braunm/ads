@@ -1,0 +1,310 @@
+\documentclass[letter,11pt]{article}
+
+\usepackage[pdftex]{graphicx}
+
+\usepackage{geometry}
+\usepackage[singlespacing]{setspace}
+\usepackage[page]{appendix}
+%%\usepackage[color]{showkeys}
+
+%%\definecolor{labelkey}{rgb}{1,.5,0.2}
+%%\definecolor{refkey}{rgb}{0,0,0.8}
+
+%\usepackage{float}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{verbatim}
+\usepackage{mathpazo}
+\usepackage{caption}
+\usepackage{parskip}
+
+\geometry{left=1in,right=1in,top=1in,bottom=1in}
+\DeclareMathOperator\sgn{sgn}
+\DeclareMathOperator\Prob{Prob}
+\DeclareMathOperator\diag{diag}
+\DeclareMathOperator\erf{erf}
+\DeclareMathOperator\sd{sd}
+\DeclareMathOperator\logit{logit}
+\DeclareMathOperator\sech{sech}
+
+
+
+\newcommand{\thetabar}{\bar\theta}
+\newcommand{\thetaij}{\theta_{ij}}
+\newcommand{\kron}{\otimes}
+\newcommand{\eps}{\varepsilon}
+\newcommand{\Igtz}{\mathbb{I}}
+\newcommand{\K}{\mathcal{K}}
+\newcommand{\A}{\mathcal{A}}
+\newcommand{\M}{\mathcal{M}}
+\newcommand{\off}{\text{off}}
+
+
+
+\newcommand{\relphantom}[1]{\mathrel{\phantom{#1}}}
+
+
+\usepackage[natbib=true,
+citestyle=authoryear-comp,
+style=authoryear,
+bibencoding=utf8]{biblatex}
+
+\ExecuteBibliographyOptions{maxcitenames=1,
+  maxbibnames=99,
+  citetracker=true,
+  dashed=false,
+  doi=false,
+  mergedate=false,
+  isbn=false}
+  
+\addbibresource{/Users/braunm/Documents/References/braun_refs.bib}
+
+
+\setlength{\bibitemsep}{\parskip}
+\AtEveryCitekey{\ifciteseen{}{\defcounter{maxnames}{3}}}
+\DeclareFieldFormat[article,incollection,unpublished]{title}{#1} %No quotes for article titles
+\DeclareFieldFormat[thesis]{title}{\mkbibemph{#1}} % Theses like book
+                                % titles
+\DeclareFieldFormat{pages}{#1} %% no pp prefix before page numbers
+\renewbibmacro{in:}{%
+  \ifentrytype{article}{}{ % Don't print In: for journal articles
+  \printtext{\bibstring{in}\intitlepunct}} %% but use elsewhere
+}
+\renewbibmacro*{volume+number+eid}{%
+  \printfield{volume}%
+  \printfield{number}%
+  \setunit{\addcomma\space}%
+  \printfield{eid}}
+\DeclareFieldFormat[article]{volume}{\mkbibbold{#1}}
+\DeclareFieldFormat[article]{number}{\mkbibparens{#1}}
+\DeclareFieldFormat[article]{date}{#1}
+\AtEveryBibitem{\clearfield{day}}
+\renewbibmacro*{issue+date}{% print month only
+  \printtext{%
+    \printfield{issue}%
+    \setunit*{\addspace}%
+\printtext{\printfield{month}}}
+  \newunit}
+
+\renewbibmacro*{publisher+location+date}{% no print year
+  \printlist{location}%
+  \iflistundef{publisher}
+    {\setunit*{\addcomma\space}}
+    {\setunit*{\addcolon\space}}%
+  \printlist{publisher}%
+  \setunit*{\addcomma\space}%
+%%\printdate
+  \newunit}
+
+\renewcommand*{\nameyeardelim}{~} %no comma in cite
+
+
+
+
+
+
+\title{Transformations and priors that we use}
+
+\begin{document}
+\maketitle
+
+In this document, we lay out three aspectsof model implementation:
+\begin{enumerate}
+\item Order that parameters are passed in to the estimation algorithm;
+\item Transformations that we use to get from unconstrained to
+  constrained parameters; and
+\item Prior distributions of the \emph{unconstrained} parameters,
+  including any Jacobians from the transformations.
+\end{enumerate}
+
+Parameters are passed in the following order:
+\begin{enumerate}
+\item $\theta_{12}$, columnwise, with no transformation.
+\item $\bar{c}$,the average $c_j$, across $J$ brands (no transformation);
+\item $\log\sd c$, the log of the standard deviation of $c_j$;
+\item $c_{\off}$, the standardized offset of $c_j$ from the mean. Thus,
+  $c_j=\sd(c)\left(c_{\off}-\bar{c}\right)$.
+\item $\bar{u}$,the average $u_j$, across $J$ brands (no transformation);
+\item $\log\sd u$, the log of the standard deviation of $u_j$;
+\item $u_{\off}$, the standardized offset of $u_j$ from the mean.
+  Thus,  $u_j=\sd(u)\left(u_{\off}-\bar{u}\right)$.
+\item $\phi$, which is included only if the $H$ matrix is included.
+  Columnwise, no transformation;
+\item $\logit\delta$, a scalar parameter;
+\item log diagonal elements for $V_1$ (see below for details);
+\item factors for $V_1$, columnwise, some elements transformed (see
+  details);
+\item log diagonal elements for $V_2$ (see below for details);
+\item factors for $V_2$, columnwise, some elements transformed (see
+  details);
+\item log scale parameter for $W_1$ (see below);
+\item transformed Cholesky factors for $W_1$ (see below);
+\item log diagonal elements for $W_1$ (see below for details);
+\item factors for $W_1$, columnwise, some elements transformed (see
+  details);
+\end{enumerate}
+
+\subsection{$\theta_{12}$}
+The parameters for $\theta_{12}$ are passed in columnwise, with no
+transformations. 
+
+We apply a matrix normal prior, passing in a mean matrix, and the
+lower Cholesky decompositions for the two covariance matrices.  The
+matrix normal is a standard parameterization.
+
+\subsection{$c$ and $u$}
+
+The average effects $\bar{c}$ and $\bar{u}$ are unconstrained, with
+normal priors.  The priors on $\sd{c}$ and $\sd{u}$ are
+half-T. Hyperparameters are $\sigma_c$ and $\nu_c$ (similar for $u$). The
+Jacobians of the transformations are $\sd{c}$ and $\sd{u}$.
+Therefore,
+
+\begin{align}
+  \label{eq:2}
+  \pi(\log\sd(c))&=\frac{2\Gamma(\frac{\nu_c+1}{2})}{\Gamma(\frac{\nu_c}{2})\sigma_c\sqrt{\nu_c\pi}}
+\left[1+\frac{1}{\nu_c}\left(\frac{\sd(c)}{\sigma_c}\right)^2\right]^{-\frac{\nu_c+1}{2}}\sd(c)\\
+  \pi(\log\sd(u))&=\frac{2\Gamma(\frac{\nu_u+1}{2})}{\Gamma(\frac{\nu_u}{2})\sigma_u\sqrt{\nu_u\pi}}
+\left[1+\frac{1}{\nu_u}\left(\frac{\sd(u)}{\sigma_u}\right)^2\right]^{-\frac{\nu_u+1}{2}}\sd(u)
+\end{align}
+
+The prior for each $c_j$ is normal, with mean $\bar{c}$ and standard
+deviation $\sd(c)$.  To operationalize this, we immediately transform
+using the offsets
+\begin{align}
+  \label{eq:3}
+  c_j&=\sd_c\left(c_{\off}+\bar{c}\right)\\
+  u_j&=\sd_u\left(u_{\off}+\bar{u}\right)\\
+\end{align}
+This transformation lets us give each $c_{\off}$ and $u_{\off}$ a standard
+normal prior (mean=0, sd=1).
+
+\subsection{$\phi$}
+The coefficient matrix $\phi$ is passed in columnwise, with no
+transformation.  It is included only if we are including the $H$
+matrix in the model.
+
+We apply a matrix normal prior, passing in a mean matrix, and the
+lower Cholesky decompositions for the two covariance matrices.  The
+matrix normal is a standard parameterization.  
+
+\subsection{$\delta$}
+We pass in $\logit\delta$, and transform so
+\begin{align}
+  \label{eq:4}
+  \delta&=\frac{\exp(\logit\delta)}{1+\exp(\logit\delta)}
+\end{align}
+
+The prior on $\delta$ is a beta distribution with parameters
+$a_{\delta}$ and $b_{\delta}$.  The Jacobian of the
+transformtion is $d\delta=\delta(1-\delta)$.  Therefore,
+\begin{align}
+  \label{eq:1}
+  \pi(\logit\delta)&=\frac{\Gamma(a_{\delta}+b_{\delta})}{\Gamma(a_{\delta})\Gamma(b_{\delta})}\delta^{a_{\delta}}(1-\delta)^{b_{\delta}}
+\end{align}
+Note that when taking the log of this prior,
+$\log\delta=\logit\delta-\log(1+\exp(\logit\delta))$, and
+$\log(1-\delta)=-\log(1+\exp(\logit\delta))$.  This can be useful for
+avoiding numerical issues that would result from computing unnecessary logarithms.
+
+\subsection{$V_1$ and $V_2$}
+The covariance matrices $V_1$ and $V_2$ are structured similarly, so
+we will consider a general matrix $V$.  We will let $V$ take a
+factor-analytic structure, where $x$ is a matrix of factors and
+$\Sigma$ is a diagonal matrix with all positive elements. We construct
+the matrix as
+\begin{align}
+  \label{eq:5}
+  V=xx'+\Sigma
+\end{align}
+
+Let's start with $\Sigma$, and let the $i^{th}$ element of the
+diagonal be $\Sigma_{ii}$.  The prior on each $\Sigma_{ii}$ is
+half-T.  Since we are passing in $\log\Sigma_{ii}$ instead, we need to
+multiply each half-T density by $\Sigma_{ii}$ (the Jacobian of the
+transformation).
+
+We arrange $x$ to have each column be a factor.  For identification
+(need a reference for this), the upper triangle of $x$ is zero, and
+the elements of the diagonal are all positive.  Therefore, if $x$ has
+$k$ rows and $n$ columns, there are only $kn-\frac{1}{2}n(n+1)$
+unconstrained parameters and $\frac{1}{2}n(n-1)$ positive parameters.
+The unconstrained parameters all have T priors, and the
+positive ones have half-T priors.  Only the half-T densities need to
+be multiplied by the Jacobian of the transformation.
+
+When passing in the parameters, $\log\diag\Sigma$ comes first,
+followed by the elements of $x$, columnwise.
+
+If there are no factors, then $V=\Sigma$.
+
+\subsection{W}
+
+Now, it gets fun.  We partition $W$ so the upper left corner is
+$\alpha W_1$
+and the lower right corner is $W_2$.  The upper right and lower left
+corners are all zero.  $W_2$ has the same factor-analytic structure as
+$V_1$ and $V_2$.
+
+For identification, all elements of the diagonal of $W_1$ must be the
+same.  Therefore, we treat $\alpha W_1$ as a scaled correlation matrix,
+where $\alpha>0$ is the scale parameter is $W_1$ is a symmetric, positive definite
+matrix will all ones on the diagonal.  The prior on $\log\alpha$ is a
+half-T prior, multiplied by $\alpha$ (the Jacobian).
+
+We place an LKJ prior on $W_1$, with parameter $\eta$ (see LKJ paper
+and Stan manual).  $W_1$ has $J+1$ rows/columns.
+\begin{align}
+  \label{eq:6}
+\pi(W_1)=C|W_1|^{\eta-1}
+\end{align} where
+\begin{align}
+  C&=2^{\sum_{i=1}^J(2\eta-2+J+1-i)(J+1-i)}
+\prod_{i=1}^J\left[\mathbb{B}\left(\eta+\frac{J-i}{2},\eta+\frac{J-i}{2}\right)\right]^{J+1-i}
+\end{align}
+
+Let $y$ be the vector of the $d=\binom{J+1}{2}$ unconstrained
+parameters, arranged columnwise in a lower triangular matrix.  Let
+$z_{ij}=\tanh(y_{ij})$ (this is a Fisher transformation).  Following
+the procedure in the Stan manual, construct another lower triangular
+matrix $x$ as follows:
+\begin{enumerate}
+\item $x_{11}=1$
+\item For $i=2\mathellipsis J+1$, $x_{i1}=z_{i1}$ (copy first column)
+\item For $i=2\mathellipsis J+1$,
+  $x_{ii}=\prod_{k=1}^{i-1}\sqrt{1-z_{ik}^2}$ (diagonal elements)
+\item For $j=2\mathellipsis J+1$ and $i=j+1\mathellipsis J+1$,
+  $x_{ij}=z_{ij}\prod_{k=1}^{j-1}\sqrt{1-z_{ik}^2}$ (remaining
+  off-diagonal elements)
+\end{enumerate}
+This transformation will ensure that $W_1=xx'$ is a valid correlation
+matrix.
+
+Through the magic of Mathematica, we get the following Jacobian of the transformation
+\begin{align}
+  \label{eq:8}
+  \mathcal{J}_{W_1}&=\prod_{j=1}^{d-1}\prod_{i=j+1}^d\left[\sech(y_{ij})\right]^{d-j+1}\\
+&=\prod_{j=1}^{d-1}\prod_{i=j+1}^d\left[1-z_{ij}^2\right]^{\frac{d-j+1}{2}}
+\end{align}
+The operator $\sech$ is the hyperbolic secant.  The second line comes
+from the identity $\sech^2(x)=1-\tanh^2(x)$.
+
+Mathematica also tells us that
+\begin{align}
+  \label{eq:9}
+  |W_1|&=\prod_{j=1}^{d-1}\prod_{i=j+1}^d\left[1-z_{ij}^2\right]
+\end{align}
+
+
+If $\eta=1$, the distribution is uniform over all correlation
+matrices.  For $\eta>1$, there is a mode at the identity matrix, and
+for $\eta<1$ there is a trough.
+
+
+
+
+\printbibliography
+
+
+
+\end{document}
