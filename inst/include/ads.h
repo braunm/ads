@@ -564,6 +564,7 @@ ads::ads(const List& params)
 	  t2 += (W1_dim-i) * (2.0 * lgamma(tmp) - lgamma(2.0 * tmp));
 	}
 	corr_W1_const = t1 * M_LN2 + t2;
+	
       } else {
 	const List priors_W1 = as<List>(priors["W1"]);
 	diag_scale_W1 = as<double>(priors_W1["diag.scale"]);
