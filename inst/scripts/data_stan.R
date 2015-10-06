@@ -23,9 +23,13 @@ Xr <- mcmod$X[1:T]
 
 Y <- array(dim=c(T, N, J))
 X <- array(dim=c(T, N, K))
-F1F2 <- array(dim=c(T, N, 1+J+P))
+F1F2 <- array(dim=c(T, 1+J+P, N))
 A <- array(dim=c(T, J))
 E <- array(dim=c(T, J))
+
+## priors
+nu <- J + 5;
+Omega0 <- diag(J);
 
 
 for (i in 1:T) {
@@ -34,12 +38,13 @@ for (i in 1:T) {
     X[i,,] <- Xr[[i]]
     A[i,] <- Ar[[i]]
     E[i,] <- Er[[i]]
-    F1F2[i,,] <- as(t(F1r[[i]]) %*% t(F2r[[i]]),"matrix")
+    F1F2[i,,] <- as(F2r[[i]] %*% F1r[[i]],"matrix")
 }
 
 DL <- list(N=N, T=T, J=J, K=K, P=P,
            Y=Y, X=X, F1F2=F1F2,
-           A=A, E=E)
+           A=A, E=E,
+           nu=nu, Omega0=Omega0)
 
 st <- stan_model("inst/scripts/stan1.stan")
 fit <- sampling(st,
