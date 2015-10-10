@@ -28,8 +28,8 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 }
 
 # create Y
-N <- 30  # number of 'sites'
-T <- 220  # number of time periods
+N <- 42  # number of 'sites'
+T <- 320  # number of time periods
 Tb <- 0  # number of burnin periods
 J <- 3  # number of equations
 P <- J  # number of time varying covariates per city (excluding intercept)
@@ -62,7 +62,7 @@ JFF <- list()
 
 # advertising covariates
 A <- (matrix(runif(J * T), nr = T, nc = J) > 0.5) *
-    matrix(runif(J * T, max = exp(9)), nrow = T, ncol = J)  # total 'advertising' across all sites, for each equation 
+    matrix(runif(J * T, max = exp(9)), nrow = T, ncol = J)  # total 'advertising' across all sites, for each equation
 
 # scale/center A Ac<-scale(A)
  Ac <- A / 1e+06
@@ -129,16 +129,16 @@ Y <- NULL
 Yl <- list()
 for (t in 1:T) {
     FF[[1]] <- F1l[[t]]
-    
+
     F2t <- dlm::bdiag(matrix(c(1, rep(0, J)), nc = 1 + J), diag(P))
     for (n in 2:N) {
         F2t <- rbind(F2t,
-                     dlm::bdiag(matrix(c(1, rep(0, J)), 
+                     dlm::bdiag(matrix(c(1, rep(0, J)),
                                        nc = 1 + J), diag(P))
                      )
     }
     FF[[2]] <- F2t
-    
+
     Gt <- diag(1 + J + P)
     Gt[1,1] <- (1 - delta)
     Gt[1, 1 + (1:J)] <- gA[t, ]
@@ -157,7 +157,7 @@ for (t in 1:T) {
             }
         }
     }
-        
+
     ## innovation component which switches signs if the underlying state
     ## variable does (simplified here)
     Ht <- matrix(0, nr = J, nc = J)
@@ -167,7 +167,7 @@ for (t in 1:T) {
             Ht[j,] <- Ht[j,] + phi[j,]*E[t,j]
         }
     }
-    
+
  ##   for (k in 1:J) {
         ## if(Theta2t[1+j,k] < 0) Ht[1+j,k] <- -delta*(1-(A[t,j]>0)) -
         ## Evec[j,k]*E[t,j] # if it is below zero else Ht[j+1,k] <-
@@ -179,12 +179,12 @@ for (t in 1:T) {
         ##       Ht[j, k] <- Evec[j, k] * E[t, j]
    ## }
 
-    
+
     epsW <- rmvMN(1, , W, Sigma)
     Theta2t <- Gt %*% Theta2t + epsW
     Theta2t[2:(J+1),] <- Theta2t[2:(J+1),] +  sign(Theta2t[2:(J+1),])*Ht
     T2[[t]] <- Theta2t
-    
+
     epsV2 <- rmvMN(1, , V[[2]], Sigma)
     Theta1t <- FF[[2]] %*% Theta2t + epsV2
     T1[[t]] <- Theta1t
@@ -243,7 +243,7 @@ for (t in 1:T) {
     F2[[t]] <- t(as(F2[[t]], "dgCMatrix"))
 }
 
-mcmod <- list(dimensions = dimensions, Y = Y, E = El, A = Al, X = F12, 
+mcmod <- list(dimensions = dimensions, Y = Y, E = El, A = Al, X = F12,
     F1 = F1m, F2 = F2)
 
 truevals <- list(T1=T1true, T2=T2true, Theta12=Theta12, V=V, Sigma=Sigma, W=W,

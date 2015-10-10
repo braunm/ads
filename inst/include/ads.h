@@ -803,8 +803,10 @@ AScalar ads::eval_LL()
     Qt +=  V.selfadjointView<Lower>();
 
     LDLT(Qt, chol_Qt_L, chol_Qt_D);
-    log_det_Qt = chol_Qt_D.array().log().sum();    
-  
+    
+    //   log_det_Qt = chol_Qt_D.array().log().sum();    
+    log_det_Qt += chol_Qt_D.array().log().sum();    
+
     S2t = R2t * F1F2[t].transpose();
 
     QYf = chol_Qt_L.triangularView<Lower>().solve(Yft);

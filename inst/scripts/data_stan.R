@@ -1,5 +1,8 @@
+library(rstan)
+
+
 mod.name <- "hdlm"
-data.name <- "tti"
+data.name <- "sim"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
@@ -30,6 +33,15 @@ E <- array(dim=c(T, J))
 ## priors
 nu <- J + 5;
 Omega0 <- diag(J);
+M20 <- matrix(0,1+P+J,J)
+M20[1,] <- 15
+M20[2:(J+1),] <- -.005
+M20[(J+2):(1+P+J),] <- 1
+for (j in 1:J) {
+    M20[J+1+j,j] <- -2
+    M20[j+1,j] <- .25
+}
+C20 <- 50*diag(1+P+J,1+P+J)
 
 
 for (i in 1:T) {
@@ -44,7 +56,8 @@ for (i in 1:T) {
 DL <- list(N=N, T=T, J=J, K=K, P=P,
            Y=Y, X=X, F1F2=F1F2,
            A=A, E=E,
-           nu=nu, Omega0=Omega0)
+           nu=nu, Omega0=Omega0,
+           M20=M20,C20=C20)
 
 st <- stan_model("inst/scripts/stan1.stan")
 fit <- sampling(st,
