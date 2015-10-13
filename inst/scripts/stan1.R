@@ -2,34 +2,32 @@ rm(list=ls())
 gc()
 
 library(Matrix)
-library(Rcpp)
-library(RcppEigen)
 library(numDeriv)
-library(trustOptim)
 library(plyr)
 library(reshape2)
-library(Rcgmin)
+library(rstan)
 
 
 set.seed(1234)
 
 mod.name <- "hdlm"
-data.name <- "sim"
+data.name <- "tti"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
 
 data.file <- paste0("data/mcmod",data.name,".RData")
-save.file <- paste0("inst/results/",mod.name,"_",data.name,"_mode.Rdata")
+save.file <- paste0("inst/results/",mod.name,"_",data.name,"_stan.Rdata")
+
+
 
 flags <- list(include.phi=FALSE,
-              include.c=TRUE, ## 0-1
-              include.u=FALSE, ## 0-1
-              replenish = FALSE,
+              include.c=TRUE,
+              include.u=TRUE,
               add.prior=TRUE,
               include.X=TRUE,
-              standardize=FALSE,
               A.scale = 1000000,
+       ##       A.scale = 1,
               W1.LKJ = TRUE,  # W1.LKJ true means we do LKJ, otherwise same as W2
               fix.V = FALSE,
               fix.W = FALSE,
@@ -41,18 +39,7 @@ nfact.V <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
 
-get.f <- function(P, ...) return(cl$get.f(P))
-get.df <- function(P, ...) return(cl$get.fdf(P)$grad)
-get.hessian <- function(P, ...) return(cl$get.hessian(P))
-get.f.direct <- function(P, ...) return(cl$get.f.direct(P))
-get.LL <- function(P, ...) return(cl$get.f.direct(P))
-get.hyperprior <- function(P, ...) return(cl$get.hyperprior(P))
-
 load(data.file)
-#print("hello")
-#dn <- paste0("mcmod",data.name)
-#data(list=dn)
-#mcmod <- eval(parse(text=dn))
 
 N <- mcmod$dimensions$N
 T <- mcmod$dimensions$T
@@ -68,7 +55,6 @@ F1 <- mcmod$F1[1:T]
 F2 <- mcmod$F2[1:T]
 A <- mcmod$A[1:T]
 ##A <- llply(mcmod$A[1:T],function(x) return(x/flags$A.scale))
-
 ## A2 <- as.relistable(A2)
 ## tmp <- unlist(A2)
 ## mean.A <- mean(tmp[tmp>0])
@@ -98,7 +84,7 @@ if (flags$include.X) {
 data <- list(X=X, Y=Y, F1=F1, F2=F2,
              A=A, E=E)
 
-
+stop()
 dim.V <- N
 dim.W1 <- J+1
 dim.W2 <- P
@@ -115,14 +101,13 @@ max.nfact.W1 <- 1+2*dim.W1-sqrt(1+8*dim.W1)
 max.nfact.W2 <- 1+2*dim.W2-sqrt(1+8*dim.W2)
 
 if (nfact.V > max.nfact.V) stop("Too many factors for V")
-if (nfact.W1 > max.nfact.W1) stop("Too many factors for W1")
+if (nfact.W2 > max.nfact.W2) stop("Too many factors for W1")
 if (nfact.W2 > max.nfact.W2) stop("Too many factors for W2")
 
 
 ## priors
 
 ## We have to include these prior parameters
-
 
 M20 <- matrix(0,1+P+J,J)
 M20[1,] <- 15
@@ -168,7 +153,6 @@ Omega0 <- (nu0-J-1)*E.Sigma
 
 ## The following priors are optional
 
-
 if (flags$add.prior) {
     if (flags$include.phi) {
         ## prior on phi:  matrix normal with sparse covariances
@@ -202,9 +186,9 @@ if (flags$add.prior) {
         prior.theta12 <- NULL
     }
 
-
     ## prior on logit.delta.  transformed beta with 2 parameters
 
+    ##  prior.delta <- list(a=1,b=5)
     prior.delta <- list(a=1,b=1)
 
     ## prior on c.mean and u.mean:  normal
@@ -213,9 +197,9 @@ if (flags$add.prior) {
     if (flags$include.c) {
         prior.log.c.mean <- -.5
         prior.log.c <- list(mean.mean=prior.log.c.mean,
-                            mean.sd=5,
-                            sd.mean=1,
-                            sd.sd=5)
+                        mean.sd=5,
+                        sd.mean=1,
+                        sd.sd=5)
     } else {
         prior.log.c <- NULL;
     }
@@ -229,8 +213,6 @@ if (flags$add.prior) {
     } else {
         prior.log.u <- NULL;
     }
-<<<<<<< HEAD
-
 
 
     ## For V, W1 and W2:   normal or truncated normal priors (if needed)
@@ -291,6 +273,7 @@ priors <- Filter(function(x) !is.null(x), tmp)
 
 ## starting parameters
 
+
 if (flags$estimate.M20) {
     M20.start <- M20
 } else {
@@ -309,17 +292,14 @@ if (flags$include.X) {
     theta12.start <- NULL
 }
 
-
-logit.delta.start <- true.pars$logit.delta
-
 if (flags$include.c) {
     log.c.mean.log.sd.start <- c(-.5, 1)
     log.c.off.start <- rep(0,J)
 } else {
-
     log.c.mean.log.sd.start <- c.off.start <- NULL
     log.c.off.start <- NULL
 }
+
 
 
 if (flags$include.u) {
@@ -328,10 +308,10 @@ if (flags$include.u) {
 } else {
     log.u.mean.log.sd.start <- u.off.start <- NULL
     log.u.off.start <- NULL
-
 }
 
 logit.delta.start <- 0
+
 
 
 if (flags$include.phi) {
@@ -403,165 +383,4 @@ DL <- list(data=data, priors=priors,
            dimensions=dimensions,
            flags=flags,
            fixed.cov=fixed.cov)
-
-
-cat("Setting up\n")
-tset <- system.time(cl <- new("ads", DL))
-print(tset)
-
-cat("Recording tape\n")
-trec <- system.time(cl$record.tape(start))
-
-cat("Objective function - taped\n")
-tmp <- get.f(start)
-tf <- system.time(f <- get.f(start))
-cat("f = ",f,"\n")
-print(tf)
-
-cat("gradient\n")
-tg <- system.time(df <- get.df(start))
-print(tg)
-
-stop()
-
-## Need to bound variables to avoid overflow
-
-opt1 <- optim(start,
-              fn=get.f,
-              gr=get.df,
-              hessian=FALSE,
-              method="BFGS",
-              ##        lower = start-5,
-              ##        upper=start+5,
-              control=list(
-                  fnscale=-1,
-                  REPORT=1,
-                  trace=3,
-                  maxit=30
-                  )
-              )
-
-opt2 <- trust.optim(opt1$par,
-                    fn=get.f,
-                    gr=get.df,
-                    method="BFGS",
-                    control=list(
-                        report.level=5L,
-                        report.precision=4L,
-                        maxit=3000L,
-                        function.scale.factor=-1,
-                        preconditioner=0,
-                        start.trust.radius=.01,
-                        stop.trust.radius=1e-12,
-                        contract.factor=.4,
-                        expand.factor=2,
-                        expand.threshold.radius=.85,
-                        report.freq = 10L
-                        )
-                    )
-
-
-opt <- trust.optim(opt2$solution,
-                   fn=get.f,
-                   gr=get.df,
-                   method="SR1",
-                   control=list(
-                       report.level=5L,
-                       report.precision=4L,
-                       maxit=3000L,
-                       function.scale.factor=-1,
-                       preconditioner=0,
-                       stop.trust.radius=1e-12,
-                       contract.factor=.9,
-                       report.freq=5L
-                     )
-                   )
-
-opt$par <- opt$solution
-
-
-sol.vec <- relist(opt$par, skeleton=start.list)
-
-recover.cov.mat <- function(v, d, nfact) {
-
-  ## v:  vector of elements that define the matrix
-  ## d:  dimension of the square covariance matrix
-  ## nfact:  number of factors that were estimated
-
-  S <- diag(exp(v[1:d]))
-  if (nfact>0) {
-    F <- matrix(0,nrow=d,ncol=nfact)
-    ind <- d+1
-    for (j in 1:nfact) {
-      F[j:d,j] <- v[ind:(ind+d-j)]
-      F[j,j] <- exp(F[j,j])
-      ind <- ind+d-j+1
-    }
-    S <- S + tcrossprod(F)
-  }
-  return(S)
-}
-
-recover.corr.mat <- function(v, d) {
-
-    ind <- 1
-    a <- exp(v[ind])
-    ind <- ind+1
-    Z <- matrix(0,d,d)
-    Z[2:d,1] <- v[ind:(ind+d-1-1)]
-    ind <- ind+d-1
-    for (j in 2:(d-1)) {
-        Z[(j+1):d,j] <- v[ind:(ind+d-j-1)]
-        ind <- ind+d-j
-    }
-    Z <- tanh(Z)
-
-    W <- matrix(0,d,d)
-    W[1,1] <- 1
-    W[2:d,1] <- Z[2:d,1]
-    for (j in 2:d) {
-        W[j,j] <- prod(sqrt(1-Z[j,1:(j-1)]^2))
-        if (j<d) W[(j+1):d,j] <- W[j,j]*Z[(j+1):d,j]
-    }
-    X <- a*tcrossprod(W)
-    return(X)
-}
-
-sol <- sol.vec
-sol$delta <- exp(sol$logit.delta)/(1+exp(sol$logit.delta))
-
-if (!flags$fix.V) {
-    sol$V <- recover.cov.mat(sol.vec$V, dim.V, nfact.V)
-}
-
-if (!flags$fix.W) {
-    sol$W2 <- recover.cov.mat(sol.vec$W2,dim.W2,nfact.W2)
-    if(flags$W1.LKJ) {
-        sol$W1 <- recover.corr.mat(sol.vec$W1,dim.W1)
-    } else {
-        sol$W1 <- recover.cov.mat(sol.vec$W1,dim.W1,nfact.W1)
-    }
-}
-
-if (flags$include.c){
-    sol$cj <- exp(exp(sol$log.c.mean.log.sd[2]) * sol$log.c.off + sol$log.c.mean.log.sd[1])
- }
-
-if (flags$include.u){
-    sol$uj <- exp(exp(sol$log.u.mean.log.sd[2]) * sol$log.u.off + sol$log.u.mean.log.sd[1])
-
-}
-
-
-
-parcheck <- cl$par.check(opt$par)
-
-cat("Computing Hessian\n")
-hs <- get.hessian(opt$par)
-cat("inverting negative Hessian\n")
-cv <- solve(-hs)
-se <- sqrt(diag(cv))
-se.sol <- relist(se,skeleton=start.list)
-
-save(sol, se.sol, opt, dimensions, priors, flags, file=save.file)
 

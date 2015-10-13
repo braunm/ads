@@ -1,4 +1,4 @@
-# dlmBNSimMC.R Hierarchical simulation of BN model for MC estimation
+str# dlmBNSimMC.R Hierarchical simulation of BN model for MC estimation
 
 # include functions
 rm(list = ls())
@@ -11,7 +11,7 @@ library(trustOptim)
 set.seed(10503)
 # set.seed(105)
 
-include.H <- FALSE
+include.phi <- FALSE
 include.c <- TRUE
 include.u <- TRUE
 
@@ -28,21 +28,33 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 }
 
 # create Y
-N <- 40  # number of 'sites'
-T <- 300  # number of time periods
+N <- 42  # number of 'sites'
+T <- 320  # number of time periods
 Tb <- 0  # number of burnin periods
-J <- 2  # number of equations
+J <- 3  # number of equations
 P <- J  # number of time varying covariates per city (excluding intercept)
 K1 <- 2  # number of non time varying covariates per city at top level (including intercept)
 ##Cvec <- rnorm(J, mean = 0.1, sd = 0.03)  # wearout per period
 ##Uvec <- rnorm(J, mean = 0.15, sd = 0.05)  # wearout due to repetition
 
-Cvec <- seq(.1,.5,length=J)
-Uvec <- seq(.8, .03, length=J)
+Cvec <- c(.04, .36, .91)
+Uvec <- c(-.04, .40, .20)
+
+
+Theta2.0 <- matrix(rep(0, 1 + J + P), nrow = (1 + J + P), ncol = J)
+Theta2.0[1, ] <- c(.01, .16, .08)
+Theta2.0[1 + 1:J, ] <- -0.005
+# Theta2.0[1+1:J,]<- 0
+Theta2.0[(J + 2):(1 + J + P), ] <- 1
+for (j in 1:J) {
+    Theta2.0[1+J+j, j] <- -2
+    Theta2.0[1+j, j] <- 0.25
+    # Theta2.0[1+J+j,j]<- 0 Theta2.0[1+j,j]<- 0
+}
 
 ## parameters
-delta <- 0.15
-Theta12 <- rnorm(K1 * J, sd = 0.3)
+delta <- 0.047
+Theta12 <- rnorm(K1 * J, mean = .02, sd = 0.03)
 dim(Theta12) <- c(K1, J)
 V <- list()
 FF <- list()
@@ -50,7 +62,7 @@ JFF <- list()
 
 # advertising covariates
 A <- (matrix(runif(J * T), nr = T, nc = J) > 0.5) *
-    matrix(runif(J * T, max = exp(9)), nrow = T, ncol = J)  # total 'advertising' across all sites, for each equation 
+    matrix(runif(J * T, max = exp(9)), nrow = T, ncol = J)  # total 'advertising' across all sites, for each equation
 
 # scale/center A Ac<-scale(A)
  Ac <- A / 1e+06
@@ -70,8 +82,8 @@ gA <- log(1+A)
 E <- rpois(T * J, 0.5)  # incidence of new creatives
 dim(E) <- c(T, J)
 E[A == 0] <- 0  # switch to zero if there is no advertising
-Evec <- matrix(0, nc = J, nr = J)  # response coefficients for new creatives
-diag(Evec) <- runif(J, min = 0.05, max = 0.1)
+phi <- matrix(0, nc = J, nr = J)  # response coefficients for new creatives
+diag(phi) <- runif(J, min = 0.05, max = 0.1)
 
 # time invariant component
 ## K <- 2
@@ -105,16 +117,7 @@ V[[1]] <- diag(.1, nrow = N)
 
 V[[2]] <- diag(N * (1 + P)) * 0.1
 
-Theta2.0 <- matrix(rep(0, 1 + J + P), nrow = (1 + J + P), ncol = J)
-Theta2.0[1, ] <- 25
-Theta2.0[1 + 1:J, ] <- -0.005
-# Theta2.0[1+1:J,]<- 0
-Theta2.0[(J + 2):(1 + J + P), ] <- 1
-for (j in 1:J) {
-    Theta2.0[1+J+j, j] <- -2
-    Theta2.0[1+j, j] <- 0.25
-    # Theta2.0[1+J+j,j]<- 0 Theta2.0[1+j,j]<- 0
-}
+
 
 # true parameters
 T1 <- list()
@@ -126,59 +129,62 @@ Y <- NULL
 Yl <- list()
 for (t in 1:T) {
     FF[[1]] <- F1l[[t]]
-    
+
     F2t <- dlm::bdiag(matrix(c(1, rep(0, J)), nc = 1 + J), diag(P))
     for (n in 2:N) {
         F2t <- rbind(F2t,
-                     dlm::bdiag(matrix(c(1, rep(0, J)), 
+                     dlm::bdiag(matrix(c(1, rep(0, J)),
                                        nc = 1 + J), diag(P))
                      )
     }
     FF[[2]] <- F2t
-    
+
     Gt <- diag(1 + J + P)
     Gt[1,1] <- (1 - delta)
     Gt[1, 1 + (1:J)] <- gA[t, ]
     for (j in 1:J) {
         if (include.c) {
             if (include.u) {
-                Gt[j+1, j+1] <- exp(-Cvec[j] - Ac[t,j] * log(Uvec[j]))              
+                Gt[j+1,j+1] <- 1 - Cvec[j] - Uvec[j]*Ac[t,j]
             } else {
-                Gt[j+1, j+1] <- exp(-Cvec[j])
+                Gt[j+1,j+1] <- 1 - Cvec[j]
             }
         } else {
             if (include.u) {
-##                Gt[j+1, j+1] <- exp(-Uvec[j]*Ac[t,j])
-                Gt[j+1, j+1] <- exp(-Ac[t,j] * log(Uvec[j]))              
+                Gt[j+1,j+1] <- 1 - Uvec[j]*Ac[t,j]
             } else {
                 Gt[j+1, j+1] <- 1
             }
         }
     }
-        
+
     ## innovation component which switches signs if the underlying state
     ## variable does (simplified here)
-    Ht <- matrix(0, nr = nrow(Gt), nc = J)
+    Ht <- matrix(0, nr = J, nc = J)
     for (j in 1:J) {
-        for (k in 1:J) {
-        # if(Theta2t[1+j,k] < 0) Ht[1+j,k] <- -delta*(1-(A[t,j]>0)) -
-        # Evec[j,k]*E[t,j] # if it is below zero else Ht[j+1,k] <-
-        # delta*(1-(A[t,j]>0)) + Evec[j,k]*E[t,j] # if above if(Theta2t[1+j,k]
-        # < 0) Ht[1+j,k] <- - Evec[j,k]*E[t,j] # if it is below zero else
-        # Ht[j+1,k] <- Evec[j,k]*E[t,j] # if above if(j!=k) Ht[1+j,k] <-
-        # -delta*(1-(A[t,j]>0)) - e[j]*E[t,j] # if it is below zero else
-        # Ht[j+1,k] <- delta*(1-(A[t,j]>0)) + e[j]*E[t,j] # if above
-            Ht[1 + j, k] <- Evec[j, k] * E[t, j]
+        Ht[j,] <- delta * (A[t,j]==0)
+        if (include.phi) {
+            Ht[j,] <- Ht[j,] + phi[j,]*E[t,j]
         }
     }
-    
-    if (!include.H) {
-        Ht <- Ht * 0
-    }
+
+ ##   for (k in 1:J) {
+        ## if(Theta2t[1+j,k] < 0) Ht[1+j,k] <- -delta*(1-(A[t,j]>0)) -
+        ## Evec[j,k]*E[t,j] # if it is below zero else Ht[j+1,k] <-
+        ## delta*(1-(A[t,j]>0)) + Evec[j,k]*E[t,j] # if above if(Theta2t[1+j,k]
+        ## < 0) Ht[1+j,k] <- - Evec[j,k]*E[t,j] # if it is below zero else
+        ## Ht[j+1,k] <- Evec[j,k]*E[t,j] # if above if(j!=k) Ht[1+j,k] <-
+        ## -delta*(1-(A[t,j]>0)) - e[j]*E[t,j] # if it is below zero else
+        ## Ht[j+1,k] <- delta*(1-(A[t,j]>0)) + e[j]*E[t,j] # if above
+        ##       Ht[j, k] <- Evec[j, k] * E[t, j]
+   ## }
+
+
     epsW <- rmvMN(1, , W, Sigma)
-    Theta2t <- Gt %*% Theta2t + Ht + epsW
+    Theta2t <- Gt %*% Theta2t + epsW
+    Theta2t[2:(J+1),] <- Theta2t[2:(J+1),] +  sign(Theta2t[2:(J+1),])*Ht
     T2[[t]] <- Theta2t
-    
+
     epsV2 <- rmvMN(1, , V[[2]], Sigma)
     Theta1t <- FF[[2]] %*% Theta2t + epsV2
     T1[[t]] <- Theta1t
@@ -237,7 +243,7 @@ for (t in 1:T) {
     F2[[t]] <- t(as(F2[[t]], "dgCMatrix"))
 }
 
-mcmod <- list(dimensions = dimensions, Y = Y, E = El, A = Al, X = F12, 
+mcmod <- list(dimensions = dimensions, Y = Y, E = El, A = Al, X = F12,
     F1 = F1m, F2 = F2)
 
 truevals <- list(T1=T1true, T2=T2true, Theta12=Theta12, V=V, Sigma=Sigma, W=W,

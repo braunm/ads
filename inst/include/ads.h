@@ -9,6 +9,7 @@
 #include <Eigen/Cholesky>
 #include <cppad_atomics.h>
 #include <mat_normAD.h>
+#include <LDLT_cppad.h>
 
 using Eigen::MatrixBase;
 using Eigen::Dynamic;
@@ -47,7 +48,7 @@ class ads {
   
   ads(const List&);
 
-  AScalar eval_f(const Eigen::Ref<VectorXA>&);
+  AScalar eval_f(const Eigen::Ref<VectorXA>&);3
   AScalar eval_LL(const Eigen::Ref<VectorXA>&);
   AScalar eval_hyperprior(const Eigen::Ref<VectorXA>&);
   List par_check(const Eigen::Ref<VectorXA>&);
@@ -76,7 +77,8 @@ private:
   std::vector<VectorXA> E; // number of new creatives added for each brand
 
   // priors
-  MatrixXA M20; // 1+P+J x J - could be a parameter
+
+  MatrixXA M20; // 1+P+J x J either prior or parameter
   MatrixXA C20; // 1+P+J x 1+P+J
   MatrixXA Omega0;
   AScalar nu0;
@@ -92,36 +94,33 @@ private:
   MatrixXA mean_phi;
   MatrixXA chol_cov_row_phi;
   MatrixXA chol_cov_col_phi;
-  
-  AScalar c_a, c_b, u_a, u_b;
-  AScalar q_a, q_b, r_a, r_b;
 
-  
-  // AScalar q_shape;
-  // AScalar q_rate;
+  MatrixXA mean_M20;
+  MatrixXA chol_cov_row_M20;
+  MatrixXA chol_cov_col_M20;
 
-  AScalar q_mean_pmean;
-  AScalar q_mean_psd;
-  AScalar q_sd_pmean;
-  AScalar q_sd_psd;
+  MatrixXA mean_asymp;
+  MatrixXA chol_cov_row_asymp;
+  MatrixXA chol_cov_col_asymp;
   
-  AScalar r_mean_pmean;
-  AScalar r_mean_psd;
-  AScalar r_sd_pmean;
-  AScalar r_sd_psd;
+  AScalar log_c_mean_pmean;
+  AScalar log_c_mean_psd;
+  AScalar log_c_sd_pmean;
+  AScalar log_c_sd_psd;
+
+
+  AScalar log_u_mean_pmean;
+  AScalar log_u_mean_psd;
+  AScalar log_u_sd_pmean;
+  AScalar log_u_sd_psd;
 
   AScalar delta_a;
   AScalar delta_b;
 
-  AScalar diag_scale_V1;
-  AScalar diag_mode_V1;
-  AScalar fact_scale_V1;
-  AScalar fact_mode_V1;
-
-  AScalar diag_scale_V2;
-  AScalar diag_mode_V2;
-  AScalar fact_scale_V2;
-  AScalar fact_mode_V2;
+  AScalar diag_scale_V;
+  AScalar diag_mode_V;
+  AScalar fact_scale_V;
+  AScalar fact_mode_V;
 
   AScalar mode_scale_W1;
   AScalar s_scale_W1;
@@ -144,41 +143,37 @@ private:
   int T; // number of weeks
   int K; // covariates with stationary parameters
   int P; // covariates with nonstationary parameters
-  int nfact_V1; // factors to estimate V1
-  int nfact_V2; // factors to estimate V2
+  int nfact_V; // factors to estimate V
   int nfact_W1; // factors to estimate W1 (if active)
   int nfact_W2; // factors to estimate W2 (if active)
 
-  int V1_dim, V2_dim, W_dim, W1_dim, W2_dim;
+  int V_dim, W_dim, W1_dim, W2_dim;
 
   // parameters
 
   MatrixXA theta12;
   AScalar logit_delta;
   AScalar delta;
-  
-  AScalar q_mean;
-  AScalar q_log_sd;
-  AScalar q_sd;
-  VectorXA q_off; // J copy wearout parameters offset
+  AScalar log_c_mean;
+  AScalar log_c_log_sd;
+  AScalar log_c_sd;
+  VectorXA log_c_off; // J copy wearout parameters offset
+  AScalar log_u_mean;
+  AScalar log_u_log_sd;
+  AScalar log_u_sd;
+  VectorXA log_u_off; // J ad wearout parameters offset
 
-  AScalar r_mean;
-  AScalar r_log_sd;
-  AScalar r_sd;
-  VectorXA r_off; // J ad wearout parameters offset
 
   MatrixXA phi; // J x J
-  VectorXA V1_log_diag;
-  VectorXA V2_log_diag;
+  MatrixXA asymp;
+  VectorXA V_log_diag;
   AScalar W1_scale;
   AScalar W2_scale;
   VectorXA W1_log_diag;
   VectorXA W2_log_diag;
-  MatrixXA V1; 
-  MatrixXA V2; 
+  MatrixXA V; 
   MatrixXA W;  
-  MatrixXA LV1; 
-  MatrixXA LV2; 
+  MatrixXA LV; 
   MatrixXA LW1;
   MatrixXA LW2;
   AScalar logdet_W1_corr; // for W1 before scaling
@@ -193,7 +188,6 @@ private:
   MatrixXA a2t;
   MatrixXA Yft;
   MatrixXA Qt; 
-  MatrixXA R1t; 
   MatrixXA R2t; 
   MatrixXA M2t;
   MatrixXA C2t;
@@ -204,14 +198,14 @@ private:
 
   AScalar log_const;
   MatrixXA QYf;
-
+  MatrixXA tmpNJ;
+  MatrixXA chol_DX_L;
+  VectorXA chol_DX_D;
+  
   VectorXA c;
+  VectorXA log_c;
   VectorXA u;
-  VectorXA logit_c;
-  VectorXA logit_u;
-  VectorXA log_q;
-  VectorXA q;
-  VectorXA r;
+  VectorXA log_u;
 
 
   
@@ -228,10 +222,11 @@ private:
   bool include_r;
   bool replenish;
   bool W1_LKJ;
-  bool fix_V1;
-  bool fix_V2;
+  bool fix_V;
   bool fix_W;
   bool estimate_M20;
+  bool estimate_asymptote;
+
 
   AScalar A_scale;
     
@@ -261,8 +256,7 @@ ads::ads(const List& params)
   K = as<int>(dimensions["K"]);
   P = as<int>(dimensions["P"]);
 
-  Rcout << "break 2a\n";
-  
+
   include_phi = as<bool>(flags["include.phi"]);
   add_prior = as<bool>(flags["add.prior"]);
   include_X = as<bool>(flags["include.X"]);
@@ -277,9 +271,10 @@ ads::ads(const List& params)
 
   W1_LKJ = as<bool>(flags["W1.LKJ"]);
   A_scale = as<double>(flags["A.scale"]);
-  fix_V1 = as<bool>(flags["fix.V1"]);
-  fix_V2 = as<bool>(flags["fix.V2"]);
+  fix_V = as<bool>(flags["fix.V"]);
   fix_W = as<bool>(flags["fix.W"]);
+  estimate_M20 = as<bool>(flags["estimate.M20"]);
+  estimate_asymptote = as<bool>(flags["estimate.asymptote"]);
 
   
 
@@ -314,8 +309,7 @@ ads::ads(const List& params)
   }
 
 
-  V1_dim = N;
-  V2_dim = N*(P+1);
+  V_dim = N;
   W1_dim = 1+J;
   W2_dim = P;
   W_dim = W1_dim + W2_dim;
@@ -326,13 +320,12 @@ ads::ads(const List& params)
   // number of factors for estimating covariance matrices
 
 
-  if (!fix_V1) {
-    nfact_V1 = as<int>(dimensions["nfact.V1"]);
-  }
-  if (!fix_V2) {
-    nfact_V2 = as<int>(dimensions["nfact.V2"]);
+  if (!fix_V) {
+    nfact_V = as<int>(dimensions["nfact.V"]);
   }
 
+  Rcout << "nfact_V = " << nfact_V << "\n";
+  
   if (!fix_W) {
     if (P>0) {
       nfact_W2 = as<int>(dimensions["nfact.W2"]);
@@ -393,19 +386,13 @@ ads::ads(const List& params)
     theta12.resize(K,J);
   }
   
-  // Reserve V1, V2 and W, and their factors
-  V1.resize(V1_dim, V1_dim);
-  V2.resize(V2_dim, V2_dim);
+  // Reserve V and W, and their factors
+  V.resize(V_dim, V_dim);
   W.resize(W_dim, W_dim);
   
-  if (!fix_V1) {
-    LV1.resize(V1_dim, nfact_V1);
-    V1_log_diag.resize(V1_dim);
-  }
-  
-  if (!fix_V2) {
-    LV2.resize(V2_dim, nfact_V2);
-    V2_log_diag.resize(V2_dim);
+  if (!fix_V) {
+    LV.resize(V_dim, nfact_V);
+    V_log_diag.resize(V_dim);
   }
   
   if (!fix_W) {        
@@ -422,29 +409,22 @@ ads::ads(const List& params)
   
   if (include_c) {
     c.resize(J);
-    logit_c.resize(J);
+    log_c.resize(J);
    }
 
   if (include_u) {
     u.resize(J);
-    logit_u.resize(J);
+    log_u.resize(J);
   }
 
-  if (include_q) {
-    log_q.resize(J);
-    q.resize(J);
-  }
-  
-  if (include_r) {
-    r.resize(J);
-  }
+  Ht = MatrixXA::Zero(J,J); // ignoring zeros in bottom P rows
 
-  Ht.resize(J,J);
-  
   if (include_phi) {
     phi.resize(J,J);
     Pneg.resize(J,J);   
   }
+
+  asymp.resize(J,J);
 
   Rcout << "Allocating memory for intermediate parameters\n";
   
@@ -454,14 +434,11 @@ ads::ads(const List& params)
   a2t.resize(1+J+P,J);
   Yft.resize(N,J);
   Qt.resize(N,N); 
-  R1t.resize(N*(1+P),N*(1+P));
   R2t.resize(1+J+P,1+J+P);
   S2t.resize(1+J+P,N);
   OmegaT.resize(J,J);
   QYf.resize(N,J);
-
-  M20.resize(1+J+P,J);
-  C20.resize(1+J+P,1+J+P);
+  tmpNJ.resize(N,J);
 
 
   Rcout << "Required prior parameters\n";
@@ -469,7 +446,30 @@ ads::ads(const List& params)
   // These priors are required
 
 
-      
+  const List priors_M20 = as<List>(priors["M20"]);
+  if (estimate_M20) {
+    const Map<MatrixXd> mean_M20_d(as<Map<MatrixXd> >(priors_M20["mean"]));
+    mean_M20 = mean_M20_d.cast<AScalar>();
+    const Map<MatrixXd> chol_cov_row_M20_d(as<Map<MatrixXd> >(priors_M20["chol.row"]));
+    chol_cov_row_M20 = chol_cov_row_M20_d.cast<AScalar>();
+    const Map<MatrixXd> chol_cov_col_M20_d(as<Map<MatrixXd> >(priors_M20["chol.col"]));
+    chol_cov_col_M20 = chol_cov_col_M20_d.cast<AScalar>();   
+  } else {
+    const Map<MatrixXd> M20_d(as<Map<MatrixXd> >(priors_M20["M20"]));
+    M20 = M20_d.cast<AScalar>();
+  }
+
+  mean_asymp.resize(J,J);
+  
+  if (estimate_asymptote) {
+    const List priors_asymp = as<List>(priors["asymp"]);    
+    const Map<MatrixXd> chol_cov_row_asymp_d(as<Map<MatrixXd> >(priors_asymp["chol.row"]));
+    chol_cov_row_asymp = chol_cov_row_asymp_d.cast<AScalar>();
+    const Map<MatrixXd> chol_cov_col_asymp_d(as<Map<MatrixXd> >(priors_asymp["chol.col"]));
+    chol_cov_col_asymp = chol_cov_col_asymp_d.cast<AScalar>();
+  }
+
+
   const Map<MatrixXd> C20_d(as<Map<MatrixXd> >(priors["C20"]));
   C20 = C20_d.cast<AScalar>();
 
@@ -506,54 +506,24 @@ ads::ads(const List& params)
     delta_b = as<double>(priors_delta["b"]);
   
     if (include_c) {
-
-      Rcout << "priors for c\n";      
-      const List priors_c = as<List>(priors["c"]);
-      c_a = as<double>(priors_c["a"]);
-      c_b = as<double>(priors_c["b"]);
+      Rcout << "priors for c\n";     
+      const List priors_log_c = as<List>(priors["log.c"]);      
+      log_c_mean_pmean = as<double>(priors_log_c["mean.mean"]);
+      log_c_mean_psd = as<double>(priors_log_c["mean.sd"]);
+      log_c_sd_pmean = as<double>(priors_log_c["sd.mean"]);
+      log_c_sd_psd = as<double>(priors_log_c["sd.sd"]);
     }
 
 
     if (include_u) {
-
-      Rcout << "priors for u\n";
-      
-      const List priors_u = as<List>(priors["u"]);
-      u_a = as<double>(priors_u["a"]);
-      u_b = as<double>(priors_u["b"]);
+      Rcout << "priors for u\n";     
+      const List priors_log_u = as<List>(priors["log.u"]);      
+      log_u_mean_pmean = as<double>(priors_log_u["mean.mean"]);
+      log_u_mean_psd = as<double>(priors_log_u["mean.sd"]);
+      log_u_sd_pmean = as<double>(priors_log_u["sd.mean"]);
+      log_u_sd_psd = as<double>(priors_log_u["sd.sd"]);
     }
 
-    /* if (include_q) { */
-    /*   Rcout << "priors for q\n"; */
-    /*   const List priors_q = as<List>(priors["q"]); */
-      
-    /*   q_shape = as<double>(priors_q["shape"]); */
-    /*   q_rate = as<double>(priors_q["rate"]); */
-    /* } */
-
-
-    if (include_q) {
-      Rcout << "priors for q\n";
-      const List priors_q = as<List>(priors["q"]);
-      
-      q_mean_pmean = as<double>(priors_q["mean.mean"]);
-      q_mean_psd = as<double>(priors_q["mean.sd"]);
-      q_sd_pmean = as<double>(priors_q["sd.mean"]);
-      q_sd_psd = as<double>(priors_q["sd.sd"]);
-    }
-    
-
-    if (include_r) {
-      Rcout << "priors for r\n";
-      const List priors_r = as<List>(priors["r"]);
-      
-      r_mean_pmean = as<double>(priors_r["mean.mean"]);
-      r_mean_psd = as<double>(priors_r["mean.sd"]);
-      r_sd_pmean = as<double>(priors_r["sd.mean"]);
-      r_sd_psd = as<double>(priors_r["sd.sd"]);
-    }
-    
-    
     Rcout << "break 3\n";
     
     if (include_X) {
@@ -575,40 +545,25 @@ ads::ads(const List& params)
 
     List fixed_cov;
 
-    if (fix_V1 || fix_V2 || fix_W) {
+    if (fix_V || fix_W) {
       Rcout << "Loading any fixed covariance matrices\n";
       fixed_cov = as<const List>(pars["fixed.cov"]);
     }
 
-    if (fix_V1) {
+    if (fix_V) {
 
-      Rcout << "V1 is fixed\n";
-      const Map<MatrixXd> V1_d(as<Map<MatrixXd> >(fixed_cov["V1"]));
-      V1 = V1_d.cast<AScalar>();
+      Rcout << "V is fixed\n";
+      const Map<MatrixXd> V_d(as<Map<MatrixXd> >(fixed_cov["V"]));
+      V = V_d.cast<AScalar>();
       
     } else {
 
-      Rcout << "V1 is estimated\n";
-      const List priors_V1 = as<List>(priors["V1"]); 
-      diag_scale_V1 = as<double>(priors_V1["diag.scale"]);
-      diag_mode_V1 = as<double>(priors_V1["diag.mode"]);
-      fact_scale_V1 = as<double>(priors_V1["fact.scale"]);
-      fact_mode_V1 = as<double>(priors_V1["fact.mode"]);
-    }
-    
-    if (fix_V2) {
-
-      Rcout << "V2 is fixed\n";
-      const Map<MatrixXd> V2_d(as<Map<MatrixXd> >(fixed_cov["V2"]));
-      V2 = V2_d.cast<AScalar>();
-      
-    } else {
-      Rcout << "V2 is estimated\n";
-      const List priors_V2 = as<List>(priors["V2"]); 
-      diag_scale_V2 = as<double>(priors_V2["diag.scale"]);
-      diag_mode_V2 = as<double>(priors_V2["diag.mode"]);
-      fact_scale_V2 = as<double>(priors_V2["fact.scale"]);
-      fact_mode_V2 = as<double>(priors_V2["fact.mode"]);
+      Rcout << "V is estimated\n";
+      const List priors_V = as<List>(priors["V"]); 
+      diag_scale_V = as<double>(priors_V["diag.scale"]);
+      diag_mode_V = as<double>(priors_V["diag.mode"]);
+      fact_scale_V = as<double>(priors_V["fact.scale"]);
+      fact_mode_V = as<double>(priors_V["fact.mode"]);
     }
     
     if (fix_W) {
@@ -635,6 +590,7 @@ ads::ads(const List& params)
 	  t2 += (W1_dim-i) * (2.0 * lgamma(tmp) - lgamma(2.0 * tmp));
 	}
 	corr_W1_const = t1 * M_LN2 + t2;
+	
       } else {
 	const List priors_W1 = as<List>(priors["W1"]);
 	diag_scale_W1 = as<double>(priors_W1["diag.scale"]);
@@ -683,11 +639,22 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
 {
   int ind = 0;
 
-  // M20
+  // unwrap M20, if needed
 
   if (estimate_M20) {
-   M20 = MatrixXA::Map(par.derived().data()+ind, 1+P+J, J);
-   ind += (1+J+P) * J;
+    M20 = MatrixXA::Map(par.derived().data()+ind,1+P+J,J);
+    ind += (1+P+J)*J;
+  }
+
+  mean_asymp = M20.middleRows(1,J);
+
+  // unwrap asymp, if needed
+
+  if (estimate_asymptote) {
+    asymp = MatrixXA::Map(par.derived().data()+ind,J,J);
+    ind += J*J;
+  } else {
+    asymp = M20.middleRows(1, J);
   }
 
   
@@ -705,44 +672,32 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     }
   }
 
- 
-  if (include_c) {
-    logit_c = par.segment(ind, J);
-    ind += J;    
-    c.array() = logit_c.array().exp()/(1+logit_c.array().exp()); 
+  // for c and u, the parameter is an offset agains the 
+  // mean.  So c_j = c_mean + par[ind+j]*c_sd
+  if (include_c) {     
+    log_c_mean = par(ind++); //ind increments after pull
+    log_c_log_sd = par(ind++); // ind increments after pull
+    log_c_sd = exp(log_c_log_sd);
+    log_c_off = par.segment(ind,J); // N(0,1) prior
+    ind += J;
+    log_c.array() = log_c_sd * log_c_off.array() + log_c_mean;
+    c.array() = log_c.array().exp();
+
    }
 
 
-  if (include_u) {
-    logit_u = par.segment(ind, J);
-    ind += J;
-    u.array() = logit_u.array().exp()/(1+logit_u.array().exp());
-  }
+  if (include_u) {     
+    log_u_mean = par(ind++); //ind increments after pull
+    log_u_log_sd = par(ind++); // ind increments after pull
+    log_u_sd = exp(log_u_log_sd);
+    log_u_off = par.segment(ind,J); // N(0,1) prior
 
-  // for q and r, the parameter is an offset against the 
-  // mean.  So q_j = q_mean + par[ind+j]
-
-  /* if (include_q) { */
-  /*   log_q = par.segment(ind, J); */
-  /*   ind += J; */
-  /*   q.array() = log_q.array().exp(); */
-  /* } */
-
-  if (include_q) {
-    q = par.segment(ind, J);
     ind += J;
 
-    for (size_t j=0; j<J; j++) {
-      q(j) = invlogit(q(j));
-    }
-    
-    /* q_mean = par(ind++); //ind increments after pull */
-    /* q_log_sd = par(ind++); // ind increments after pull */
-    /* q_sd = exp(q_log_sd); */
-    /* q_off = par.segment(ind,J); // N(0,1) prior */
-    /* ind += J; */
-    /* q.array() = q_sd * q_off.array() + q_mean; */
-  }  
+
+    log_u.array() = log_u_sd * log_u_off.array() + log_u_mean;
+    u.array() = log_u.array().exp();
+   }
 
   
   if (include_r) {
@@ -771,46 +726,28 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
   logit_delta = par(ind++);
   delta = invlogit(logit_delta); 
 
-   // unwrap elements of V1, V2 and W, which are 
+   // unwrap elements of V and W, which are 
   // modeled as LL + S.  First, the log of diag(S)
   // is unwrapped. Then, if nfact>0, the unique elements of the 
   // factors, by column.  Diagonal elements are 
   // exponentiated for identification.
 
 
-  if (!fix_V1) {
+  if (!fix_V) {
     
-    V1.setZero();
-    V1_log_diag = par.segment(ind, V1_dim);
-    ind += V1_dim;
-    V1.diagonal() = V1_log_diag.array().exp().matrix();
+    V.setZero();
+    V_log_diag = par.segment(ind, V_dim);
+    ind += V_dim;
+    V.diagonal() = V_log_diag.array().exp().matrix();
     
-    if (nfact_V1 > 0) {
-      LV1.setZero();
-      for (int j=0; j<nfact_V1; j++) {
-	LV1.block(j, j, V1_dim - j,1) = par.segment(ind, V1_dim - j);
-	ind += V1_dim - j;
-	LV1(j, j) = exp(LV1(j, j));      
+    if (nfact_V > 0) {
+      LV.setZero();
+      for (int j=0; j<nfact_V; j++) {
+	LV.block(j, j, V_dim - j,1) = par.segment(ind, V_dim - j);
+	ind += V_dim - j;
+	LV(j, j) = exp(LV(j, j));      
       }
-      V1.template selfadjointView<Eigen::Lower>().rankUpdate(LV1);      
-    }
-  }
-
-  if (!fix_V2) {
-
-    V2.setZero();
-    V2_log_diag = par.segment(ind, V2_dim);
-    ind += V2_dim; 
-    V2.diagonal() = V2_log_diag.array().exp().matrix();
-    
-    if (nfact_V2 > 0) {
-      LV2.setZero();
-      for (int j=0; j<nfact_V2; j++) {
-	LV2.block(j, j, V2_dim-j, 1) = par.segment(ind, V2_dim - j);
-	ind += V2_dim - j;
-	LV2(j, j) = exp(LV2(j, j));
-      }
-      V2.template selfadjointView<Eigen::Lower>().rankUpdate(LV2);
+      V.template selfadjointView<Eigen::Lower>().rankUpdate(LV);      
     }
   }
 
@@ -905,7 +842,11 @@ AScalar ads::eval_LL()
     
     M2t = M20;
     C2t = C20;
-    Eigen::LDLT<MatrixXA> chol_Qt;    
+
+    MatrixXA chol_Qt_L = MatrixXA::Identity(N,N);
+    VectorXA chol_Qt_D = VectorXA::Zero(N);
+ 
+
     OmegaT = Omega0;
     AScalar log_det_Qt = 0;
     nuT = nu0;
@@ -922,31 +863,41 @@ AScalar ads::eval_LL()
     set_Ht(t);
     //   MatrixXA Htnow = Ht;
     a2t = Gt.triangularView<Upper>() * M2t;
+
+    set_Ht(t);
     // assume bottom P rows of Ht  are all zero
-    a2t.middleRows(1,J) +=  Ht;
-    //a2t.middleRows(1,J) += Htnow;
-    
+    a2t.middleRows(1,J).array() +=  Ht.array();
+ 
+
     Yft = -F1F2[t] * a2t;
     Yft += Ybar[t];
   
     R2t = Gt.triangularView<Upper>() * C2t * Gt.triangularView<Upper>().transpose();
     R2t += W.selfadjointView<Lower>();
-    R1t = F2[t] * R2t * F2[t].transpose(); 
-    R1t += V2.selfadjointView<Lower>();      
-    Qt = F1[t] * R1t * F1[t].transpose();
-    Qt +=  V1.selfadjointView<Lower>();
 
+    Qt = F1F2[t] * R2t * F1F2[t].transpose();
+    Qt +=  V.selfadjointView<Lower>();
+
+
+    LDLT(Qt, chol_Qt_L, chol_Qt_D);
     
-    chol_Qt.compute(Qt); // Cholesky of Qt
-    // log_det_Qt += chol_Qt.vectorD().array().log().sum();
-    MatrixXA tmp2 = chol_Qt.matrixL();
-    log_det_Qt += 2*tmp2.diagonal().array().log().sum();
-    
+
+    //   log_det_Qt = chol_Qt_D.array().log().sum();    
+    log_det_Qt += chol_Qt_D.array().log().sum();    
+
+
     S2t = R2t * F1F2[t].transpose();
-    QYf = chol_Qt.solve(Yft);
+
+    QYf = chol_Qt_L.triangularView<Lower>().solve(Yft);
+    tmpNJ = chol_Qt_D.asDiagonal().inverse() *QYf;
+    QYf = chol_Qt_L.transpose().triangularView<Upper>().solve(tmpNJ);    
     M2t = S2t * QYf;
     M2t += a2t;
-    C2t = -S2t*(chol_Qt.solve(S2t.transpose()));
+
+    MatrixXA tmp1 = chol_Qt_L.triangularView<Lower>().solve(S2t.transpose());
+    MatrixXA tmp2 = chol_Qt_D.asDiagonal().inverse() * tmp1;
+    C2t = -tmp1.transpose() * tmp2;        
+
     C2t += R2t;
 
     // accumulate terms for Matrix T
@@ -954,11 +905,13 @@ AScalar ads::eval_LL()
     nuT += N;
   }
 
-  Eigen::LDLT<MatrixXA> chol_DX(OmegaT);
-  AScalar log_det_DX = chol_DX.vectorD().array().log().sum();
-  
-  AScalar log_PY = log_const - J*log_det_Qt/2. - nuT*log_det_DX/2.;
-  assert(my_finite(log_PY));
+
+  MatrixXA chol_DX_L = MatrixXA::Identity(J,J);
+  VectorXA chol_DX_D = VectorXA::Zero(J);
+  LDLT(OmegaT, chol_DX_L, chol_DX_D);
+  AScalar log_det_DX = chol_DX_D.array().log().sum();
+  AScalar log_PY = log_const - J*log_det_Qt/2. - nuT*log_det_DX/2.;     
+
   return(log_PY);
 }
 
@@ -985,48 +938,25 @@ AScalar ads::eval_hyperprior() {
 				   false);
   } 
 
-  // Prior on V1, V2 diag and factors
+  // Prior on V diag and factors
   // log of diagonal elements (includes Jacobian)
 
-  AScalar prior_diag_V1 = 0;
-  AScalar prior_fact_V1 = 0;
+  AScalar prior_diag_V = 0;
+  AScalar prior_fact_V = 0;
 
-  if (!fix_V1) {
+  if (!fix_V) {
   
-    for (size_t i=0; i<V1_dim; i++) {
-      prior_diag_V1 += dnormTrunc0_log(V1(i,i), diag_mode_V1, diag_scale_V1);      
-      prior_diag_V1 += V1_log_diag(i); // Jacobian (check this)
+    for (size_t i=0; i<V_dim; i++) {
+      prior_diag_V += dnormTrunc0_log(V(i,i), diag_mode_V, diag_scale_V);      
+      prior_diag_V += V_log_diag(i); // Jacobian (check this)
     }
     
-    if (nfact_V1 > 0) {
-      for (int j=0; j < nfact_V1; j++) {
-	prior_fact_V1 += dnormTrunc0_log(LV1(j,j), fact_mode_V1, fact_scale_V1);
-	prior_fact_V1 += log(LV1(j,j)); // Jacobian (check this)
-	for (int i=j+1; i<V1_dim; i++) {
-	  prior_fact_V1 += dnorm_log(LV1(i,j), fact_mode_V1, fact_scale_V1);	
-	}
-      }
-    }
-  }
-
-  AScalar prior_diag_V2 = 0;
-  AScalar prior_fact_V2 = 0;
-
-
-  if (!fix_V2) {
-  
-    for (size_t i=0; i<V2_dim; i++) {
-      prior_diag_V2 += dnormTrunc0_log(V2(i,i), diag_mode_V2, diag_scale_V2);
-      prior_diag_V2 += V2_log_diag(i); // Jacobian (check this)
-    }
-    
-    
-    if (nfact_V2 > 0) {
-      for (int j=0; j < nfact_V2; j++) {
-	prior_fact_V2 += dnormTrunc0_log(LV2(j,j), fact_mode_V2, fact_scale_V2);
-	prior_fact_V2 += log(LV2(j,j)); // Jacobian (check this)
-	for (int i=j+1; i<V2_dim; i++) {
-	  prior_fact_V2 += dnorm_log(LV2(i,j), fact_mode_V2, fact_scale_V2);	  
+    if (nfact_V > 0) {
+      for (int j=0; j < nfact_V; j++) {
+	prior_fact_V += dnormTrunc0_log(LV(j,j), fact_mode_V, fact_scale_V);
+	prior_fact_V += log(LV(j,j)); // Jacobian (check this)
+	for (int i=j+1; i<V_dim; i++) {
+	  prior_fact_V += dnorm_log(LV(i,j), fact_mode_V, fact_scale_V);	
 	}
       }
     }
@@ -1096,65 +1026,36 @@ AScalar ads::eval_hyperprior() {
     
     AScalar prior_W2 = prior_diag_W2 + prior_fact_W2;
     
-    AScalar prior_mats = prior_diag_V1 + prior_fact_V1;
-    prior_mats += prior_diag_V2 + prior_fact_V2;
+    AScalar prior_mats = prior_diag_V + prior_fact_V;
     prior_mats += prior_W1 + prior_W2;
     
     
     // Priors on q, r, c and u
     
-    AScalar prior_u = 0;
-    AScalar prior_c = 0;
-    AScalar prior_q = 0;
-    AScalar prior_r = 0;
+
+    AScalar prior_log_u = 0;
+    AScalar prior_log_c = 0;
+
     
     if (include_c) {
-      for (int jj=0; jj<J; jj++) {      
-	prior_c += dlogitbeta_log(logit_c(jj), c_a, c_b);
-      }      
+
+      const AScalar prior_log_c_mean = dnorm_log(log_c_mean, log_c_mean_pmean, log_c_mean_psd);
+      AScalar prior_log_c_log_sd = dnormTrunc0_log(log_c_sd, log_c_sd_pmean, log_c_sd_psd);
+      prior_log_c_log_sd += log_c_log_sd; // Jacobian
+      const AScalar prior_log_c_off = -J*M_LN_SQRT_2PI - 0.5*log_c_off.squaredNorm(); // N(0,1)
+      prior_log_c = prior_log_c_mean + prior_log_c_log_sd + prior_log_c_off;            
+
     }
-    
+
+
     if (include_u) {
-      for (int jj=0; jj<J; jj++) {      
-	prior_u += dlogitbeta_log(logit_u(jj), u_a, u_b);
-      }  
+      const AScalar prior_log_u_mean = dnorm_log(log_u_mean, log_u_mean_pmean, log_u_mean_psd);
+      AScalar prior_log_u_log_sd = dnormTrunc0_log(log_u_sd, log_u_sd_pmean, log_u_sd_psd);
+      prior_log_u_log_sd += log_u_log_sd; // Jacobian
+      const AScalar prior_log_u_off = -J*M_LN_SQRT_2PI - 0.5*log_u_off.squaredNorm(); // N(0,1)
+      prior_log_u = prior_log_u_mean + prior_log_u_log_sd + prior_log_u_off;            
     }
 
-    /* if (include_q) { */
-    /*   for (int jj=0; jj<J; jj++) {       */
-    /* 	prior_q += dgamma_log(q(jj), q_shape, q_rate); */
-    /* 	prior_q += log_q(jj); //jacobian */
-    /*   }   */
-    /* } */
-
-
-    if (include_q) {
-      for (int jj=0; jj<J; jj++) {      
-	prior_q += dnorm_log(q(jj), q_mean_pmean, q_mean_psd);
-      }      
-      
-      /* const AScalar prior_q_mean = dnorm_log(q_mean, q_mean_pmean, q_mean_psd); */
-      /* AScalar prior_q_log_sd = dnormTrunc0_log(q_sd, q_sd_pmean, q_sd_psd); */
-      /* prior_q_log_sd += q_log_sd; // Jacobian */
-      /* const AScalar prior_q_off = -J*M_LN_SQRT_2PI - 0.5*q_off.squaredNorm(); // N(0,1) */
-      /* const AScalar prior_q = prior_q_mean + prior_q_log_sd  + prior_q_off;      */
-    }
-    
-    if (include_r) {
-
-      for (int jj=0; jj<J; jj++) {      
-	prior_r += dnorm_log(r(jj), r_mean_pmean, r_mean_psd);
-      }      
-
-      /* const AScalar prior_r_mean = dnorm_log(r_mean, r_mean_pmean, r_mean_psd); */
-      /* AScalar prior_r_log_sd = dnormTrunc0_log(r_sd, r_sd_pmean, r_sd_psd); */
-      /* prior_r_log_sd += r_log_sd; // Jacobian */
-      /* const AScalar prior_r_off = -J*M_LN_SQRT_2PI - 0.5*r_off.squaredNorm(); // N(0,1) */
-      /* const AScalar prior_r = prior_r_mean + prior_r_log_sd + prior_r_off; */      
-    }
-    
-
-    
 
   // Prior on phi
   // J x J matrix normal, diagonal (sparse) covariance matrices
@@ -1166,16 +1067,35 @@ AScalar ads::eval_hyperprior() {
 				 chol_cov_col_phi,
 				 false);
     }
+
+    AScalar prior_M20 = 0;
+    if (estimate_M20) {
+      prior_M20 = MatNorm_logpdf(M20, mean_M20,
+				 chol_cov_row_M20,
+				 chol_cov_col_M20,
+				 false);
+    }
+
+
+    AScalar prior_asymp = 0;
+    if (estimate_asymptote) {
+      prior_asymp = MatNorm_logpdf(asymp, mean_asymp,
+				   chol_cov_row_asymp,
+				   chol_cov_col_asymp,
+				   false);      
+    }
     
     AScalar prior_logit_delta = dlogitbeta_log(logit_delta, delta_a, delta_b);
-    AScalar res = prior_c + prior_u + prior_q + prior_r + prior_logit_delta;
-    res += prior_theta12 + prior_phi + prior_mats + prior_M20;    
+
+    AScalar res= prior_log_c + prior_log_u + prior_logit_delta + prior_theta12 + prior_phi + prior_mats + prior_M20 + prior_asymp;
+    
+
     return(res);
 }
 
 // Afunc
-AScalar ads::Afunc(const AScalar& aT, const AScalar& A_scale) {
-  AScalar res = log( 1.0 + aT );
+AScalar ads::Afunc(const AScalar& aT, const AScalar& s) {
+  AScalar res = log( 1.0 + aT/s);
   return(res);
 }
 
@@ -1191,23 +1111,30 @@ void ads::set_Gt(const int& tt) {
   Gt(0,0) = 1.0 - delta;
   for (int j=0; j<J; j++) {
     Gt(0, j+1) = Afunc(A[tt](j), A_scale);
-    
     if (include_c) {
       if (include_u) {
-    	// c and u
-     	Gt(j+1, j+1) = exp(-c(j) - A[tt](j) * log(u(j)) / A_scale);
+
+	// c and u	
+	Gt(j+1, j+1) = 1.0 - c(j) - u(j)*A[tt](j)/A_scale;
+
       } else {
-    	// c, not u
-    	Gt(j+1, j+1) = exp(-c(j));
+
+	// c, not u
+	Gt(j+1, j+1) = 1.0 - c(j);
+
       }
+      Gt(j+1,j+1) -= (c(j) + delta) * AjIsZero[tt](j);     
     } else {
       if (include_u) {
-    	// u, not c
-      	Gt(j+1, j+1) = exp(-A[tt](j) * log(u(j)) / A_scale);
+
+	// u, not c
+	Gt(j+1, j+1) = 1.0 - u(j)*A[tt](j)/A_scale;
+
       } else {
     	// neither c nor u
     	Gt(j+1, j+1) = 1.0;
       }
+      Gt(j+1,j+1) -= delta * AjIsZero[tt](j);
     }
 
     /* if (!(include_c || include_u)) { */
@@ -1242,49 +1169,60 @@ void ads::set_Gt(const int& tt) {
 }  // end set_Gt
 
 
-
-
 // set_Ht
 void ads::set_Ht(const int& tt) {
 
 
   Ht.setZero();
-  Ht.array().colwise() = delta * AjIsZero[tt].array(); //H1t
 
-  if (include_phi) {
-    Ht = E[tt].asDiagonal() * phi; // H2t
+  for (int j=0; j<J; j++) {
+    AScalar tmp;
+    if (include_c) {
+      tmp = c(j) + delta;
+    } else {
+      tmp = delta;
+    }
+    Ht.col(j).array() = tmp * AjIsZero[tt].array() * asymp.col(j).array();
   }
+
   
-  // Estimate probability that sign(qij)<0
+  if (include_phi) {
+    Ht += E[tt].asDiagonal() * phi; // H2t
+  }
+    
+  /* // Estimate probability that sign(qij)<0 */
   
-  AScalar ct = nuT - P - 2*J;
-  Eigen::Matrix<AScalar, Dynamic, Dynamic> Pneg(J,J);
-  //  Pneg.setZero();
-  Pneg.setConstant(AScalar(1));
+
+  /* AScalar ct = nuT - P - 2*J; */
+  /* Eigen::Matrix<AScalar, Dynamic, Dynamic> Pneg(J,J); */
+  /* Pneg.setZero(); */
   
   /* if (ct<30) {     */
   /*   // use CDF of student T */
-  /*   for (size_t col=0; col<J; col++) { */
-  /*     for (size_t row=0; row<J; row++) { */
-  /* 	AScalar mm = M2t(row+1, col); */
-  /* 	AScalar dd = C2t(row+1, row+1) * OmegaT(col, col); */
-  /* 	AScalar IB = incbeta(ct*mm*mm  / (ct*mm*mm + dd*dd), 0.5, 0.5*ct); */
-  /* 	Pneg(row,col) = 0.5 * (1.0 - sign(mm)*IB); */
-  /*     } */
-  /*   }    */
+    /* for (size_t col=0; col<J; col++) { */
+    /*   for (size_t row=0; row<J; row++) { */
+    /* 		AScalar mm = M2t(row+1, col); */
+    /* 		AScalar dd = C2t(row+1, row+1) * OmegaT(col, col); */
+    /* 		AScalar IB = incbeta(ct*mm*mm  / (ct*mm*mm + dd*dd), 0.5, 0.5*ct); */
+    /* 		Pneg(row,col) = 0.5 * (1.0 - sign(mm)*IB); */
+  /*  Ht(row,col) *= 1 - 2*Pneg(row,col); */
+    /*   } */
+    /* } */
   /* } else { */
-    // use CDF of normal    
-    for (size_t col=0; col<J; col++) {
-      for (size_t row=0; row<J; row++) {
-    	AScalar mm = M2t(row+1, col);
-    	AScalar dd = C2t(row+1, row+1) * OmegaT(col, col);
-    	Pneg(row, col) = exp(pnorm_log(0, mm, dd/ct));
-      }
-    }
-    //  }
-    Ht.array() = (1.0 - 2.0 * Pneg.array()) * Ht.array();
+  /*   // use CDF of normal     */
+    /* for (size_t col=0; col<J; col++) { */
+    /*   for (size_t row=0; row<J; row++) { */
+    /* 	AScalar mm = M2t(row+1, col); */
+    /* 	AScalar dd = C2t(row+1, row+1) * OmegaT(col, col); */
+    /* 	Pneg(row, col) = pnorm(AScalar(0), mm, dd/ct); */
+    /* 	//	Ht(row, col) = -Ht(row,col) * erf(-mm * ct * M_SQRT1_2 / dd) */
+    /* 	assert(my_finite(Ht(row,col))); */
+    /*   } */
+    /* } */
+    /* /\* } *\/ */
+    /* Ht.array() *= 1 - 2*Pneg.array(); */
 
-  
+
 } // end set_Ht
 
 
@@ -1320,23 +1258,24 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
   using Rcpp::as;
 
   unwrap_params(P);
-
+  eval_LL();
   // Return values for A
 
-  NumericVector LC(logit_c.size());
-  NumericVector LU(logit_u.size());
-  NumericVector LQ(q.size());
-   NumericVector LR(r.size());
-  double Ldelta = CppAD::Value(logit_delta);
-  NumericMatrix MV1(V1.rows(), V1.cols());
-  NumericMatrix MV2(V2.rows(), V2.cols());
-  NumericMatrix MW(W.rows(), W.cols());
 
-  for (size_t i=0; i<logit_c.size(); i++) {
-    LC(i) = Value(logit_c(i));
+  NumericVector LC(c.size());
+  NumericVector LU(u.size());
+  double Ldelta = CppAD::Value(logit_delta);
+  NumericMatrix MV(V.rows(), V.cols());
+  NumericMatrix MW(W.rows(), W.cols());
+  NumericMatrix M2treturn(M2t.rows(), M2t.cols());
+  NumericMatrix C2treturn(C2t.rows(), C2t.cols());
+  NumericMatrix OmegaTreturn(OmegaT.rows(), OmegaT.cols());
+
+  for (size_t i=0; i<c.size(); i++) {
+    LC(i) = Value(c(i));
   }
-  for (size_t i=0; i<logit_u.size(); i++) {
-    LU(i) = Value(logit_u(i));
+  for (size_t i=0; i<u.size(); i++) {
+    LU(i) = Value(u(i));
   }
   for (size_t i=0; i<q.size(); i++) {
     LQ(i) = Value(q(i));
@@ -1345,17 +1284,12 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
     LR(i) = Value(r(i));
   }
 
-  for (size_t i=0; i<V1.rows(); i++) {
-    for (size_t j=0; j<V1.cols(); j++) {
-      MV1(i,j) = Value(V1(i,j));
+  for (size_t i=0; i<V.rows(); i++) {
+    for (size_t j=0; j<V.cols(); j++) {
+      MV(i,j) = Value(V(i,j));
     }
   }
 
-  for (size_t i=0; i<V2.rows(); i++) {
-    for (size_t j=0; j<V2.cols(); j++) {
-      MV2(i,j) = Value(V2(i,j));
-    }
-  }
 
   for (size_t i=0; i<W.rows(); i++) {
     for (size_t j=0; j<W.cols(); j++) {
@@ -1363,37 +1297,48 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
     }
   }
 
-  Rcpp::List Areturn(T);  
-  for (size_t ti=0; ti<A.size(); ti++) {
-    //   Rcout << "A[" << ti << "] = " << A[ti] << "\n";
-    Rcpp::NumericVector Atj(J);
-    for (size_t j=0; j<J; j++) {
-      Atj(j) = Value(A[ti](j));
+  for (size_t i=0; i<M2t.rows(); i++) {
+    for (size_t j=0; j<M2t.cols(); j++) {
+      M2treturn(i,j) = Value(M2t(i,j));
     }
-    Areturn(ti) = wrap(Atj);
   }
 
-  Rcpp::List Greturn(T);  
+
+  for (size_t i=0; i<C2t.rows(); i++) {
+    for (size_t j=0; j<C2t.cols(); j++) {
+      C2treturn(i,j) = Value(C2t(i,j));
+    }
+  }
+
+
+  for (size_t i=0; i<OmegaT.rows(); i++) {
+    for (size_t j=0; j<OmegaT.cols(); j++) {
+      OmegaTreturn(i,j) = Value(OmegaT(i,j));
+    }
+  }
+
+
+  Rcpp::List Greturn(T);
   for (size_t tt=0; tt<T; tt++) {
     set_Gt(tt);
     Rcpp::NumericMatrix GG(Gt.rows(), Gt.cols());
     for (size_t col=0; col < Gt.cols(); col++) {
       for (size_t row=0; row < Gt.rows(); row++) {
-	GG(row, col) = Value(Gt(row, col));
+  	GG(row, col) = Value(Gt(row, col));
       }
     }
     Greturn(tt) = wrap(GG);
   }
 
-  List res = List::create(Named("logit_c") = wrap(LC),
-			  Named("logit_u") = wrap(LU),
-			  Named("q") = wrap(LQ),
-			  Named("r") = wrap(LR),
+
+  List res = List::create(Named("c") = wrap(LC),
+			  Named("u") = wrap(LU),
 			  Named("logit_delta") = wrap(Ldelta),
-			  Named("V1") = wrap(MV1),
-			  Named("V2") = wrap(MV2),
+			  Named("V") = wrap(MV),
 			  Named("W") = wrap(MW),
-			  //		  Named("A") = wrap(Areturn),
+			  Named("M2t") = wrap(M2treturn),
+			  Named("C2t") = wrap(C2treturn),
+			  Named("OmegaT") = wrap(OmegaTreturn),
 			  Named("Gt") = wrap(Greturn)
 			  );
   return(res);

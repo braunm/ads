@@ -14,3 +14,4 @@ README\.R
 ^NEWS\.md$
 ^cran-comments\.md$
 ^nobuild\/.*$
+
