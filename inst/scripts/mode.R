@@ -8,7 +8,7 @@ library(numDeriv)
 library(trustOptim)
 library(plyr)
 library(reshape2)
-library(Rcgmin)
+
 
 
 set.seed(1234)
@@ -229,9 +229,6 @@ if (flags$add.prior) {
     } else {
         prior.log.u <- NULL;
     }
-<<<<<<< HEAD
-
-
 
     ## For V, W1 and W2:   normal or truncated normal priors (if needed)
 
@@ -310,7 +307,7 @@ if (flags$include.X) {
 }
 
 
-logit.delta.start <- true.pars$logit.delta
+logit.delta.start <- 0
 
 if (flags$include.c) {
     log.c.mean.log.sd.start <- c(-.5, 1)
@@ -422,7 +419,7 @@ cat("gradient\n")
 tg <- system.time(df <- get.df(start))
 print(tg)
 
-stop()
+
 
 ## Need to bound variables to avoid overflow
 
@@ -437,7 +434,7 @@ opt1 <- optim(start,
                   fnscale=-1,
                   REPORT=1,
                   trace=3,
-                  maxit=30
+                  maxit=3
                   )
               )
 
@@ -448,7 +445,7 @@ opt2 <- trust.optim(opt1$par,
                     control=list(
                         report.level=5L,
                         report.precision=4L,
-                        maxit=3000L,
+                        maxit=5L,
                         function.scale.factor=-1,
                         preconditioner=0,
                         start.trust.radius=.01,
@@ -468,7 +465,7 @@ opt <- trust.optim(opt2$solution,
                    control=list(
                        report.level=5L,
                        report.precision=4L,
-                       maxit=3000L,
+                       maxit=10L,
                        function.scale.factor=-1,
                        preconditioner=0,
                        stop.trust.radius=1e-12,

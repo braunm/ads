@@ -48,7 +48,7 @@ class ads {
   
   ads(const List&);
 
-  AScalar eval_f(const Eigen::Ref<VectorXA>&);3
+  AScalar eval_f(const Eigen::Ref<VectorXA>&);
   AScalar eval_LL(const Eigen::Ref<VectorXA>&);
   AScalar eval_hyperprior(const Eigen::Ref<VectorXA>&);
   List par_check(const Eigen::Ref<VectorXA>&);
@@ -95,9 +95,6 @@ private:
   MatrixXA chol_cov_row_phi;
   MatrixXA chol_cov_col_phi;
 
-  MatrixXA mean_M20;
-  MatrixXA chol_cov_row_M20;
-  MatrixXA chol_cov_col_M20;
 
   MatrixXA mean_asymp;
   MatrixXA chol_cov_row_asymp;
@@ -218,8 +215,6 @@ private:
   bool include_X;
   bool include_c;
   bool include_u;
-  bool include_q;
-  bool include_r;
   bool replenish;
   bool W1_LKJ;
   bool fix_V;
@@ -240,16 +235,11 @@ ads::ads(const List& params)
 
   const List & pars = static_cast<const List&>(const_cast<List &>(params));
 
-  Rcout << "break 1\n";
-  
   const List data = as<const List>(pars["data"]);
   const List priors = as<const List>(pars["priors"]);
   const List dimensions = as<const List>(pars["dimensions"]);
   const List flags = as<const List>(pars["flags"]);
 
-
-  Rcout << "break 2\n";
-  
   T = as<int>(dimensions["T"]);
   N = as<int>(dimensions["N"]);
   J = as<int>(dimensions["J"]);
@@ -262,12 +252,8 @@ ads::ads(const List& params)
   include_X = as<bool>(flags["include.X"]);
   include_c = as<bool>(flags["include.c"]);
   include_u = as<bool>(flags["include.u"]);
-  include_q = as<bool>(flags["include.q"]);
-  include_r = as<bool>(flags["include.r"]);
   replenish = as<bool>(flags["replenish"]);
   estimate_M20 = as<bool>(flags["estimate.M20"]);
-
-  Rcout << "break 2b\n";
 
   W1_LKJ = as<bool>(flags["W1.LKJ"]);
   A_scale = as<double>(flags["A.scale"]);
@@ -523,8 +509,6 @@ ads::ads(const List& params)
       log_u_sd_pmean = as<double>(priors_log_u["sd.mean"]);
       log_u_sd_psd = as<double>(priors_log_u["sd.sd"]);
     }
-
-    Rcout << "break 3\n";
     
     if (include_X) {
 
@@ -700,23 +684,6 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
    }
 
   
-  if (include_r) {
-
-    r = par.segment(ind, J);
-    ind += J;
-
-    for (size_t j=0; j<J; j++) {
-      r(j) = invlogit(r(j));
-    }
-       
-
-    /* r_mean = par(ind++); //ind increments after pull */
-    /* r_log_sd = par(ind++); // ind increments after pull */
-    /* r_sd = exp(r_log_sd); */
-    /* r_off = par.segment(ind,J); // N(0,1) prior */
-    /* ind += J; */
-    /* r.array() = r_sd * r_off.array() + r_mean; */
-  }  
   
   if (include_phi) {
     phi = MatrixXA::Map(par.derived().data() + ind, J, J);
@@ -1068,15 +1035,6 @@ AScalar ads::eval_hyperprior() {
 				 false);
     }
 
-    AScalar prior_M20 = 0;
-    if (estimate_M20) {
-      prior_M20 = MatNorm_logpdf(M20, mean_M20,
-				 chol_cov_row_M20,
-				 chol_cov_col_M20,
-				 false);
-    }
-
-
     AScalar prior_asymp = 0;
     if (estimate_asymptote) {
       prior_asymp = MatNorm_logpdf(asymp, mean_asymp,
@@ -1087,7 +1045,8 @@ AScalar ads::eval_hyperprior() {
     
     AScalar prior_logit_delta = dlogitbeta_log(logit_delta, delta_a, delta_b);
 
-    AScalar res= prior_log_c + prior_log_u + prior_logit_delta + prior_theta12 + prior_phi + prior_mats + prior_M20 + prior_asymp;
+    AScalar res= prior_log_c + prior_log_u + prior_logit_delta
+      + prior_theta12 + prior_phi + prior_mats + prior_M20 + prior_asymp;
     
 
     return(res);
@@ -1136,26 +1095,6 @@ void ads::set_Gt(const int& tt) {
       }
       Gt(j+1,j+1) -= delta * AjIsZero[tt](j);
     }
-
-    /* if (!(include_c || include_u)) { */
-    /*   if (include_q) { */
-    /* 	if (include_r) { */
-    /* 	  // q and r	 */
-    /* 	  Gt(j+1, j+1) = 1.0 - q(j) - r(j)*A[tt](j)/A_scale; */
-    /* 	} else { */
-    /* 	  // q, not r */
-    /* 	  Gt(j+1, j+1) = 1.0 - q(j); */
-    /* 	} */
-    /*   } else { */
-    /* 	if (include_r) { */
-    /* 	  // r, not q */
-    /* 	  Gt(j+1, j+1) = 1.0 - r(j)*A[tt](j)/A_scale; */
-    /* 	} else { */
-    /* 	  // neither q nor r */
-    /* 	  Gt(j+1, j+1) = 1.0; */
-    /* 	} */
-    /*   } */
-    /* } */
     
     if (replenish) { 
       Gt(j+1, j+1) -= delta * AjIsZero[tt](j);
@@ -1277,12 +1216,7 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
   for (size_t i=0; i<u.size(); i++) {
     LU(i) = Value(u(i));
   }
-  for (size_t i=0; i<q.size(); i++) {
-    LQ(i) = Value(q(i));
-  }
-  for (size_t i=0; i<r.size(); i++) {
-    LR(i) = Value(r(i));
-  }
+
 
   for (size_t i=0; i<V.rows(); i++) {
     for (size_t j=0; j<V.cols(); j++) {
