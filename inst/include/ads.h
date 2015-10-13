@@ -1,4 +1,4 @@
-#ifndef __ads
+::#ifndef __ads
 #define __ads
 
 #include <mb_base.h>
