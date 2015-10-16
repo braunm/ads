@@ -1082,7 +1082,7 @@ void ads::set_Gt(const int& tt) {
 	Gt(j+1, j+1) = 1.0 - c(j);
 
       }
-      Gt(j+1,j+1) -= (c(j) + delta) * AjIsZero[tt](j);     
+      // Gt(j+1,j+1) -= (c(j) + delta) * AjIsZero[tt](j); //  Remove this since it is done below conditional on replenish flag?
     } else {
       if (include_u) {
 
@@ -1093,7 +1093,7 @@ void ads::set_Gt(const int& tt) {
     	// neither c nor u
     	Gt(j+1, j+1) = 1.0;
       }
-      Gt(j+1,j+1) -= delta * AjIsZero[tt](j);
+    //  Gt(j+1,j+1) -= delta * AjIsZero[tt](j);             //  Remove this since it is done below conditional on replenish flag?
     }
     
     if (replenish) { 
@@ -1113,15 +1113,19 @@ void ads::set_Ht(const int& tt) {
 
 
   Ht.setZero();
-
-  for (int j=0; j<J; j++) {
     AScalar tmp;
-    if (include_c) {
-      tmp = c(j) + delta;
-    } else {
-      tmp = delta;
-    }
-    Ht.col(j).array() = tmp * AjIsZero[tt].array() * asymp.col(j).array();
+        for (int j=0; j<J; j++) {
+            if(replenish) {         // added replenish flag and removed c
+                tmp = delta;
+
+        //    if (include_c) {      // removed the following lines, since c is always going to be in set_Gt
+        //      tmp = c(j) + delta;
+        //    } else {
+        //    tmp = delta;
+        //    }
+            } else tmp = 0;
+            Ht.col(j).array() = tmp * AjIsZero[tt].array() * asymp.col(j).array();
+        
   }
 
   

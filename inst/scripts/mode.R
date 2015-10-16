@@ -23,7 +23,7 @@ data.file <- paste0("data/mcmod",data.name,".RData")
 save.file <- paste0("inst/results/",mod.name,"_",data.name,"_mode.Rdata")
 
 flags <- list(include.phi=FALSE,
-              include.c=TRUE, ## 0-1
+              include.c=FALSE, ## 0-1
               include.u=FALSE, ## 0-1
               replenish = FALSE,
               add.prior=TRUE,
@@ -33,8 +33,8 @@ flags <- list(include.phi=FALSE,
               W1.LKJ = TRUE,  # W1.LKJ true means we do LKJ, otherwise same as W2
               fix.V = FALSE,
               fix.W = FALSE,
-              estimate.M20 = TRUE,
-              estimate.asymptote = TRUE
+              estimate.M20 = FALSE,
+              estimate.asymptote = FALSE
               )
 
 nfact.V <- 0
@@ -125,13 +125,13 @@ if (nfact.W2 > max.nfact.W2) stop("Too many factors for W2")
 
 
 M20 <- matrix(0,1+P+J,J)
-M20[1,] <- 15
-M20[2:(J+1),] <- -.005
-M20[(J+2):(1+P+J),] <- 1
-for (j in 1:J) {
-    M20[J+1+j,j] <- -2
-    M20[j+1,j] <- .25
-}
+#M20[1,] <- 10
+#M20[2:(J+1),] <- -.005
+#M20[(J+2):(1+P+J),] <- 1
+#for (j in 1:J) {
+#    M20[J+1+j,j] <- -2
+#    M20[j+1,j] <- .25
+#}
 
 if (flags$estimate.M20) {
     M20.mean <- M20
@@ -434,7 +434,7 @@ opt1 <- optim(start,
                   fnscale=-1,
                   REPORT=1,
                   trace=3,
-                  maxit=3
+                  maxit=3000
                   )
               )
 
@@ -445,7 +445,7 @@ opt2 <- trust.optim(opt1$par,
                     control=list(
                         report.level=5L,
                         report.precision=4L,
-                        maxit=5L,
+                        maxit=5000L,
                         function.scale.factor=-1,
                         preconditioner=0,
                         start.trust.radius=.01,
@@ -465,7 +465,7 @@ opt <- trust.optim(opt2$solution,
                    control=list(
                        report.level=5L,
                        report.precision=4L,
-                       maxit=10L,
+                       maxit=10000L,
                        function.scale.factor=-1,
                        preconditioner=0,
                        stop.trust.radius=1e-12,
