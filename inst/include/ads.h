@@ -827,8 +827,7 @@ AScalar ads::eval_LL()
 
     //  Rcout << "Gt[" << t << "] =\n " << Gt << "\n\n";
 
-    set_Ht(t);
-    //   MatrixXA Htnow = Ht;
+
     a2t = Gt.triangularView<Upper>() * M2t;
 
     set_Ht(t);
@@ -1072,28 +1071,22 @@ void ads::set_Gt(const int& tt) {
     Gt(0, j+1) = Afunc(A[tt](j), A_scale);
     if (include_c) {
       if (include_u) {
-
 	// c and u	
-	Gt(j+1, j+1) = 1.0 - c(j) - u(j)*A[tt](j)/A_scale;
-
+	Gt(j+1, j+1) = 1.0 - c(j) - u(j)*A[tt](j)/A_scale;	
       } else {
-
 	// c, not u
 	Gt(j+1, j+1) = 1.0 - c(j);
-
       }
-      Gt(j+1,j+1) -= (c(j) + delta) * AjIsZero[tt](j);     
+      //      Gt(j+1,j+1) -= (c(j) + delta) * AjIsZero[tt](j);     
     } else {
       if (include_u) {
-
 	// u, not c
 	Gt(j+1, j+1) = 1.0 - u(j)*A[tt](j)/A_scale;
-
       } else {
     	// neither c nor u
     	Gt(j+1, j+1) = 1.0;
       }
-      Gt(j+1,j+1) -= delta * AjIsZero[tt](j);
+      //    Gt(j+1,j+1) -= delta * AjIsZero[tt](j);
     }
     
     if (replenish) { 
