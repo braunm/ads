@@ -1,8 +1,7 @@
 library(rstan)
 
-
 mod.name <- "hdlm"
-data.name <- "sim"
+data.name <- "ptw"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
@@ -26,13 +25,15 @@ Xr <- mcmod$X[1:T]
 
 Y <- array(dim=c(T, N, J))
 X <- array(dim=c(T, N, K))
-F1F2 <- array(dim=c(T, 1+J+P, N))
+F1F2 <- array(dim=c(T, N, 1+J+P))
+F1 <- array(dim=c(T, N, N*(1+P)))
+F2 <- array(dim=c(T, N*(1+P), (1+J+P)))
 A <- array(dim=c(T, J))
 E <- array(dim=c(T, J))
 
 ## priors
-nu <- J + 5;
-Omega0 <- diag(J);
+nu0 <- J + 5;
+Omega0 <- diag(J);			# This directly/proportionally impacts the estimated covariance values
 M20 <- matrix(0,1+P+J,J)
 M20[1,] <- 15
 M20[2:(J+1),] <- -.005
@@ -50,19 +51,21 @@ for (i in 1:T) {
     X[i,,] <- Xr[[i]]
     A[i,] <- Ar[[i]]
     E[i,] <- Er[[i]]
-    F1F2[i,,] <- as(F2r[[i]] %*% F1r[[i]],"matrix")
+    F1[i,,] <- t(as(F1r[[i]],"matrix"))
+    F2[i,,] <- t(as(F2r[[i]],"matrix"))        
+    F1F2[i,,] <- F1[i,,]%*%F2[i,,]
 }
 
 DL <- list(N=N, T=T, J=J, K=K, P=P,
-           Y=Y, X=X, F1F2=F1F2,
+           Y=Y, X=X, F1=F1, F2=F2, F1F2 = F1F2,
            A=A, E=E,
-           nu=nu, Omega0=Omega0,
+           nu0=nu0, Omega0=Omega0,
            M20=M20,C20=C20)
 
 st <- stan_model("inst/scripts/stan1.stan")
 fit <- sampling(st,
                 data=DL,
-                iter=2)
+                iter=100, cores=4)
 
 
 
