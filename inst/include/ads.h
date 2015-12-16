@@ -204,8 +204,6 @@ private:
   VectorXA u;
   VectorXA log_u;
 
-
-  
   AScalar log_mvgamma_prior;
   AScalar log_mvgamma_post;
   
@@ -222,11 +220,9 @@ private:
   bool estimate_M20;
   bool estimate_asymptote;
 
-
   AScalar A_scale;
     
 }; // end class definition
-
 
 
 ads::ads(const List& params)
