@@ -51,7 +51,7 @@ transformed data {
 parameters {
     matrix[K,J] theta12;            // For time invariant component
     matrix[J,J] phi;                // For innovation component (creatives)
-    real<lower=0, upper=1> delta;   // Decay parameter in advertising
+    real<lower=0,upper=1> delta;   // Decay parameter in advertising
     vector<lower=0>[W_dim] Wd;      // Diagonal for covariance for system evolution
     vector<lower=0>[V1_dim] V1d;    // Diagonal for city level covariance           (all independent)
     vector<lower=0>[V2_dim] V2d;    // Diagonal for parameter level city covariance (all independent)
@@ -93,6 +93,7 @@ model {
     Ht <- rep_matrix(0, 1+J+P,J);
     log_det_Qt <- 0;
 
+    delta ~ beta(1,3);
     Gt[1,1] <- 1-delta;
 
     // Set priors
