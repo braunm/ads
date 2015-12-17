@@ -1,4 +1,4 @@
-## stan1.stan - DLM 1: matrix normals (specific to advertising paper)
+## stan2.stan - DLM 2: matrix normals (specific to advertising paper)
 ## fits model
 ## Yt = F1_t \Theta_{11t} + \Beta X + v_{1t}, V1 ~ N(0,V1,Sigma)
 ## \Theta_{11t} = F2_t \Theta_{2t} + v_{2t}, V2 ~ N(0,V2,Sigma)
@@ -9,6 +9,8 @@
 ## Sigma is given a prior IW(nu0, Omega0) and the state variables are integrated out
 ## forming a matrix T from the above system.
 
+# V1 and V2 are combined in this version. Otherwise similar to stan1.stan
+
 data {
 
     int N;                          // number of cities (or rows of matrix outcome per time period)
@@ -18,8 +20,6 @@ data {
     int P;                          // number of time varying state parameters per brand
     matrix[N, J] Y[T];              // T elements of the matrix outcome (sales)
     matrix[N, K] X[T];              // T elements of non time varying covariates
-    matrix[N, N*(1+P)] F1[T];       // T elements of the F1 matrix
-    matrix[N*(1+P),(1+J+P)] F2[T];  // Matrix for hierarchical component
 
     matrix[N, 1+J+P] F1F2[T]; #     // Could be done in transformed block but is F1t x F2t matrix multiplication
 
@@ -34,15 +34,13 @@ data {
 
 transformed data {
 
-    int V1_dim;                     // Corresponding covariance matrixes dimensions (square)
-    int V2_dim;
+    int V_dim;                      // Corresponding covariance matrixes dimensions (square)
 
     int W1_dim;
     int W2_dim;
     int W_dim;
 
-    V1_dim <- N;
-    V2_dim <- N*(1+P);
+    V_dim <- N;
     W1_dim <- J+1;
     W2_dim <- P;
     W_dim <- W1_dim + W2_dim;
@@ -51,10 +49,9 @@ transformed data {
 parameters {
     matrix[K,J] theta12;            // For time invariant component
     matrix[J,J] phi;                // For innovation component (creatives)
-    real<lower=0,upper=1> delta;   // Decay parameter in advertising
+    real<lower=0, upper=1> delta;   // Decay parameter in advertising
     vector<lower=0>[W_dim] Wd;      // Diagonal for covariance for system evolution
-    vector<lower=0>[V1_dim] V1d;    // Diagonal for city level covariance           (all independent)
-    vector<lower=0>[V2_dim] V2d;    // Diagonal for parameter level city covariance (all independent)
+    vector<lower=0>[V_dim] Vd;    // Diagonal for city + parameter level covariance           (all independent)
 }
 
 model {
@@ -93,14 +90,12 @@ model {
     Ht <- rep_matrix(0, 1+J+P,J);
     log_det_Qt <- 0;
 
-    delta ~ beta(1,3);
     Gt[1,1] <- 1-delta;
 
     // Set priors
 
     Wd ~ normal(0, 1000);
-    V1d ~ normal(0, 1000);
-    V2d ~ normal(0, 1000);
+    Vd ~ normal(0, 1000);
 
     // Begin recursion for matrix T
 
@@ -113,8 +108,7 @@ model {
     Ybar <- Y[t] - X[t] * theta12;
     Yft <- Ybar - F1F2[t] * a2t;
     R2t <- diag_matrix(Wd) + quad_form_sym(C2t, Gt');
-    R1t <- diag_matrix(V2d) + quad_form_sym(R2t,F2[t]');
-    Qt <- diag_matrix(V1d) + quad_form_sym(R1t, F1[t]');
+    Qt <- diag_matrix(Vd) + quad_form_sym(R2t, F1F2[t]');
 
     increment_log_prob(-0.5*J*log_determinant(Qt));
 
