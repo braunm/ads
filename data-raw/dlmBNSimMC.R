@@ -12,7 +12,7 @@ set.seed(10503)
 # set.seed(105)
 
 replenish <- FALSE
-include.phi <- FALSE
+include.phi <- TRUE
 include.c <- FALSE
 include.u <- FALSE
 
@@ -29,8 +29,8 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 }
 
 # create Y
-N <- 42  # number of 'sites'
-T <- 320  # number of time periods
+N <- 10  # number of 'sites'
+T <- 35  # number of time periods
 Tb <- 0  # number of burnin periods
 J <- 3  # number of equations
 P <- J  # number of time varying covariates per city (excluding intercept)
@@ -83,8 +83,9 @@ gA <- log(1+A)
 E <- rpois(T * J, 0.5)  # incidence of new creatives
 dim(E) <- c(T, J)
 E[A == 0] <- 0  # switch to zero if there is no advertising
-phi <- matrix(0, nc = J, nr = J)  # response coefficients for new creatives
-diag(phi) <- runif(J, min = 0.05, max = 0.1)
+phi <- matrix(runif(J*J,max=0.1), nc = J, nr = J)  # response coefficients for new creatives
+#diag(phi) <- runif(J, min = 0.05, max = 0.1)
+
 
 # time invariant component
 ## K <- 2
@@ -108,7 +109,7 @@ for (t in 1:T) {
     F1ml[[t]] <- t(as(F1ml[[t]], "dgCMatrix"))  ## make sparse
 }
 
-W <- .1 * diag(1 + J + P)
+W <- .001 * diag(1 + J + P)
 # W[1]<-0.01 diag(W)[(2+J):(1+J+P)]<-0.001
 Sigma <- matrix(0, nrow = J, ncol = J)
 diag(Sigma) <- 0.1
@@ -249,7 +250,7 @@ mcmod <- list(dimensions = dimensions, Y = Y, E = El, A = Al, X = F12,
     F1 = F1m, F2 = F2)
 
 truevals <- list(T1=T1true, T2=T2true, Theta12=Theta12, V=V, Sigma=Sigma, W=W,
-                 Cvec=Cvec, Uvec=Uvec)
+                 Cvec=Cvec, Uvec=Uvec, phi = phi)
 
 ### saving for mcmod object
 save(mcmod, truevals, file = "./data/mcmodsim.RData")
