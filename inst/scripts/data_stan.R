@@ -1,13 +1,12 @@
 library(rstan)
 
-mod.name <- "hdlm"
-data.name <- "ptw"
-
-##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
-## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
+data.name <- "ptw"      # choose from ptw, tti, lld, dpp for now
+stan.code <-"stan1"     # this file located in the inst/script directory and must have .stan suffix
+numiter <- 10            # with diagonal V, this should converge in around 500, comfortably
+numcores <- 2           # parallel processing will be done automatically if this is more than one
 
 data.file <- paste0("data/mcmod",data.name,".RData")
-save.file <- paste0("inst/results/",mod.name,"_",data.name,"_stan.Rdata")
+save.file <- paste0("inst/results/",stan.code,"_", data.name,"_stan.Rdata")
 
 load(data.file)
 
@@ -44,7 +43,6 @@ for (j in 1:J) {
 }
 C20 <- 50*diag(1+P+J,1+P+J)
 
-
 for (i in 1:T) {
 
     Y[i,,] <- Yr[[i]]
@@ -62,12 +60,14 @@ DL <- list(N=N, T=T, J=J, K=K, P=P,
            nu0=nu0, Omega0=Omega0,
            M20=M20,C20=C20)
 
-st <- stan_model("inst/scripts/stan1.stan")
+st <- stan_model(paste0("inst/scripts/",stan.code,".stan"))
+
+
 fit <- sampling(st,
                 data=DL,
-                iter=100, cores=4)
+                iter=numiter, cores=numcores)
 
-
+save.image(save.file)
 
 
 
