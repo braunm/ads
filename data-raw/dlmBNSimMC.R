@@ -1,4 +1,4 @@
-str# dlmBNSimMC.R Hierarchical simulation of BN model for MC estimation
+# dlmBNSimMC.R Hierarchical simulation of BN model for MC estimation
 
 # include functions
 rm(list = ls())
@@ -11,9 +11,10 @@ library(trustOptim)
 set.seed(10503)
 # set.seed(105)
 
+replenish <- FALSE
 include.phi <- FALSE
-include.c <- TRUE
-include.u <- TRUE
+include.c <- FALSE
+include.u <- FALSE
 
 rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
     ## set.seed(153)
@@ -53,7 +54,7 @@ for (j in 1:J) {
 }
 
 ## parameters
-delta <- 0.047
+delta <- 0.1
 Theta12 <- rnorm(K1 * J, mean = .02, sd = 0.03)
 dim(Theta12) <- c(K1, J)
 V <- list()
@@ -162,7 +163,7 @@ for (t in 1:T) {
     ## variable does (simplified here)
     Ht <- matrix(0, nr = J, nc = J)
     for (j in 1:J) {
-        Ht[j,] <- delta * (A[t,j]==0)
+        if(replenish) Ht[j,] <- delta * (A[t,j]==0)
         if (include.phi) {
             Ht[j,] <- Ht[j,] + phi[j,]*E[t,j]
         }
@@ -182,7 +183,8 @@ for (t in 1:T) {
 
     epsW <- rmvMN(1, , W, Sigma)
     Theta2t <- Gt %*% Theta2t + epsW
-    Theta2t[2:(J+1),] <- Theta2t[2:(J+1),] +  sign(Theta2t[2:(J+1),])*Ht
+    # Theta2t[2:(J+1),] <- Theta2t[2:(J+1),] +  sign(Theta2t[2:(J+1),])*Ht
+    Theta2t[2:(J+1),] <- Theta2t[2:(J+1),] +  Ht
     T2[[t]] <- Theta2t
 
     epsV2 <- rmvMN(1, , V[[2]], Sigma)
