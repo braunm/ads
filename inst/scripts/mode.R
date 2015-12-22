@@ -28,10 +28,12 @@ flags <- list(include.phi=TRUE,
               standardize=FALSE,
               A.scale = 1000000,
               fix.V = FALSE,
-              fix.W = FALSE
+              fix.W = FALSE,
+              W1.LKJ = FALSE
               )
 
 nfact.V <- 0
+nfact.W1 <- 0
 nfact.W2 <- 0
 
 get.f <- function(P, ...) return(cl$get.f(P))
@@ -88,15 +90,18 @@ dim.W <- dim.W1+dim.W2
 
 dimensions <- c(N=N,T=T,J=J,K=K,P=P,
                 nfact.V=nfact.V,
+                nfact.W1=nfact.W1,
                 nfact.W2=nfact.W2
                 )
 
 max.nfact.V <- 1+2*dim.V-sqrt(1+8*dim.V)
+max.nfact.W1 <- 1+2*dim.W1-sqrt(1+8*dim.W1)
 max.nfact.W2 <- 1+2*dim.W2-sqrt(1+8*dim.W2)
 
 if (nfact.V > max.nfact.V) stop("Too many factors for V")
+if (nfact.W1 > max.nfact.W1) stop("Too many factors for W1")
 if (nfact.W2 > max.nfact.W2) stop("Too many factors for W2")
-
+if (flags$W1.LKJ & nfact.W1>0) stop("Using LKJ prior on W1.  Set nfact.W1 to 0")
 
 ## priors
 
@@ -169,9 +174,13 @@ if (flags$add.prior) {
     if (!flags$fix.W) {
         prior.W2 <- list(diag.scale=1, diag.mode=1,
                          fact.scale=.01, fact.mode=0)
-
-        ## LKJ prior on W1.  Scale parameter has truncated(0) normal prior
-        prior.W1 <- list(scale.mode=0, scale.s=1, eta=1)
+        if (flags$W1.LKJ) {
+            ## LKJ prior on W1.  Scale parameter has truncated(0) normal prior
+            prior.W1 <- list(scale.mode=0, scale.s=1, eta=1)
+        } else {
+            prior.W1 <- list(diag.scale=1, diag.mode=1,
+                             fact.scale=.01, fact.mode=0)
+        }
     } else {
         prior.W1 <- NULL
         prior.W2 <- NULL
@@ -194,7 +203,8 @@ tmp <- list(M20=M20,
             theta12=prior.theta12,
             delta=prior.delta,
             V=prior.V,
-            W1=prior.W1, W2=prior.W2
+            W1=prior.W1,
+            W2=prior.W2
             )
 
 priors <- Filter(function(x) !is.null(x), tmp)
@@ -228,8 +238,6 @@ if (flags$fix.V) {
     V.start <- NULL
 } else {
     V.length <- N + N*nfact.V - nfact.V*(nfact.V-1)/2
-    ##V.start <- (1:V.length)/10
-    ## V.start <- rnorm(V.length) - 3
     V.start <- rep(0,V.length)
 }
 
@@ -238,16 +246,14 @@ if (flags$fix.W) {
     W1.start <- NULL
     W2.start <- NULL
 } else {
-
-    W1.length <- dim.W1*(dim.W1-1)/2 + 1
-
-    ## W1.start <- (1:W1.length)/20
-    ## W1.start <- rnorm(W1.length) - 3
+    if (flags$W1.LKJ) {
+        W1.length <- dim.W1*(dim.W1-1)/2 + 1
+    } else {
+        W1.length <- dim.W1 + dim.W1*nfact.W1 - nfact.W1*(nfact.W1-1)/2
+    }
     W1.start <- rep(0,W1.length)
 
-    W2.length <- P + P*nfact.W2 - nfact.W2*(nfact.W2-1)/2
-    ## W2.start <- (2:(W2.length+1))/30
-    ## W2.start <- rnorm(W2.length) - 3
+    W2.length <- dim.W2 + dim.W2*nfact.W2 - nfact.W2*(nfact.W2-1)/2
     W2.start <- rep(0,W2.length)
 }
 
@@ -309,7 +315,7 @@ opt1 <- optim(start,
                   )
               )
 
-opt2 <- trust.optim(opt1$par,
+opt <- trust.optim(opt1$par,
                     fn=get.f,
                     gr=get.df,
                     method="BFGS",
@@ -328,22 +334,6 @@ opt2 <- trust.optim(opt1$par,
                         )
                     )
 
-
-opt <- trust.optim(opt2$solution,
-                   fn=get.f,
-                   gr=get.df,
-                   method="SR1",
-                   control=list(
-                       report.level=5L,
-                       report.precision=4L,
-                       maxit=5000L,
-                       function.scale.factor=-1,
-                       preconditioner=0,
-                       stop.trust.radius=1e-12,
-                       contract.factor=.9,
-                       report.freq=5L
-                     )
-                   )
 
 opt$par <- opt$solution
 
@@ -370,7 +360,7 @@ recover.cov.mat <- function(v, d, nfact) {
   return(S)
 }
 
-recover.W1 <- function(v, d) {
+recover.W1.LKJ <- function(v, d) {
     W1_scale <- exp(v[1])
     p <- v[2:length(v)]
     stopifnot(length(p)==choose(d,2))
@@ -389,7 +379,11 @@ if (!flags$fix.V) {
 
 if (!flags$fix.W) {
     sol$W2 <- recover.cov.mat(sol.vec$W2,dim.W2,nfact.W2)
-    sol$W1 <- recover.W1(sol.vec$W1,dim.W1)
+    if (flags$W1.LKJ) {
+        sol$W1 <- recover.W1.LKJ(sol.vec$W1,dim.W1)
+    } else {
+        sol$W1 <- recover.cov.mat(sol.vec$W1,dim.W1,nfact.W1)
+    }
 }
 
 parcheck <- cl$par.check(opt$par)

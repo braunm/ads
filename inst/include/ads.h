@@ -95,6 +95,13 @@ private:
   AScalar s_scale_W1;
   AScalar W1_eta;
 
+  // W1 factor structure
+  AScalar diag_scale_W1;
+  AScalar diag_mode_W1;
+  AScalar fact_scale_W1;
+  AScalar fact_mode_W1;
+
+
   AScalar diag_scale_W2;
   AScalar diag_mode_W2;
   AScalar fact_scale_W2;
@@ -106,6 +113,7 @@ private:
   int K; // covariates with stationary parameters
   int P; // covariates with nonstationary parameters
   int nfact_V; // factors to estimate V
+  int nfact_W1; // factors to estimate W2 (if active)
   int nfact_W2; // factors to estimate W2 (if active)
 
   int V_dim, W_dim, W1_dim, W2_dim, W1_dim_ch2;
@@ -120,6 +128,7 @@ private:
   MatrixXA phi; // J x J
   VectorXA V_log_diag;
   AScalar W1_scale;
+  VectorXA W1_log_diag;
   AScalar W2_scale;
   VectorXA W2_log_diag;
   MatrixXA V; 
@@ -162,8 +171,7 @@ private:
   bool include_X;
   bool fix_V;
   bool fix_W;
-
-
+  bool W1_LKJ;
 
   AScalar A_scale;
     
@@ -196,9 +204,8 @@ ads::ads(const List& params)
   A_scale = as<double>(flags["A.scale"]);
   fix_V = as<bool>(flags["fix.V"]);
   fix_W = as<bool>(flags["fix.W"]);
+  W1_LKJ = as<bool>(flags["W1.LKJ"]);
 
-
-  
 
   Rcout << "Constructing data\n";
 
@@ -248,12 +255,12 @@ ads::ads(const List& params)
   
   if (!fix_W) {
     if (P>0) {
+      nfact_W1 = as<int>(dimensions["nfact.W1"]);
       nfact_W2 = as<int>(dimensions["nfact.W2"]);
     } else {
+      nfact_W1 = 0;
       nfact_W2 = 0;
     }
-    
- 
   }
   
  
@@ -313,6 +320,7 @@ ads::ads(const List& params)
   
   if (!fix_W) {        
     LW1.resize(W1_dim, W1_dim);
+    W1_log_diag.resize(W1_dim);
     if (P>0) {
       LW2.resize(W2_dim, W2_dim);
       W2_log_diag.resize(W2_dim);
@@ -433,14 +441,19 @@ ads::ads(const List& params)
       Rcout << "W is estimated\n";
 
       const List priors_W1 = as<List>(priors["W1"]);
-      mode_scale_W1 = as<double>(priors_W1["scale.mode"]);
-      s_scale_W1 = as<double>(priors_W1["scale.s"]);
-      const double eta = as<double>(priors_W1["eta"]);
-      W1_eta = eta;
-      
-      
-   
-      
+
+      if (W1_LKJ) {      
+	mode_scale_W1 = as<double>(priors_W1["scale.mode"]);
+	s_scale_W1 = as<double>(priors_W1["scale.s"]);
+	const double eta = as<double>(priors_W1["eta"]);
+	W1_eta = eta;
+      } else {
+	diag_scale_W1 = as<double>(priors_W1["diag.scale"]);
+	diag_mode_W1 = as<double>(priors_W1["diag.mode"]);
+	fact_scale_W1 = as<double>(priors_W1["fact.scale"]);
+	fact_mode_W1 = as<double>(priors_W1["fact.mode"]);
+      }
+            
       if (P>0) {
 	Rcout << "W2 priors\n";
 	const List priors_W2 = as<List>(priors["W2"]); 
@@ -519,18 +532,32 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     // triangle of the correlation matrix.
     
     W.setZero();
-    
-    W1_scale = exp(par(ind++));
-    LW1.setZero();
 
-    // transform to lower Cholesky and get Jacobian
-    log_W1_jac = lkj_unwrap(par.segment(ind, W1_dim_ch2), LW1);
-    ind += W1_dim_ch2;
-    
     Eigen::Block<MatrixXA> W1 = W.topLeftCorner(1+J,1+J);
-    W1 = LW1 * LW1.transpose();
-    W1.array() = W1_scale * W1.array();
-  
+ 
+    if (W1_LKJ) {
+      LW1.setZero();   
+      W1_scale = exp(par(ind++));
+      // transform to lower Cholesky and get Jacobian
+      log_W1_jac = lkj_unwrap(par.segment(ind, W1_dim_ch2), LW1);
+      ind += W1_dim_ch2;
+      W1 = LW1 * LW1.transpose();
+      W1.array() = W1_scale * W1.array();
+    } else {
+      W1_log_diag = par.segment(ind,W1_dim);
+      ind += W1_dim;
+      W1.diagonal() = W1_log_diag.array().exp().matrix();
+      
+      if (nfact_W1 > 0) {
+	LW1.setZero();
+	for (int j=0; j<nfact_W1; j++) {
+	  LW1.block(j,j,W1_dim-j,1) = par.segment(ind,W1_dim-j);
+	  ind += W1_dim - j;
+	  LW1(j,j) = exp(LW1(j,j));
+	}
+	W1.template selfadjointView<Lower>().rankUpdate(LW1);
+      }
+    }
     
     // work on W2 now
     if (P>0) {
@@ -596,7 +623,7 @@ AScalar ads::eval_LL()
     S2t = R2t * F1F2[t].transpose();
 
     QYf = chol_Qt_L.triangularView<Lower>().solve(Yft);
-    tmpNJ = chol_Qt_D.asDiagonal().inverse() *QYf;
+    tmpNJ = chol_Qt_D.asDiagonal().inverse() * QYf;
     QYf = chol_Qt_L.transpose().triangularView<Upper>().solve(tmpNJ);    
     M2t = S2t * QYf;
     M2t += a2t;
@@ -674,15 +701,38 @@ AScalar ads::eval_hyperprior() {
   AScalar prior_scale_W1 = 0;
   AScalar prior_corr_W1 = 0;
   AScalar prior_W1 = 0;
+  AScalar prior_diag_W1 = 0;
+  AScalar prior_fact_W1 = 0;
+  
+
+  
   AScalar prior_diag_W2 = 0;
   AScalar prior_fact_W2 = 0;
   
   if (!fix_W) {
-    
-    prior_scale_W1 = dnormTrunc0_log(W1_scale, mode_scale_W1, s_scale_W1);      
-    prior_scale_W1 += log(W1_scale); // Jacobian
-    prior_corr_W1 = lkj_chol_logpdf(LW1, W1_eta);
-    prior_W1 = prior_scale_W1 + prior_corr_W1 + log_W1_jac;
+
+    if (W1_LKJ) {
+      prior_scale_W1 = dnormTrunc0_log(W1_scale, mode_scale_W1, s_scale_W1);      
+      prior_scale_W1 += log(W1_scale); // Jacobian
+      prior_corr_W1 = lkj_chol_logpdf(LW1, W1_eta);
+      prior_W1 = prior_scale_W1 + prior_corr_W1 + log_W1_jac;
+    } else {
+      for (size_t i=0; i<W1_dim; i++) {
+	prior_diag_W1 += dnormTrunc0_log(exp(W1_log_diag(i)), diag_mode_W1, diag_scale_W1);	
+	prior_diag_W1 += W1_log_diag(i); // Jacobian
+      }
+      
+      if (nfact_W1 > 0) {
+	for (int j=0; j < nfact_W1; j++) {
+	  prior_fact_W1 += dnormTrunc0_log(LW1(j,j), fact_mode_W1, fact_scale_W1);
+          prior_fact_W1 += log(LW1(j,j)); // Jacobian
+          for (int i=j+1; i<W1_dim; i++) {
+	    prior_fact_W1 += dnorm_log(LW1(i,j), fact_mode_W1, fact_scale_W1);	
+	  }
+	}
+      }
+      prior_W1 = prior_diag_W1 + prior_fact_W1;
+    }
     
     if (P>0) {
       
@@ -700,6 +750,7 @@ AScalar ads::eval_hyperprior() {
 	  }
 	}
       }
+      
     }
   }
     
@@ -776,7 +827,7 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
   // Return values for A
 
 
-   double Ldelta = CppAD::Value(logit_delta);
+  double Ldelta = CppAD::Value(logit_delta);
   NumericMatrix MV(V.rows(), V.cols());
   NumericMatrix MW(W.rows(), W.cols());
   NumericMatrix M2treturn(M2t.rows(), M2t.cols());
@@ -843,8 +894,7 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 			  Named("chol_W1") = wrap(LW1return),
 			  Named("M2t") = wrap(M2treturn),
 			  Named("C2t") = wrap(C2treturn),
-			  Named("OmegaT") = wrap(OmegaTreturn) //,
-			  //		  Named("Gt") = wrap(Greturn)
+			  Named("OmegaT") = wrap(OmegaTreturn)
 			  );
   return(res);
 			  			  
