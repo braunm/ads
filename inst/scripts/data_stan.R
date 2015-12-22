@@ -50,7 +50,7 @@ for (i in 1:T) {
     A[i,] <- Ar[[i]]
     E[i,] <- Er[[i]]
     F1[i,,] <- t(as(F1r[[i]],"matrix"))
-    F2[i,,] <- t(as(F2r[[i]],"matrix"))        
+    F2[i,,] <- t(as(F2r[[i]],"matrix"))
     F1F2[i,,] <- F1[i,,]%*%F2[i,,]
 }
 
@@ -59,6 +59,9 @@ DL <- list(N=N, T=T, J=J, K=K, P=P,
            A=A, E=E,
            nu0=nu0, Omega0=Omega0,
            M20=M20,C20=C20)
+
+
+stop()
 
 st <- stan_model(paste0("inst/scripts/",stan.code,".stan"))
 

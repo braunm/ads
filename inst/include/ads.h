@@ -16,6 +16,7 @@ using Eigen::MatrixBase;
 using Eigen::Dynamic;
 using Eigen::Map;
 using Eigen::Lower;
+using Eigen::Upper;
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 using Rcpp::Rcout;
@@ -26,16 +27,6 @@ using Rcpp::IntegerVector;
 using Rcpp::as;
 
 typedef CppAD::AD<double> AScalar;
-
-
-AScalar dgamma_log(const AScalar& x,
-		   const AScalar& r,
-		   const AScalar& a) {
-
-  AScalar res = r*log(a) - lgamma(r) + (r-1)*log(x) - a*x;
-  return(res);
-}
-
 
 class ads {
 
@@ -84,10 +75,6 @@ private:
   MatrixXA Omega0;
   AScalar nu0;
 
-  MatrixXA mean_M20;
-  MatrixXA chol_cov_row_M20;
-  MatrixXA chol_cov_col_M20;
-
   MatrixXA mean_theta12;
   MatrixXA chol_cov_row_theta12;
   MatrixXA chol_cov_col_theta12;
@@ -107,10 +94,7 @@ private:
   AScalar mode_scale_W1;
   AScalar s_scale_W1;
   AScalar W1_eta;
-  AScalar corr_W1_const; // normalizing const for lkj prior
 
-
-    
   AScalar diag_scale_W2;
   AScalar diag_mode_W2;
   AScalar fact_scale_W2;
@@ -124,7 +108,7 @@ private:
   int nfact_V; // factors to estimate V
   int nfact_W2; // factors to estimate W2 (if active)
 
-  int V_dim, W_dim, W1_dim, W2_dim, W1_corr_elements;
+  int V_dim, W_dim, W1_dim, W2_dim, W1_dim_ch2;
 
   // parameters
 
@@ -137,7 +121,6 @@ private:
   VectorXA V_log_diag;
   AScalar W1_scale;
   AScalar W2_scale;
-  VectorXA W1_log_diag;
   VectorXA W2_log_diag;
   MatrixXA V; 
   MatrixXA W;  
@@ -161,7 +144,6 @@ private:
   MatrixXA S2t; 
   MatrixXA OmegaT;
   AScalar nuT;
-  MatrixXA Pneg;
 
   AScalar log_const;
   MatrixXA QYf;
@@ -180,7 +162,7 @@ private:
   bool include_X;
   bool fix_V;
   bool fix_W;
-  bool estimate_M20;
+
 
 
   AScalar A_scale;
@@ -209,12 +191,12 @@ ads::ads(const List& params)
   include_phi = as<bool>(flags["include.phi"]);
   add_prior = as<bool>(flags["add.prior"]);
   include_X = as<bool>(flags["include.X"]);
-  estimate_M20 = as<bool>(flags["estimate.M20"]);
+
 
   A_scale = as<double>(flags["A.scale"]);
   fix_V = as<bool>(flags["fix.V"]);
   fix_W = as<bool>(flags["fix.W"]);
-  estimate_M20 = as<bool>(flags["estimate.M20"]);
+
 
   
 
@@ -253,12 +235,8 @@ ads::ads(const List& params)
   W1_dim = 1+J;
   W2_dim = P;
   W_dim = W1_dim + W2_dim;
+  W1_dim_ch2 = W1_dim*(W1_dim-1)/2;
 
-  W1_corr_elements = W1_dim*(W1_dim-1)/2;
-
-
-
-  
   // number of factors for estimating covariance matrices
 
 
@@ -346,7 +324,6 @@ ads::ads(const List& params)
 
   if (include_phi) {
     phi.resize(J,J);
-    Pneg.resize(J,J);   
   }
 
 
@@ -369,22 +346,9 @@ ads::ads(const List& params)
   
   // These priors are required
 
-
-  const List priors_M20 = as<List>(priors["M20"]);
-  if (estimate_M20) {
-    const Map<MatrixXd> mean_M20_d(as<Map<MatrixXd> >(priors_M20["mean"]));
-    mean_M20 = mean_M20_d.cast<AScalar>();
-    const Map<MatrixXd> chol_cov_row_M20_d(as<Map<MatrixXd> >(priors_M20["chol.row"]));
-    chol_cov_row_M20 = chol_cov_row_M20_d.cast<AScalar>();
-    const Map<MatrixXd> chol_cov_col_M20_d(as<Map<MatrixXd> >(priors_M20["chol.col"]));
-    chol_cov_col_M20 = chol_cov_col_M20_d.cast<AScalar>();   
-  } else {
-    const Map<MatrixXd> M20_d(as<Map<MatrixXd> >(priors_M20["M20"]));
-    M20 = M20_d.cast<AScalar>();
-  }
-
-
-
+  const Map<MatrixXd> M20_d(as<Map<MatrixXd> >(priors["M20"]));
+  M20 = M20_d.cast<AScalar>();
+  
   const Map<MatrixXd> C20_d(as<Map<MatrixXd> >(priors["C20"]));
   C20 = C20_d.cast<AScalar>();
 
@@ -414,13 +378,10 @@ ads::ads(const List& params)
       chol_cov_col_phi = chol_cov_col_phi_d.cast<AScalar>();
     }
 
-    Rcout << "Constructor: Prior delta\n";
-    
+    Rcout << "Constructor: Prior delta\n";    
     const List priors_delta = as<List>(priors["delta"]);
     delta_a = as<double>(priors_delta["a"]);
     delta_b = as<double>(priors_delta["b"]);
-  
- 
     
     if (include_X) {
 
@@ -488,24 +449,7 @@ ads::ads(const List& params)
 	fact_scale_W2 = as<double>(priors_W2["fact.scale"]);
 	fact_mode_W2 = as<double>(priors_W2["fact.mode"]);
       }
-    }
-
-
-    const List priors_M20 = as<List>(priors["M20"]); 
-    if (estimate_M20) {
-      Rcout << "M20 priors\n";
-      /* Priors for M20 here */
-      const Map<MatrixXd> mean_M20_d(as<Map<MatrixXd> >(priors_M20["mean"]));
-      mean_M20 = mean_M20_d.cast<AScalar>();
-      const Map<MatrixXd> chol_cov_row_M20_d(as<Map<MatrixXd> >(priors_M20["chol.row"]));
-      chol_cov_row_M20 = chol_cov_row_M20_d.cast<AScalar>();
-      const Map<MatrixXd> chol_cov_col_M20_d(as<Map<MatrixXd> >(priors_M20["chol.col"]));
-      chol_cov_col_M20 = chol_cov_col_M20_d.cast<AScalar>();
-    } else {
-      Rcout << "Setting M20 value\n";
-      const Map<MatrixXd> M20_d(as<Map<MatrixXd> >(priors_M20["M20"]));
-      M20 = M20_d.cast<AScalar>();
-    }
+    }    
 
     
   } // end priors
@@ -520,14 +464,6 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
 {
   int ind = 0;
 
-  // unwrap M20, if needed
-
-  if (estimate_M20) {
-    M20 = MatrixXA::Map(par.derived().data()+ind,1+P+J,J);
-    ind += (1+P+J)*J;
-  }
-
-  
   // unwrap theta12 and construct Ybar
 
   if (include_X) {
@@ -541,10 +477,6 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
       Ybar[t] = Y[t];
     }
   }
-
-
-
-  
   
   if (include_phi) {
     phi = MatrixXA::Map(par.derived().data() + ind, J, J);
@@ -575,7 +507,7 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
 	ind += V_dim - j;
 	LV(j, j) = exp(LV(j, j));      
       }
-      V.template selfadjointView<Eigen::Lower>().rankUpdate(LV);      
+      V.template selfadjointView<Lower>().rankUpdate(LV);      
     }
   }
 
@@ -592,8 +524,8 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     LW1.setZero();
 
     // transform to lower Cholesky and get Jacobian
-    log_W1_jac = lkj_unwrap(par.segment(ind, W1_corr_elements), LW1);
-    ind += W1_corr_elements;
+    log_W1_jac = lkj_unwrap(par.segment(ind, W1_dim_ch2), LW1);
+    ind += W1_dim_ch2;
     
     Eigen::Block<MatrixXA> W1 = W.topLeftCorner(1+J,1+J);
     W1 = LW1 * LW1.transpose();
@@ -616,7 +548,7 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
 	  ind += W2_dim - j;
 	  LW2(j,j) = exp(LW2(j,j));
 	}
-	W2.template selfadjointView<Eigen::Lower>().rankUpdate(LW2);
+	W2.template selfadjointView<Lower>().rankUpdate(LW2);
       }
     }
   }
@@ -625,12 +557,6 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
 AScalar ads::eval_LL()
   { 
     // Compute P(Y), including full recursion
-    using Eigen::Upper;
-
-    /* for (size_t i=0; i<T; i++) { */
-    /*   Rcout << "A[" << i << "] = " << A[i] << "\n"; */
-    /* } */
-    
     
     M2t = M20;
     C2t = C20;
@@ -649,12 +575,7 @@ AScalar ads::eval_LL()
     // run recursion
     
     set_Gt(t);
-
-    //  Rcout << "Gt[" << t << "] =\n " << Gt << "\n\n";
-
-
     a2t = Gt.triangularView<Upper>() * M2t;
-
     set_Ht(t);
     // assume bottom P rows of Ht  are all zero
     a2t.middleRows(1,J).array() +=  Ht.array();
@@ -668,12 +589,7 @@ AScalar ads::eval_LL()
 
     Qt = F1F2[t] * R2t * F1F2[t].transpose();
     Qt +=  V.selfadjointView<Lower>();
-
-
-    LDLT(Qt, chol_Qt_L, chol_Qt_D);
-    
-
-    //   log_det_Qt = chol_Qt_D.array().log().sum();    
+    LDLT(Qt, chol_Qt_L, chol_Qt_D);  
     log_det_Qt += chol_Qt_D.array().log().sum();    
 
 
@@ -688,7 +604,6 @@ AScalar ads::eval_LL()
     MatrixXA tmp1 = chol_Qt_L.triangularView<Lower>().solve(S2t.transpose());
     MatrixXA tmp2 = chol_Qt_D.asDiagonal().inverse() * tmp1;
     C2t = -tmp1.transpose() * tmp2;        
-
     C2t += R2t;
 
     // accumulate terms for Matrix T
@@ -711,23 +626,26 @@ AScalar ads::eval_hyperprior() {
   // Prior on theta_12
   // K x J matrix normal, diagonal (sparse) covariance matrices
 
-  AScalar prior_M20 = 0;
-  if (estimate_M20) {
-    prior_M20 = MatNorm_logpdf(M20, mean_M20,
-				   chol_cov_row_M20,
-				   chol_cov_col_M20,
-				   false);
-  } 
-
-
-  
   AScalar prior_theta12 = 0;
   if (include_X) {
     prior_theta12 = MatNorm_logpdf(theta12, mean_theta12,
 				   chol_cov_row_theta12,
 				   chol_cov_col_theta12,
 				   false);
-  } 
+  }
+
+
+  // Prior on phi
+  // J x J matrix normal, diagonal (sparse) covariance matrices
+  
+  AScalar prior_phi = 0;
+  if (include_phi) {
+    prior_phi = MatNorm_logpdf(phi, mean_phi,
+			       chol_cov_row_phi,
+			       chol_cov_col_phi,
+			       false);
+  }
+  
 
   // Prior on V diag and factors
   // log of diagonal elements (includes Jacobian)
@@ -739,7 +657,7 @@ AScalar ads::eval_hyperprior() {
   
     for (size_t i=0; i<V_dim; i++) {
       prior_diag_V += dnormTrunc0_log(V(i,i), diag_mode_V, diag_scale_V);      
-      prior_diag_V += V_log_diag(i); // Jacobian (check this)
+      prior_diag_V += V_log_diag(i); // Jacobian
     }
     
     if (nfact_V > 0) {
@@ -756,37 +674,27 @@ AScalar ads::eval_hyperprior() {
   AScalar prior_scale_W1 = 0;
   AScalar prior_corr_W1 = 0;
   AScalar prior_W1 = 0;
-
   AScalar prior_diag_W2 = 0;
   AScalar prior_fact_W2 = 0;
- 
   
-
   if (!fix_W) {
-  
     
     prior_scale_W1 = dnormTrunc0_log(W1_scale, mode_scale_W1, s_scale_W1);      
     prior_scale_W1 += log(W1_scale); // Jacobian
-    
-    // LKJ prior, including Jacobian (from unwrap_params)
-
     prior_corr_W1 = lkj_chol_logpdf(LW1, W1_eta);
-    prior_W1 = prior_scale_W1 + prior_corr_W1;
-    
-     
-    
+    prior_W1 = prior_scale_W1 + prior_corr_W1 + log_W1_jac;
     
     if (P>0) {
       
       for (size_t i=0; i<W2_dim; i++) {
 	prior_diag_W2 += dnormTrunc0_log(exp(W2_log_diag(i)), diag_mode_W2, diag_scale_W2);	
-	prior_diag_W2 += W2_log_diag(i); // Jacobian (check this)
+	prior_diag_W2 += W2_log_diag(i); // Jacobian
       }
       
       if (nfact_W2 > 0) {
 	for (int j=0; j < nfact_W2; j++) {
 	  prior_fact_W2 += dnormTrunc0_log(LW2(j,j), fact_mode_W2, fact_scale_W2);
-          prior_fact_W2 += log(LW2(j,j)); // Jacobian (check this)
+          prior_fact_W2 += log(LW2(j,j)); // Jacobian
           for (int i=j+1; i<W2_dim; i++) {
 	    prior_fact_W2 += dnorm_log(LW2(i,j), fact_mode_W2, fact_scale_W2);	
 	  }
@@ -795,35 +703,11 @@ AScalar ads::eval_hyperprior() {
     }
   }
     
-    AScalar prior_W2 = prior_diag_W2 + prior_fact_W2;
-    
-    AScalar prior_mats = prior_diag_V + prior_fact_V;
-    prior_mats += prior_W1 + prior_W2;
-    
-    
-
-
-
-  // Prior on phi
-  // J x J matrix normal, diagonal (sparse) covariance matrices
-
-    AScalar prior_phi = 0;
-    if (include_phi) {
-      prior_phi = MatNorm_logpdf(phi, mean_phi,
-				 chol_cov_row_phi,
-				 chol_cov_col_phi,
-				 false);
-    }
-
-
-    
-    AScalar prior_logit_delta = dlogitbeta_log(logit_delta, delta_a, delta_b);
-
-    AScalar res=  prior_logit_delta
-      + prior_theta12 + prior_phi + prior_mats + prior_M20;
-    
-
-    return(res);
+  AScalar prior_W2 = prior_diag_W2 + prior_fact_W2;
+  AScalar prior_mats = prior_diag_V + prior_fact_V + prior_W1 + prior_W2;
+  AScalar prior_logit_delta = dlogitbeta_log(logit_delta, delta_a, delta_b);
+  AScalar res =  prior_logit_delta + prior_theta12 + prior_phi + prior_mats;
+  return(res);
 }
 
 // Afunc
@@ -832,21 +716,15 @@ AScalar ads::Afunc(const AScalar& aT, const AScalar& s) {
   return(res);
 }
 
-
-
 // set_Gt
 void ads::set_Gt(const int& tt) {
 
-  // Logit specification for decay of effectiveness
-
-  
   Gt.setZero();
   Gt(0,0) = 1.0 - delta;
   for (int j=0; j<J; j++) {
     Gt(0, j+1) = Afunc(A[tt](j), A_scale);
     Gt(j+1, j+1) = 1.0;
   } 
-  
   if (P>0) {
     Gt.bottomRightCorner(P,P).setIdentity();
   }
@@ -855,17 +733,10 @@ void ads::set_Gt(const int& tt) {
 
 // set_Ht
 void ads::set_Ht(const int& tt) {
-
-
   Ht.setZero();
-
-
-  
   if (include_phi) {
     Ht += E[tt].asDiagonal() * phi; // H2t
   }
-
-
 } // end set_Ht
 
 
@@ -912,9 +783,6 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
   NumericMatrix C2treturn(C2t.rows(), C2t.cols());
   NumericMatrix OmegaTreturn(OmegaT.rows(), OmegaT.cols());
   NumericMatrix LW1return(LW1.rows(), LW1.cols());
-
-
-
 
   for (size_t i=0; i<V.rows(); i++) {
     for (size_t j=0; j<V.cols(); j++) {
@@ -975,8 +843,8 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 			  Named("chol_W1") = wrap(LW1return),
 			  Named("M2t") = wrap(M2treturn),
 			  Named("C2t") = wrap(C2treturn),
-			  Named("OmegaT") = wrap(OmegaTreturn),
-			  Named("Gt") = wrap(Greturn)
+			  Named("OmegaT") = wrap(OmegaTreturn) //,
+			  //		  Named("Gt") = wrap(Greturn)
 			  );
   return(res);
 			  			  

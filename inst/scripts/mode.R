@@ -22,18 +22,16 @@ data.name <- "dpp"
 data.file <- paste0("data/mcmod",data.name,".RData")
 save.file <- paste0("inst/results/",mod.name,"_",data.name,"_modeXX.Rdata")
 
-flags <- list(include.phi=FALSE,
+flags <- list(include.phi=TRUE,
               add.prior=TRUE,
               include.X=TRUE,
               standardize=FALSE,
               A.scale = 1000000,
               fix.V = FALSE,
-              fix.W = FALSE,
-              estimate.M20 = FALSE
+              fix.W = FALSE
               )
 
 nfact.V <- 0
-nfact.W1 <- 0
 nfact.W2 <- 0
 
 get.f <- function(P, ...) return(cl$get.f(P))
@@ -59,16 +57,8 @@ P <- mcmod$dimensions$P
 Y <- mcmod$Y[1:T]
 F1 <- mcmod$F1[1:T]
 F2 <- mcmod$F2[1:T]
-A <- mcmod$A[1:T]
-##A <- llply(mcmod$A[1:T],function(x) return(x/flags$A.scale))
-
-## A2 <- as.relistable(A2)
-## tmp <- unlist(A2)
-## mean.A <- mean(tmp[tmp>0])
-## sd.A <- sd(tmp[tmp>0])
-## tmp[tmp>0] <- (tmp[tmp>0]-mean.A)/sd.A
-## tmp[tmp!=0] <- tmp[tmp!=0] - min(tmp[tmp!=0]) + 1
-## A <- relist(tmp)
+##A <- mcmod$A[1:T]
+A <- llply(mcmod$A[1:T],function(x) return(x/flags$A.scale))
 
 if (flags$include.phi) {
   E <- mcmod$E[1:T]
@@ -91,7 +81,6 @@ if (flags$include.X) {
 data <- list(X=X, Y=Y, F1=F1, F2=F2,
              A=A, E=E)
 
-
 dim.V <- N
 dim.W1 <- J+1
 dim.W2 <- P
@@ -99,16 +88,13 @@ dim.W <- dim.W1+dim.W2
 
 dimensions <- c(N=N,T=T,J=J,K=K,P=P,
                 nfact.V=nfact.V,
-                nfact.W1=nfact.W1,
                 nfact.W2=nfact.W2
                 )
 
 max.nfact.V <- 1+2*dim.V-sqrt(1+8*dim.V)
-max.nfact.W1 <- 1+2*dim.W1-sqrt(1+8*dim.W1)
 max.nfact.W2 <- 1+2*dim.W2-sqrt(1+8*dim.W2)
 
 if (nfact.V > max.nfact.V) stop("Too many factors for V")
-if (nfact.W1 > max.nfact.W1) stop("Too many factors for W1")
 if (nfact.W2 > max.nfact.W2) stop("Too many factors for W2")
 
 
@@ -118,32 +104,15 @@ if (nfact.W2 > max.nfact.W2) stop("Too many factors for W2")
 
 
 M20 <- matrix(0,1+P+J,J)
-#M20[1,] <- 10
-#M20[2:(J+1),] <- -.005
-#M20[(J+2):(1+P+J),] <- 1
-#for (j in 1:J) {
-#    M20[J+1+j,j] <- -2
-#    M20[j+1,j] <- .25
-#}
-
-if (flags$estimate.M20) {
-    M20.mean <- M20
-    M20.cov.row <- 1000*diag(1+P+J)
-    M20.cov.col <- 1000*diag(J)
-    prior.M20 <- list(mean=M20,
-                      chol.row = t(chol(M20.cov.row)),
-                      chol.col = t(chol(M20.cov.col))
-                      )
-
-} else {
-    prior.M20 <- list(M20=M20)
+M20[1,] <- 10
+M20[2:(J+1),] <- -.005
+M20[(J+2):(1+P+J),] <- 1
+for (j in 1:J) {
+    M20[J+1+j,j] <- -2
+    M20[j+1,j] <- .25
 }
 
-
-
-
 C20 <- 50*diag(1+P+J,1+P+J)
-
 
 E.Sigma <- 0.1 * diag(J) ## expected covariance across brands
 nu0 <- P + 2*J + 6  ## must be greater than theta2 rows+cols
@@ -187,11 +156,9 @@ if (flags$add.prior) {
 
 
     ## prior on logit.delta.  transformed beta with 2 parameters
-
     prior.delta <- list(a=1,b=1)
 
     ## For V, W1 and W2:   normal or truncated normal priors (if needed)
-
     if (!flags$fix.V) {
         prior.V <- list(diag.scale=1, diag.mode=1,
                          fact.scale=1, fact.mode=0)
@@ -204,7 +171,6 @@ if (flags$add.prior) {
                          fact.scale=.01, fact.mode=0)
 
         ## LKJ prior on W1.  Scale parameter has truncated(0) normal prior
-
         prior.W1 <- list(scale.mode=0, scale.s=1, eta=1)
     } else {
         prior.W1 <- NULL
@@ -212,7 +178,6 @@ if (flags$add.prior) {
     }
 
 } else {
-    prior.M20 <- NULL
     prior.phi <- NULL
     prior.V <- NULL
     prior.W1 <- NULL
@@ -221,7 +186,7 @@ if (flags$add.prior) {
     prior.theta12 <- NULL
 }
 
-tmp <- list(M20=prior.M20,
+tmp <- list(M20=M20,
             C20=C20,
             Omega0=Omega0,
             nu0=nu0,
@@ -237,12 +202,6 @@ priors <- Filter(function(x) !is.null(x), tmp)
 
 ## starting parameters
 
-if (flags$estimate.M20) {
-    M20.start <- M20
-} else {
-    M20.start <- NULL
-}
-
 if (flags$include.X) {
     theta12.start <- matrix(0,K,J)
 } else {
@@ -250,7 +209,6 @@ if (flags$include.X) {
 }
 
 logit.delta.start <- 0
-
 
 if (flags$include.phi) {
     phi.start <- matrix(0,J,J)
@@ -296,7 +254,6 @@ if (flags$fix.W) {
 
 
 tmp <- list(
-    M20 = M20.start,
     theta12=theta12.start,
     phi=phi.start,
     logit.delta=logit.delta.start,
@@ -348,7 +305,7 @@ opt1 <- optim(start,
                   fnscale=-1,
                   REPORT=1,
                   trace=3,
-                  maxit=3
+                  maxit=200
                   )
               )
 
@@ -359,7 +316,7 @@ opt2 <- trust.optim(opt1$par,
                     control=list(
                         report.level=5L,
                         report.precision=4L,
-                        maxit=5L,
+                        maxit=2000L,
                         function.scale.factor=-1,
                         preconditioner=0,
                         start.trust.radius=.01,
@@ -379,7 +336,7 @@ opt <- trust.optim(opt2$solution,
                    control=list(
                        report.level=5L,
                        report.precision=4L,
-                       maxit=2L,
+                       maxit=5000L,
                        function.scale.factor=-1,
                        preconditioner=0,
                        stop.trust.radius=1e-12,
@@ -413,29 +370,14 @@ recover.cov.mat <- function(v, d, nfact) {
   return(S)
 }
 
-recover.corr.mat <- function(v, d) {
-
-    ind <- 1
-    a <- exp(v[ind])
-    ind <- ind+1
-    Z <- matrix(0,d,d)
-    Z[2:d,1] <- v[ind:(ind+d-1-1)]
-    ind <- ind+d-1
-    for (j in 2:(d-1)) {
-        Z[(j+1):d,j] <- v[ind:(ind+d-j-1)]
-        ind <- ind+d-j
-    }
-    Z <- tanh(Z)
-
-    W <- matrix(0,d,d)
-    W[1,1] <- 1
-    W[2:d,1] <- Z[2:d,1]
-    for (j in 2:d) {
-        W[j,j] <- prod(sqrt(1-Z[j,1:(j-1)]^2))
-        if (j<d) W[(j+1):d,j] <- W[j,j]*Z[(j+1):d,j]
-    }
-    X <- a*tcrossprod(W)
-    return(X)
+recover.W1 <- function(v, d) {
+    W1_scale <- exp(v[1])
+    p <- v[2:length(v)]
+    stopifnot(length(p)==choose(d,2))
+    chol_W1 <- CppADutils::lkj_unwrap_R(p, d)$L
+    W1 <- tcrossprod(chol_W1)
+    res <- W1_scale * W1
+    return(res)
 }
 
 sol <- sol.vec
@@ -447,7 +389,7 @@ if (!flags$fix.V) {
 
 if (!flags$fix.W) {
     sol$W2 <- recover.cov.mat(sol.vec$W2,dim.W2,nfact.W2)
-    sol$W1 <- recover.corr.mat(sol.vec$W1,dim.W1)
+    sol$W1 <- recover.W1(sol.vec$W1,dim.W1)
 }
 
 parcheck <- cl$par.check(opt$par)
