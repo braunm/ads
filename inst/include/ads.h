@@ -775,7 +775,7 @@ void ads::set_Gt(const int& tt) {
   for (int j=0; j<J; j++) {
     Gt(0, j+1) = Afunc(A[tt](j), A_scale);
     Gt(j+1, j+1) = 1.0;
-  } 
+  }
   if (P>0) {
     Gt.bottomRightCorner(P,P).setIdentity();
   }
@@ -786,7 +786,7 @@ void ads::set_Gt(const int& tt) {
 void ads::set_Ht(const int& tt) {
   Ht.setZero();
   if (include_phi) {
-    Ht += E[tt].asDiagonal() * phi; // H2t
+    Ht = E[tt].asDiagonal() * phi; // H2t
   }
 } // end set_Ht
 

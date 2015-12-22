@@ -14,7 +14,7 @@ library(reshape2)
 set.seed(1234)
 
 mod.name <- "hdlm"
-data.name <- "dpp"
+data.name <- "sim"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
@@ -26,7 +26,7 @@ flags <- list(include.phi=TRUE,
               add.prior=TRUE,
               include.X=TRUE,
               standardize=FALSE,
-              A.scale = 1000000,
+              A.scale = 1,
               fix.V = FALSE,
               fix.W = FALSE,
               W1.LKJ = FALSE
@@ -311,7 +311,7 @@ opt1 <- optim(start,
                   fnscale=-1,
                   REPORT=1,
                   trace=3,
-                  maxit=200
+                  maxit=500
                   )
               )
 
