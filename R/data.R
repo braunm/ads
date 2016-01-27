@@ -10,7 +10,7 @@
 #' \item{a}{a}
 #' \item{b}{b}
 #' }
-"mcmoddpp"
-"mcmodlld"
-"mcmodptw"
-"mcmodtti"
+##"mcmoddpp"
+##"mcmodlld"
+##"mcmodptw"
+##"mcmodtti"

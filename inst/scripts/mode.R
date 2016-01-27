@@ -52,6 +52,7 @@ load(data.file)
 N <- mcmod$dimensions$N
 T <- mcmod$dimensions$T
 J <- mcmod$dimensions$J
+Jb <- mcmod$dimensions$Jb
 
 if (flags$include.X) K <- mcmod$dimensions$K else K <- 0
 P <- mcmod$dimensions$P
@@ -76,7 +77,7 @@ if (flags$include.X) {
 }
 
 ## note:  F1 and F2 are transposed from what is in the note.
-## F1 is N(1+P) x N; F2 is (1+P+J) x N(1+P)
+## F1 is N(1+P) x N; F2 is (1+P+Jb) x N(1+P)
 ## these matrices are transposed when passed to the C++
 ## code, to force row-major order.
 
@@ -84,11 +85,11 @@ data <- list(X=X, Y=Y, F1=F1, F2=F2,
              A=A, E=E)
 
 dim.V <- N
-dim.W1 <- J+1
+dim.W1 <- Jb+1
 dim.W2 <- P
 dim.W <- dim.W1+dim.W2
 
-dimensions <- c(N=N,T=T,J=J,K=K,P=P,
+dimensions <- c(N=N,T=T,J=J,K=K,P=P,Jb=Jb,
                 nfact.V=nfact.V,
                 nfact.W1=nfact.W1,
                 nfact.W2=nfact.W2
@@ -108,20 +109,20 @@ if (flags$W1.LKJ & nfact.W1>0) stop("Using LKJ prior on W1.  Set nfact.W1 to 0")
 ## We have to include these prior parameters
 
 
-M20 <- matrix(0,1+P+J,J)
+M20 <- matrix(0,1+P+Jb,J)
 M20[1,] <- 10
-M20[2:(J+1),] <- -.005
-M20[(J+2):(1+P+J),] <- 1
-for (j in 1:J) {
-    M20[J+1+j,j] <- -2
+M20[2:(Jb+1),] <- -.005
+M20[(Jb+2):(1+P+Jb),] <- 1
+for (j in 1:Jb) {
+    M20[Jb+1+j,j] <- -2
     M20[j+1,j] <- .25
 }
 
-C20 <- 50*diag(1+P+J,1+P+J)
+C20 <- 50*diag(1+P+Jb,1+P+Jb)
 
-E.Sigma <- 0.1 * diag(J) ## expected covariance across brands
-nu0 <- P + 2*J + 6  ## must be greater than theta2 rows+cols
-Omega0 <- (nu0-J-1)*E.Sigma
+E.Sigma <- 0.1 * diag(Jb) ## expected covariance across brands
+nu0 <- P + 2*Jb + 6  ## must be greater than theta2 rows+cols
+Omega0 <- (nu0-Jb-1)*E.Sigma
 
 ## The following priors are optional
 
@@ -129,8 +130,8 @@ Omega0 <- (nu0-J-1)*E.Sigma
 if (flags$add.prior) {
     if (flags$include.phi) {
         ## prior on phi:  matrix normal with sparse covariances
-        mean.phi <- matrix(0,J,J)
-        cov.row.phi <- 10*diag(J)
+        mean.phi <- matrix(0,Jb,J)
+        cov.row.phi <- 10*diag(Jb)
         cov.col.phi <- 10*diag(J)
         chol.cov.row.phi <- t(chol(cov.row.phi))
         chol.cov.col.phi <- t(chol(cov.col.phi))
@@ -161,7 +162,7 @@ if (flags$add.prior) {
 
 
     ## prior on logit.delta.  transformed beta with 2 parameters
-    prior.delta <- list(a=1,b=1)
+    prior.delta <- list(a=1, b=1)
 
     ## For V, W1 and W2:   normal or truncated normal priors (if needed)
     if (!flags$fix.V) {
@@ -221,7 +222,7 @@ if (flags$include.X) {
 logit.delta.start <- 0
 
 if (flags$include.phi) {
-    phi.start <- matrix(0,J,J)
+    phi.start <- matrix(0,Jb,J)
 } else {
     phi.start <- NULL
 }

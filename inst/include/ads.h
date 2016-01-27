@@ -61,9 +61,9 @@ private:
   std::vector<MatrixXA> Y; // each is  N x J
   std::vector<MatrixXA> X; // each is N x K
   std::vector<SparseMatrixXA> F1; // each is N x N(1+P), row major
-  std::vector<SparseMatrixXA> F2; // each is N(1+P) x (1+J+P), row major
-  std::vector<SparseMatrixXA> F1F2; // each is N x (1+J+P), row major
-  std::vector<VectorXA> A; // national advertising, J
+  std::vector<SparseMatrixXA> F2; // each is N(1+P) x (1+Jb+P), row major
+  std::vector<SparseMatrixXA> F1F2; // each is N x (1+Jb+P), row major
+  std::vector<VectorXA> A; // national advertising, Jb
   std::vector<MatrixXA> Ybar; // each is  N x J
   std::vector<VectorXA> AjIsZero; // 1 if A_j == 0, 0 otherwise
   std::vector<VectorXA> E; // number of new creatives added for each brand
@@ -108,6 +108,7 @@ private:
   AScalar fact_mode_W2;
 
   int J; // number of brands
+  int Jb; // number of brands that advertise
   int N; // number of cities
   int T; // number of weeks
   int K; // covariates with stationary parameters
@@ -125,7 +126,7 @@ private:
   AScalar delta;
 
 
-  MatrixXA phi; // J x J
+  MatrixXA phi; // Jb x J
   VectorXA V_log_diag;
   AScalar W1_scale;
   VectorXA W1_log_diag;
@@ -192,6 +193,7 @@ ads::ads(const List& params)
   T = as<int>(dimensions["T"]);
   N = as<int>(dimensions["N"]);
   J = as<int>(dimensions["J"]);
+  Jb = as<int>(dimensions["Jb"]);
   K = as<int>(dimensions["K"]);
   P = as<int>(dimensions["P"]);
 
@@ -239,7 +241,7 @@ ads::ads(const List& params)
 
 
   V_dim = N;
-  W1_dim = 1+J;
+  W1_dim = 1+Jb;
   W2_dim = P;
   W_dim = W1_dim + W2_dim;
   W1_dim_ch2 = W1_dim*(W1_dim-1)/2;
@@ -280,8 +282,8 @@ ads::ads(const List& params)
     const Map<VectorXd> Ad(as<Map<VectorXd> >(Alist[i]));
     A[i] = Ad.cast<AScalar>();
 
-    AjIsZero[i].resize(J);
-    for (int j=0; j<J; j++) {
+    AjIsZero[i].resize(Jb);
+    for (int j=0; j<Jb; j++) {
       AjIsZero[i](j) = A[i](j)==0 ? 1. : 0.;
     }
 
@@ -328,23 +330,23 @@ ads::ads(const List& params)
   }  
   
 
-  Ht = MatrixXA::Zero(J,J); // ignoring zeros in bottom P rows
+  Ht = MatrixXA::Zero(Jb,J); // ignoring zeros in bottom P rows
 
   if (include_phi) {
-    phi.resize(J,J);
+    phi.resize(Jb,J);
   }
 
 
   Rcout << "Allocating memory for intermediate parameters\n";
   
-  Gt.resize(1+J+P,1+J+P);
-  M2t.resize(1+J+P,J);
-  C2t.resize(1+J+P,1+J+P);
-  a2t.resize(1+J+P,J);
+  Gt.resize(1+Jb+P,1+Jb+P);
+  M2t.resize(1+Jb+P,J);
+  C2t.resize(1+Jb+P,1+Jb+P);
+  a2t.resize(1+Jb+P,J);
   Yft.resize(N,J);
   Qt.resize(N,N); 
-  R2t.resize(1+J+P,1+J+P);
-  S2t.resize(1+J+P,N);
+  R2t.resize(1+Jb+P, 1+Jb+P);
+  S2t.resize(1+Jb+P, N);
   OmegaT.resize(J,J);
   QYf.resize(N,J);
   tmpNJ.resize(N,J);
@@ -492,8 +494,8 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
   }
   
   if (include_phi) {
-    phi = MatrixXA::Map(par.derived().data() + ind, J, J);
-    ind += J*J;
+    phi = MatrixXA::Map(par.derived().data() + ind, Jb, J);
+    ind += Jb*J;
   }
 
   logit_delta = par(ind++);
@@ -533,7 +535,7 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     
     W.setZero();
 
-    Eigen::Block<MatrixXA> W1 = W.topLeftCorner(1+J,1+J);
+    Eigen::Block<MatrixXA> W1 = W.topLeftCorner(1+Jb,1+Jb);
  
     if (W1_LKJ) {
       LW1.setZero();   
@@ -605,7 +607,7 @@ AScalar ads::eval_LL()
     a2t = Gt.triangularView<Upper>() * M2t;
     set_Ht(t);
     // assume bottom P rows of Ht  are all zero
-    a2t.middleRows(1,J).array() +=  Ht.array();
+    a2t.middleRows(1,Jb).array() +=  Ht.array();
  
 
     Yft = -F1F2[t] * a2t;
@@ -772,7 +774,7 @@ void ads::set_Gt(const int& tt) {
 
   Gt.setZero();
   Gt(0,0) = 1.0 - delta;
-  for (int j=0; j<J; j++) {
+  for (int j=0; j<Jb; j++) {
     Gt(0, j+1) = Afunc(A[tt](j), A_scale);
     Gt(j+1, j+1) = 1.0;
   }
