@@ -1,7 +1,7 @@
 library(rstan)
 
 data.name <- "ptw"      # choose from ptw, tti, lld, dpp for now
-stan.code <-"stan1"     # this file located in the inst/script directory and must have .stan suffix
+stan.code <-"stan2"     # this file located in the inst/script directory and must have .stan suffix
 numiter <- 10            # with diagonal V, this should converge in around 500, comfortably
 numcores <- 2           # parallel processing will be done automatically if this is more than one
 
