@@ -1,49 +1,62 @@
-# dlmBNSimMC.R Hierarchical simulation of BN model for MC estimation
+# dlmBNSimMC.R - Hierarchical simulation of BN model for MC estimation
 
-# include functions
+############################################################################################################################################
+
+# Preliminaries
 rm(list = ls())
 
 library(dlm)
-library(LearnBayes)
+#library(LearnBayes)
 library(Matrix)
-library(trustOptim)
 
 set.seed(10503)
 # set.seed(105)
 
-replenish <- FALSE
-include.phi <- TRUE
-include.c <- FALSE
-include.u <- FALSE
+############################################################################################################################################
 
-rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
-    ## set.seed(153)
-    L <- chol(S) %x% chol(C)
-    z <- rnorm(length(M))
-    if (length(M) == 1) {
-        res <- matrix(t(L) %*% z, nrow = nrow(C), ncol = ncol(S))
-    }  else {
-        res <- matrix(as.vector(M) + t(L) %*% z, nrow = nrow(C), ncol = ncol(S))
-    }
-    return(res)
-}
+# flags here
 
-# create Y
-N <- 42  # number of 'sites'
-T <- 220  # number of time periods
-Tb <- 0  # number of burnin periods
-J <- 3  # number of equations
-P <- J  # number of time varying covariates per city (excluding intercept)
-K1 <- 2  # number of non time varying covariates per city at top level (including intercept)
-##Cvec <- rnorm(J, mean = 0.1, sd = 0.03)  # wearout per period
-##Uvec <- rnorm(J, mean = 0.15, sd = 0.05)  # wearout due to repetition
+flags <- list(include.phi=TRUE,
+    add.prior=TRUE,
+    include.X=TRUE,
+    standardize=FALSE,
+    A.scale = 1,
+    fix.V = FALSE,
+    fix.W = FALSE,
+    W1.LKJ = FALSE
+)
 
-Cvec <- c(.04, .36, .91)
-Uvec <- c(-.04, .40, .20)
+############################################################################################################################################
 
 
+############################################################################################################################################
+# parameter section
+
+N   <- 42                                           # number of 'sites'
+T   <- 220                                          # number of time periods
+Tb  <- 0                                            # number of burnin periods (discard first Tb simulated time periods)
+J   <- 3                                            # number of equations
+P   <- J                                            # number of time varying covariates per city (excluding intercept)
+K1  <- 2                                            # number of non time varying covariates per city at top level (including intercept)
+delta <- 0.1                                        # memory decay parameter
+Ascale <- 1.0e6                                     # scale down raw advertising (dollars)
+phi <- matrix(runif(J*J,max=0.1), nc = J, nr = J)   # response coefficients for new creatives
+
+# covariance matrixes
+W <- .001 * diag(1 + J + P)                         # time covariance
+# W[1]<-0.01 diag(W)[(2+J):(1+J+P)]<-0.001
+Sigma <- matrix(0, nrow = J, ncol = J)              # covariance across columns
+diag(Sigma) <- 0.1
+
+V <- list()
+V[[1]] <- diag(.1, nrow = N)                        # covariance across rows
+## for(i in 1:(ncol(V[[1]])-1)) V[[1]][i,i+1]<-V[[1]][i+1,i] <- 0.02
+
+V[[2]] <- diag(N * (1 + P)) * 0.1                   # covariance of parameters across cities
+
+# Initial value for Theta_20
 Theta2.0 <- matrix(rep(0, 1 + J + P), nrow = (1 + J + P), ncol = J)
-Theta2.0[1, ] <- c(.01, .16, .08)
+Theta2.0[1, ] <- c(10, 16, 8)
 Theta2.0[1 + 1:J, ] <- -0.005
 # Theta2.0[1+1:J,]<- 0
 Theta2.0[(J + 2):(1 + J + P), ] <- 1
@@ -53,11 +66,35 @@ for (j in 1:J) {
     # Theta2.0[1+J+j,j]<- 0 Theta2.0[1+j,j]<- 0
 }
 
-## parameters
-delta <- 0.1
+
+############################################################################################################################################
+# end of parameter section
+
+
+
+############################################################################################################################################
+### Functions needed here (temporary)
+
+#rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
+#    ## set.seed(153)
+#    L <- chol(S) %x% chol(C)
+#    z <- rnorm(length(M))
+#    if (length(M) == 1) {
+#        res <- matrix(t(L) %*% z, nrow = nrow(C), ncol = ncol(S))
+#    }  else {
+#        res <- matrix(as.vector(M) + t(L) %*% z, nrow = nrow(C), ncol = ncol(S))
+#    }
+#    return(res)
+#}
+
+
+############################################################################################################################################
+# Initialize simulation
+
+# Create containers for data
 Theta12 <- rnorm(K1 * J, mean = .02, sd = 0.03)
 dim(Theta12) <- c(K1, J)
-V <- list()
+
 FF <- list()
 JFF <- list()
 
@@ -65,27 +102,15 @@ JFF <- list()
 A <- (matrix(runif(J * T), nr = T, nc = J) > 0.5) *
     matrix(runif(J * T, max = exp(9)), nrow = T, ncol = J)  # total 'advertising' across all sites, for each equation
 
-# scale/center A Ac<-scale(A)
- Ac <- A / 1e+06
-##Ac <- log1p(A)
-
-## WHAT IS aA?
-
-## aA <- matrix(0, nr = T, nc = J)
-## colnames(aA) <- paste("aA", 1:J, sep = ".")
-## for (j in 1:J) {
-##     aA[, j] <- 1 - Cvec[j] - Uvec[j] * Ac[,j] - delta * (1-(A[,j] > 0))
-## }
-
-
-gA <- log(1+A)
-
 E <- rpois(T * J, 0.5)  # incidence of new creatives
 dim(E) <- c(T, J)
 E[A == 0] <- 0  # switch to zero if there is no advertising
-phi <- matrix(runif(J*J,max=0.1), nc = J, nr = J)  # response coefficients for new creatives
-#diag(phi) <- runif(J, min = 0.05, max = 0.1)
 
+
+# Data transformations
+# scale/center A Ac<-scale(A)
+Ac <- A / flags$A.scale
+gA <- log(1+A)
 
 # time invariant component
 ## K <- 2
@@ -108,17 +133,6 @@ for (t in 1:T) {
     }
     F1ml[[t]] <- t(as(F1ml[[t]], "dgCMatrix"))  ## make sparse
 }
-
-W <- .001 * diag(1 + J + P)
-# W[1]<-0.01 diag(W)[(2+J):(1+J+P)]<-0.001
-Sigma <- matrix(0, nrow = J, ncol = J)
-diag(Sigma) <- 0.1
-
-V[[1]] <- diag(.1, nrow = N)
-## for(i in 1:(ncol(V[[1]])-1)) V[[1]][i,i+1]<-V[[1]][i+1,i] <- 0.02
-
-V[[2]] <- diag(N * (1 + P)) * 0.1
-
 
 
 # true parameters
@@ -144,47 +158,18 @@ for (t in 1:T) {
     Gt <- diag(1 + J + P)
     Gt[1,1] <- (1 - delta)
     Gt[1, 1 + (1:J)] <- gA[t, ]
-    for (j in 1:J) {
-        if (include.c) {
-            if (include.u) {
-                Gt[j+1,j+1] <- 1 - Cvec[j] - Uvec[j]*Ac[t,j]
-            } else {
-                Gt[j+1,j+1] <- 1 - Cvec[j]
-            }
-        } else {
-            if (include.u) {
-                Gt[j+1,j+1] <- 1 - Uvec[j]*Ac[t,j]
-            } else {
-                Gt[j+1, j+1] <- 1
-            }
-        }
-    }
 
-    ## innovation component which switches signs if the underlying state
-    ## variable does (simplified here)
+    ## innovation component
     Ht <- matrix(0, nr = J, nc = J)
     for (j in 1:J) {
-        if(replenish) Ht[j,] <- delta * (A[t,j]==0)
-        if (include.phi) {
+        if (flags$include.phi) {
             Ht[j,] <- Ht[j,] + phi[j,]*E[t,j]
         }
     }
 
- ##   for (k in 1:J) {
-        ## if(Theta2t[1+j,k] < 0) Ht[1+j,k] <- -delta*(1-(A[t,j]>0)) -
-        ## Evec[j,k]*E[t,j] # if it is below zero else Ht[j+1,k] <-
-        ## delta*(1-(A[t,j]>0)) + Evec[j,k]*E[t,j] # if above if(Theta2t[1+j,k]
-        ## < 0) Ht[1+j,k] <- - Evec[j,k]*E[t,j] # if it is below zero else
-        ## Ht[j+1,k] <- Evec[j,k]*E[t,j] # if above if(j!=k) Ht[1+j,k] <-
-        ## -delta*(1-(A[t,j]>0)) - e[j]*E[t,j] # if it is below zero else
-        ## Ht[j+1,k] <- delta*(1-(A[t,j]>0)) + e[j]*E[t,j] # if above
-        ##       Ht[j, k] <- Evec[j, k] * E[t, j]
-   ## }
-
-
     epsW <- rmvMN(1, , W, Sigma)
     Theta2t <- Gt %*% Theta2t + epsW
-    # Theta2t[2:(J+1),] <- Theta2t[2:(J+1),] +  sign(Theta2t[2:(J+1),])*Ht
+
     Theta2t[2:(J+1),] <- Theta2t[2:(J+1),] +  Ht
     T2[[t]] <- Theta2t
 
@@ -232,7 +217,7 @@ for (t in 1:T) {
 }
 
 ### convert
-dimensions <- list(N = N, T = T, J = J, K = K, P = P)
+dimensions <- list(N = N, T = T, J = J, Jb = J, JbE = J, K = K, P = P)
 
 ## F1 - covariates with time-varying coefficients
 F2 <- list()
@@ -249,8 +234,7 @@ for (t in 1:T) {
 mcmod <- list(dimensions = dimensions, Y = Y, E = El, A = Al, X = F12,
     F1 = F1m, F2 = F2)
 
-truevals <- list(T1=T1true, T2=T2true, Theta12=Theta12, V=V, Sigma=Sigma, W=W,
-                 Cvec=Cvec, Uvec=Uvec, phi = phi)
+truevals <- list(T1=T1true, T2=T2true, Theta12=Theta12, V=V, Sigma=Sigma, W=W, phi = phi, Theta2.0=Theta2.0)
 
 ### saving for mcmod object
 save(mcmod, truevals, file = "./data/mcmodsim.RData")

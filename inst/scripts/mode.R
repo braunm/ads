@@ -107,7 +107,6 @@ if (flags$W1.LKJ & nfact.W1>0) stop("Using LKJ prior on W1.  Set nfact.W1 to 0")
 
 ## We have to include these prior parameters
 
-
 M20 <- matrix(0,1+P+J,J)
 M20[1,] <- 10
 M20[2:(J+1),] <- -.005
