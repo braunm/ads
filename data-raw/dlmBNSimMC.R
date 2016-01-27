@@ -29,8 +29,8 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 }
 
 # create Y
-N <- 10  # number of 'sites'
-T <- 35  # number of time periods
+N <- 42  # number of 'sites'
+T <- 220  # number of time periods
 Tb <- 0  # number of burnin periods
 J <- 3  # number of equations
 P <- J  # number of time varying covariates per city (excluding intercept)

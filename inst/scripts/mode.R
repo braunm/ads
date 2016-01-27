@@ -14,27 +14,22 @@ library(reshape2)
 set.seed(1234)
 
 mod.name <- "hdlm"
-data.name <- "sim"
+data.name <- "dpp"
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
 
 data.file <- paste0("data/mcmod",data.name,".RData")
-save.file <- paste0("inst/results/",mod.name,"_",data.name,"_mode.Rdata")
+save.file <- paste0("inst/results/",mod.name,"_",data.name,"_modeXX.Rdata")
 
-flags <- list(include.phi=FALSE,
-              include.c=FALSE, ## 0-1
-              include.u=FALSE, ## 0-1
-              replenish = FALSE,
+flags <- list(include.phi=TRUE,
               add.prior=TRUE,
               include.X=TRUE,
               standardize=FALSE,
-              A.scale = 1000000,
-              W1.LKJ = TRUE,  # W1.LKJ true means we do LKJ, otherwise same as W2
+              A.scale = 1,
               fix.V = FALSE,
               fix.W = FALSE,
-              estimate.M20 = FALSE,
-              estimate.asymptote = FALSE
+              W1.LKJ = FALSE
               )
 
 nfact.V <- 0
@@ -62,20 +57,10 @@ if (flags$include.X) K <- mcmod$dimensions$K else K <- 0
 P <- mcmod$dimensions$P
 
 Y <- mcmod$Y[1:T]
-
-
 F1 <- mcmod$F1[1:T]
 F2 <- mcmod$F2[1:T]
-A <- mcmod$A[1:T]
-##A <- llply(mcmod$A[1:T],function(x) return(x/flags$A.scale))
-
-## A2 <- as.relistable(A2)
-## tmp <- unlist(A2)
-## mean.A <- mean(tmp[tmp>0])
-## sd.A <- sd(tmp[tmp>0])
-## tmp[tmp>0] <- (tmp[tmp>0]-mean.A)/sd.A
-## tmp[tmp!=0] <- tmp[tmp!=0] - min(tmp[tmp!=0]) + 1
-## A <- relist(tmp)
+##A <- mcmod$A[1:T]
+A <- llply(mcmod$A[1:T],function(x) return(x/flags$A.scale))
 
 if (flags$include.phi) {
   E <- mcmod$E[1:T]
@@ -98,7 +83,6 @@ if (flags$include.X) {
 data <- list(X=X, Y=Y, F1=F1, F2=F2,
              A=A, E=E)
 
-
 dim.V <- N
 dim.W1 <- J+1
 dim.W2 <- P
@@ -117,7 +101,7 @@ max.nfact.W2 <- 1+2*dim.W2-sqrt(1+8*dim.W2)
 if (nfact.V > max.nfact.V) stop("Too many factors for V")
 if (nfact.W1 > max.nfact.W1) stop("Too many factors for W1")
 if (nfact.W2 > max.nfact.W2) stop("Too many factors for W2")
-
+if (flags$W1.LKJ & nfact.W1>0) stop("Using LKJ prior on W1.  Set nfact.W1 to 0")
 
 ## priors
 
@@ -125,42 +109,15 @@ if (nfact.W2 > max.nfact.W2) stop("Too many factors for W2")
 
 
 M20 <- matrix(0,1+P+J,J)
-#M20[1,] <- 10
-#M20[2:(J+1),] <- -.005
-#M20[(J+2):(1+P+J),] <- 1
-#for (j in 1:J) {
-#    M20[J+1+j,j] <- -2
-#    M20[j+1,j] <- .25
-#}
-
-if (flags$estimate.M20) {
-    M20.mean <- M20
-    M20.cov.row <- 1000*diag(1+P+J)
-    M20.cov.col <- 1000*diag(J)
-    prior.M20 <- list(mean=M20,
-                      chol.row = t(chol(M20.cov.row)),
-                      chol.col = t(chol(M20.cov.col))
-                      )
-
-} else {
-    prior.M20 <- list(M20=M20)
-}
-
-
-if (flags$estimate.asymptote) {
-    asymp.cov.row <- 500*diag(J)
-    asymp.cov.col <- 500*diag(J)
-    prior.asymp <- list(
-                      chol.row = t(chol(asymp.cov.row)),
-                      chol.col = t(chol(asymp.cov.col))
-                      )
-
-} else {
-    prior.asymp <- list(asymp=M20[2:(J+1),])
+M20[1,] <- 10
+M20[2:(J+1),] <- -.005
+M20[(J+2):(1+P+J),] <- 1
+for (j in 1:J) {
+    M20[J+1+j,j] <- -2
+    M20[j+1,j] <- .25
 }
 
 C20 <- 50*diag(1+P+J,1+P+J)
-
 
 E.Sigma <- 0.1 * diag(J) ## expected covariance across brands
 nu0 <- P + 2*J + 6  ## must be greater than theta2 rows+cols
@@ -204,34 +161,9 @@ if (flags$add.prior) {
 
 
     ## prior on logit.delta.  transformed beta with 2 parameters
-
     prior.delta <- list(a=1,b=1)
 
-    ## prior on c.mean and u.mean:  normal
-    ## prior on c.sd and u.sd:  truncated normal
-
-    if (flags$include.c) {
-        prior.log.c.mean <- -.5
-        prior.log.c <- list(mean.mean=prior.log.c.mean,
-                            mean.sd=5,
-                            sd.mean=1,
-                            sd.sd=5)
-    } else {
-        prior.log.c <- NULL;
-    }
-
-    if (flags$include.u) {
-        prior.log.u.mean <- -3
-        prior.log.u <- list(mean.mean=prior.log.u.mean,
-                            mean.sd=1,
-                            sd.mean=1,
-                            sd.sd=1)
-    } else {
-        prior.log.u <- NULL;
-    }
-
     ## For V, W1 and W2:   normal or truncated normal priors (if needed)
-
     if (!flags$fix.V) {
         prior.V <- list(diag.scale=1, diag.mode=1,
                          fact.scale=1, fact.mode=0)
@@ -242,13 +174,11 @@ if (flags$add.prior) {
     if (!flags$fix.W) {
         prior.W2 <- list(diag.scale=1, diag.mode=1,
                          fact.scale=.01, fact.mode=0)
-
-        ## LKJ prior on W1.  Scale parameter has truncated(0) normal prior
-
         if (flags$W1.LKJ) {
+            ## LKJ prior on W1.  Scale parameter has truncated(0) normal prior
             prior.W1 <- list(scale.mode=0, scale.s=1, eta=1)
         } else {
-            prior.W1 <- list(diag.scale=.01, diag.mode=0,
+            prior.W1 <- list(diag.scale=1, diag.mode=1,
                              fact.scale=.01, fact.mode=0)
         }
     } else {
@@ -257,30 +187,24 @@ if (flags$add.prior) {
     }
 
 } else {
-    prior.M20 <- NULL
-    prior.asymp <- NULL
     prior.phi <- NULL
     prior.V <- NULL
     prior.W1 <- NULL
     prior.W2 <- NULL
     prior.delta <- NULL
-    prior.log.c <- NULL
-    prior.log.u <- NULL
     prior.theta12 <- NULL
 }
 
-tmp <- list(M20=prior.M20,
-            asymp = prior.asymp,
+tmp <- list(M20=M20,
             C20=C20,
             Omega0=Omega0,
             nu0=nu0,
             phi=prior.phi,
             theta12=prior.theta12,
             delta=prior.delta,
-            log.c=prior.log.c,
-            log.u=prior.log.u,
             V=prior.V,
-            W1=prior.W1, W2=prior.W2
+            W1=prior.W1,
+            W2=prior.W2
             )
 
 priors <- Filter(function(x) !is.null(x), tmp)
@@ -288,48 +212,13 @@ priors <- Filter(function(x) !is.null(x), tmp)
 
 ## starting parameters
 
-if (flags$estimate.M20) {
-    M20.start <- M20
-} else {
-    M20.start <- NULL
-}
-
-if (flags$estimate.asymp) {
-    asymp.start <- M20[2:(J+1),]
-} else {
-    asymp.start <- NULL
-}
-
 if (flags$include.X) {
     theta12.start <- matrix(0,K,J)
 } else {
     theta12.start <- NULL
 }
 
-
 logit.delta.start <- 0
-
-if (flags$include.c) {
-    log.c.mean.log.sd.start <- c(-.5, 1)
-    log.c.off.start <- rep(0,J)
-} else {
-
-    log.c.mean.log.sd.start <- c.off.start <- NULL
-    log.c.off.start <- NULL
-}
-
-
-if (flags$include.u) {
-    log.u.mean.log.sd.start <- c(-.5, 1)
-    log.u.off.start <- rep(0,J)
-} else {
-    log.u.mean.log.sd.start <- u.off.start <- NULL
-    log.u.off.start <- NULL
-
-}
-
-logit.delta.start <- 0
-
 
 if (flags$include.phi) {
     phi.start <- matrix(0,J,J)
@@ -349,8 +238,6 @@ if (flags$fix.V) {
     V.start <- NULL
 } else {
     V.length <- N + N*nfact.V - nfact.V*(nfact.V-1)/2
-    ##V.start <- (1:V.length)/10
-    ## V.start <- rnorm(V.length) - 3
     V.start <- rep(0,V.length)
 }
 
@@ -362,28 +249,18 @@ if (flags$fix.W) {
     if (flags$W1.LKJ) {
         W1.length <- dim.W1*(dim.W1-1)/2 + 1
     } else {
-        W1.length <- (J+1) + (J+1)*nfact.W1 - nfact.W1*(nfact.W1-1)/2
+        W1.length <- dim.W1 + dim.W1*nfact.W1 - nfact.W1*(nfact.W1-1)/2
     }
-    ## W1.start <- (1:W1.length)/20
-    ## W1.start <- rnorm(W1.length) - 3
     W1.start <- rep(0,W1.length)
 
-    W2.length <- P + P*nfact.W2 - nfact.W2*(nfact.W2-1)/2
-    ## W2.start <- (2:(W2.length+1))/30
-    ## W2.start <- rnorm(W2.length) - 3
+    W2.length <- dim.W2 + dim.W2*nfact.W2 - nfact.W2*(nfact.W2-1)/2
     W2.start <- rep(0,W2.length)
 }
 
 
 
 tmp <- list(
-    M20 = M20.start,
-    asymp = asymp.start,
     theta12=theta12.start,
-    log.c.mean.log.sd = log.c.mean.log.sd.start,
-    log.c.off = log.c.off.start,
-    log.u.mean.log.sd = log.u.mean.log.sd.start,
-    log.u.off = log.u.off.start,
     phi=phi.start,
     logit.delta=logit.delta.start,
     V=V.start,
@@ -434,20 +311,20 @@ opt1 <- optim(start,
                   fnscale=-1,
                   REPORT=1,
                   trace=3,
-                  maxit=3000
+                  maxit=500
                   )
               )
 
-opt2 <- trust.optim(opt1$par,
+opt <- trust.optim(opt1$par,
                     fn=get.f,
                     gr=get.df,
                     method="BFGS",
                     control=list(
                         report.level=5L,
                         report.precision=4L,
-                        maxit=5000L,
+                        maxit=2000L,
                         function.scale.factor=-1,
-                        preconditioner=0,
+                        preconditioner=1,
                         start.trust.radius=.01,
                         stop.trust.radius=1e-12,
                         contract.factor=.4,
@@ -457,22 +334,6 @@ opt2 <- trust.optim(opt1$par,
                         )
                     )
 
-
-opt <- trust.optim(opt2$solution,
-                   fn=get.f,
-                   gr=get.df,
-                   method="SR1",
-                   control=list(
-                       report.level=5L,
-                       report.precision=4L,
-                       maxit=10000L,
-                       function.scale.factor=-1,
-                       preconditioner=0,
-                       stop.trust.radius=1e-12,
-                       contract.factor=.9,
-                       report.freq=5L
-                     )
-                   )
 
 opt$par <- opt$solution
 
@@ -499,29 +360,14 @@ recover.cov.mat <- function(v, d, nfact) {
   return(S)
 }
 
-recover.corr.mat <- function(v, d) {
-
-    ind <- 1
-    a <- exp(v[ind])
-    ind <- ind+1
-    Z <- matrix(0,d,d)
-    Z[2:d,1] <- v[ind:(ind+d-1-1)]
-    ind <- ind+d-1
-    for (j in 2:(d-1)) {
-        Z[(j+1):d,j] <- v[ind:(ind+d-j-1)]
-        ind <- ind+d-j
-    }
-    Z <- tanh(Z)
-
-    W <- matrix(0,d,d)
-    W[1,1] <- 1
-    W[2:d,1] <- Z[2:d,1]
-    for (j in 2:d) {
-        W[j,j] <- prod(sqrt(1-Z[j,1:(j-1)]^2))
-        if (j<d) W[(j+1):d,j] <- W[j,j]*Z[(j+1):d,j]
-    }
-    X <- a*tcrossprod(W)
-    return(X)
+recover.W1.LKJ <- function(v, d) {
+    W1_scale <- exp(v[1])
+    p <- v[2:length(v)]
+    stopifnot(length(p)==choose(d,2))
+    chol_W1 <- CppADutils::lkj_unwrap_R(p, d)$L
+    W1 <- tcrossprod(chol_W1)
+    res <- W1_scale * W1
+    return(res)
 }
 
 sol <- sol.vec
@@ -533,23 +379,12 @@ if (!flags$fix.V) {
 
 if (!flags$fix.W) {
     sol$W2 <- recover.cov.mat(sol.vec$W2,dim.W2,nfact.W2)
-    if(flags$W1.LKJ) {
-        sol$W1 <- recover.corr.mat(sol.vec$W1,dim.W1)
+    if (flags$W1.LKJ) {
+        sol$W1 <- recover.W1.LKJ(sol.vec$W1,dim.W1)
     } else {
         sol$W1 <- recover.cov.mat(sol.vec$W1,dim.W1,nfact.W1)
     }
 }
-
-if (flags$include.c){
-    sol$cj <- exp(exp(sol$log.c.mean.log.sd[2]) * sol$log.c.off + sol$log.c.mean.log.sd[1])
- }
-
-if (flags$include.u){
-    sol$uj <- exp(exp(sol$log.u.mean.log.sd[2]) * sol$log.u.off + sol$log.u.mean.log.sd[1])
-
-}
-
-
 
 parcheck <- cl$par.check(opt$par)
 
@@ -560,5 +395,5 @@ cv <- solve(-hs)
 se <- sqrt(diag(cv))
 se.sol <- relist(se,skeleton=start.list)
 
-save(sol, se.sol, opt, dimensions, priors, flags, file=save.file)
+##save(sol, se.sol, opt, dimensions, priors, flags, file=save.file)
 
