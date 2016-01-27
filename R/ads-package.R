@@ -3,11 +3,11 @@
 
 #' @title Functions from Bonfrer and Braun (2015)
 #' @name ads-package
-#' 
+#'
 #' @description  Functions from Bonfrer and Braun (2015)
 #'
 #' @docType package
-#' @import Rcpp,RcppEigen,methods
+#' @import Rcpp RcppEigen methods
 #' @useDynLib ads
 NULL
 
