@@ -3,9 +3,9 @@
 
 
 ## Script to regenerate mcmod files
-categories <- c("dpp","ptw","tti","ptw","lld")
+categories <- c("dpp","lld")
 
-T <- 226
+T <- 202
 N <- 42
 fweek <- 1200
 covv <- c("avprc")
