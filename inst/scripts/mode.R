@@ -15,16 +15,16 @@ set.seed(1234)
 
 
 data.name <- "dpp"
-data.is.sim <- TRUE
+data.is.sim <- FALSE
+mod.name <- "mcmod"
 
 
-##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
+## data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
+## load(data.file)
 
 data.file <- paste0("data/mcmod",data.name,".RData")
 save.file <- paste0("inst/results/",mod.name,"_",data.name,"_modeXX.Rdata")
-
-##load(data.file)
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
 data(list=dn)  ## load data
