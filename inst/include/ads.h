@@ -252,8 +252,6 @@ ads::ads(const List& params)
   if (!fix_V) {
     nfact_V = as<int>(dimensions["nfact.V"]);
   }
-
-  Rcout << "nfact_V = " << nfact_V << "\n";
   
   if (!fix_W) {
     if (P>0) {
@@ -269,6 +267,7 @@ ads::ads(const List& params)
   
   for (int i=0; i<T; i++) {
 
+    
     check_interrupt();
     
     if (include_X) {
@@ -291,7 +290,7 @@ ads::ads(const List& params)
       const Map<VectorXd> Ed(as<Map<VectorXd> >(Elist[i]));
       E[i] = Ed.cast<AScalar>();
     }
- 
+
     const MappedSparseXd F1d(as<MappedSparseXd >(F1list[i]));
     F1[i] = F1d.cast<AScalar>().transpose(); // transpose should force row major
 
@@ -299,18 +298,17 @@ ads::ads(const List& params)
     F2[i] = F2d.cast<AScalar>().transpose(); // transpose should force row major
 
     F1[i].makeCompressed();
-    F2[i].makeCompressed(); 
+    F2[i].makeCompressed();
     F1F2[i] = F1[i] * F2[i];
-    
+
     Ybar[i].resize(N,J);    
   }
-
 
   // Reserve space for parameters
   if (include_X) {
     theta12.resize(K,J);
   }
-  
+
   // Reserve V and W, and their factors
   V.resize(V_dim, V_dim);
   W.resize(W_dim, W_dim);
