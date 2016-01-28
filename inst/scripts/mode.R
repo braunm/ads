@@ -15,6 +15,7 @@ set.seed(1234)
 
 mod.name <- "hdlm"
 data.name <- "sim"
+data.is.sim <- TRUE
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
@@ -22,15 +23,25 @@ data.name <- "sim"
 data.file <- paste0("data/mcmod",data.name,".RData")
 save.file <- paste0("inst/results/",mod.name,"_",data.name,"_modeXX.Rdata")
 
-flags <- list(include.phi=TRUE,
-              add.prior=TRUE,
-              include.X=TRUE,
-              standardize=FALSE,
-              A.scale = 1,
-              fix.V = FALSE,
-              fix.W = FALSE,
-              W1.LKJ = FALSE
-              )
+load(data.file)
+#print("hello")
+#dn <- paste0("mcmod",data.name)
+#data(list=dn)
+#mcmod <- eval(parse(text=dn))
+
+if (data.is.sim) {
+    flags <- trueflags
+} else {
+    flags <- list(include.phi=TRUE,
+                  add.prior=TRUE,
+                  include.X=TRUE,
+                  standardize=FALSE,
+                  A.scale = 1,
+                  fix.V = FALSE,
+                  fix.W = FALSE,
+                  W1.LKJ = FALSE
+                  )
+}
 
 nfact.V <- 0
 nfact.W1 <- 0
@@ -42,12 +53,6 @@ get.hessian <- function(P, ...) return(cl$get.hessian(P))
 get.f.direct <- function(P, ...) return(cl$get.f.direct(P))
 get.LL <- function(P, ...) return(cl$get.f.direct(P))
 get.hyperprior <- function(P, ...) return(cl$get.hyperprior(P))
-
-load(data.file)
-#print("hello")
-#dn <- paste0("mcmod",data.name)
-#data(list=dn)
-#mcmod <- eval(parse(text=dn))
 
 N <- mcmod$dimensions$N
 T <- mcmod$dimensions$T
