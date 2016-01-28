@@ -1,7 +1,3 @@
-
-
-
-
 ## Script to regenerate mcmod files
 categories <- c("dpp","lld")
 
@@ -10,7 +6,6 @@ N <- 42
 fweek <- 1200
 covv <- c("avprc")
 covnv <- c("fracfnp","fracdnp","fracdist","numproducts")
-
 
 for(category in categories) {
     cat("category: ",category,"\n")
@@ -23,7 +18,7 @@ for(category in categories) {
     if(category=='tti'){
         ## toilet tissue
         brands.to_keep<-c('CHARMIN','QUILTEDNORTHERN',
-                          'SCOTT','ANGELSOFT','PL') # (including Kleenex) 93.0% of share
+                          'SCOTT','PL') # (including Kleenex) 93.0% of share
     }
 
     if(category=='fti'){
@@ -55,4 +50,3 @@ for(category in categories) {
     eval(parse(text=dn2))
 
 }
-
