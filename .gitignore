@@ -11,5 +11,7 @@ _region_.*
 *.aux
 *.log
 *.synctex.gz
+nobuild/data-raw/*
+
 
 

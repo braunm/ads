@@ -13,9 +13,10 @@ library(reshape2)
 
 set.seed(1234)
 
-mod.name <- "hdlm"
+
 data.name <- "sim"
 data.is.sim <- TRUE
+
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
