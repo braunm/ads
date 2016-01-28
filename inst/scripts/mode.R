@@ -263,7 +263,6 @@ if (flags$fix.W) {
 }
 
 
-
 tmp <- list(
     theta12=theta12.start,
     phi=phi.start,
@@ -276,7 +275,7 @@ tmp <- list(
 start.list <- as.relistable(Filter(function(x) !is.null(x), tmp))
 
 start <- unlist(start.list)
-
+stop()
 
 DL <- list(data=data, priors=priors,
            dimensions=dimensions,
@@ -296,6 +295,9 @@ tmp <- get.f(start)
 tf <- system.time(f <- get.f(start))
 cat("f = ",f,"\n")
 print(tf)
+
+
+stop()
 
 cat("gradient\n")
 tg <- system.time(df <- get.df(start))

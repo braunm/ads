@@ -12,6 +12,7 @@
 #include <LKJ_AD.h>
 #include <LDLT_cppad.h>
 
+
 using Eigen::MatrixBase;
 using Eigen::Dynamic;
 using Eigen::Map;
@@ -644,7 +645,7 @@ AScalar ads::eval_LL()
   LDLT(OmegaT, chol_DX_L, chol_DX_D);
   AScalar log_det_DX = chol_DX_D.array().log().sum();
   AScalar log_PY = log_const - J*log_det_Qt/2. - nuT*log_det_DX/2.;     
-
+  assert(!CppAD::isnan(log_PY));
   return(log_PY);
 }
 
