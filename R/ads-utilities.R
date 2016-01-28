@@ -154,7 +154,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     }
 
     # create final mcmod components
-    Al <- El <- Xl <- F1l <- list()
+    Al <- El <- Xl <- F1l <- Yl <- list()
     for (t in 1:T) {
    ##     El[[t]] <- E[t, ]
         El[[t]] <- as.numeric(E[t,])
@@ -162,11 +162,12 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
         Al[[t]] <- A[t, ]
         Xl[[t]] <- X1[t,,]
         F1l[[t]] <- t(as(F1[t,,], "dgCMatrix"))
+	Yl[[t]] <- Y[t,,]
     }
 
     dimensions <- list(N = N, T= T, J=J, Jb = Jb, JbE = JbE, K = ncol(Xl[[1]]), P = P)
 
-    mcmod <- list(dimensions=dimensions,Y = Y,E = El, A = Al, X = Xl, F1 = F1l, F2 = F2)
+    mcmod <- list(dimensions=dimensions,Y = Yl,E = El, A = Al, X = Xl, F1 = F1l, F2 = F2)
     return(mcmod)
 }
 

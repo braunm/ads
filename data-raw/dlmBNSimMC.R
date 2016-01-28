@@ -216,19 +216,20 @@ for (t in 1:T) {
     F2[[t]] <- t(as(F2[[t]], "dgCMatrix"))
 }
 
-mcmod <- list(dimensions = dimensions, Y = Y,
-              E = El, A = Al, X = F12,
-              F1 = F1m, F2 = F2)
 
 truevals <- list(T1=T1true, T2=T2true,
                  theta12=theta12, V=V,
                  Sigma=Sigma, W=W, phi = phi,
                  theta20=theta20)
 
-trueflags <- flags
 
-### saving for mcmod object
-save(mcmod, truevals, trueflags,
-     file = "./data/mcmodsim.RData")
 
-devtools::use_data(, overwrite=TRUE)
+mcmodsim <- list(dimensions = dimensions, Y = Y,
+              E = El, A = Al, X = F12,
+              F1 = F1m, F2 = F2,
+              truevals=truevals,
+              trueflags=flags)
+
+
+
+devtools::use_data(mcmodsim, overwrite=TRUE)
