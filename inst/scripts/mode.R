@@ -14,7 +14,7 @@ library(reshape2)
 set.seed(1234)
 
 
-data.name <- "sim"
+data.name <- "dpp"
 data.is.sim <- TRUE
 
 
@@ -24,11 +24,11 @@ data.is.sim <- TRUE
 data.file <- paste0("data/mcmod",data.name,".RData")
 save.file <- paste0("inst/results/",mod.name,"_",data.name,"_modeXX.Rdata")
 
-load(data.file)
-#print("hello")
-#dn <- paste0("mcmod",data.name)
-#data(list=dn)
-#mcmod <- eval(parse(text=dn))
+##load(data.file)
+
+dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
+data(list=dn)  ## load data
+mcmod <- eval(parse(text=dn)) ## rename to mcmod
 
 if (data.is.sim) {
     flags <- trueflags

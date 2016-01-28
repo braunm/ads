@@ -230,3 +230,5 @@ trueflags <- flags
 ### saving for mcmod object
 save(mcmod, truevals, trueflags,
      file = "./data/mcmodsim.RData")
+
+devtools::use_data(, overwrite=TRUE)
