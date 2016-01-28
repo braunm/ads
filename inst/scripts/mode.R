@@ -14,21 +14,21 @@ library(reshape2)
 set.seed(1234)
 
 
-data.name <- "sim"
-data.is.sim <- TRUE
+data.name <- "dpp"
+data.is.sim <- FALSE
 
 
 ##data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
 ## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
 
-data.file <- paste0("data/mcmod",data.name,".RData")
-save.file <- paste0("inst/results/",mod.name,"_",data.name,"_modeXX.Rdata")
+#data.file <- paste0("data/mcmod",data.name,".RData")
+#save.file <- paste0("inst/results/",mod.name,"_",data.name,"_modeXX.Rdata")
 
-load(data.file)
-#print("hello")
-#dn <- paste0("mcmod",data.name)
-#data(list=dn)
-#mcmod <- eval(parse(text=dn))
+##load(data.file)
+
+dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
+data(list=dn)  ## load data
+mcmod <- eval(parse(text=dn)) ## rename to mcmod
 
 if (data.is.sim) {
     flags <- trueflags
