@@ -603,14 +603,19 @@ AScalar ads::eval_LL()
     // run recursion
     
     set_Gt(t);
+    assert(Gt.allFinite());
     a2t = Gt.triangularView<Upper>() * M2t;
     set_Ht(t);
     // assume bottom P rows of Ht  are all zero
     a2t.middleRows(1,Jb).array() +=  Ht.array();
  
-
+    assert(Ht.allFinite());
+    assert(a2t.allFinite());
+    
     Yft = -F1F2[t] * a2t;
     Yft += Ybar[t];
+
+    assert(Yft.allFinite());
   
     R2t = Gt.triangularView<Upper>() * C2t * Gt.triangularView<Upper>().transpose();
     R2t += W.selfadjointView<Lower>();
@@ -704,9 +709,6 @@ AScalar ads::eval_hyperprior() {
   AScalar prior_W1 = 0;
   AScalar prior_diag_W1 = 0;
   AScalar prior_fact_W1 = 0;
-  
-
-  
   AScalar prior_diag_W2 = 0;
   AScalar prior_fact_W2 = 0;
   
@@ -774,7 +776,8 @@ void ads::set_Gt(const int& tt) {
   Gt.setZero();
   Gt(0,0) = 1.0 - delta;
   for (int j=0; j<Jb; j++) {
-    Gt(0, j+1) = Afunc(A[tt](j), A_scale);
+    //   Gt(0, j+1) = Afunc(A[tt](j), A_scale);
+    Gt(0, j+1) = Afunc(A[tt](j), 1.0);
     Gt(j+1, j+1) = 1.0;
   }
   if (P>0) {
