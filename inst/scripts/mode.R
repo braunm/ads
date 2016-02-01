@@ -33,16 +33,16 @@ if (data.is.sim) {
                   add.prior=TRUE,
                   include.X=TRUE,
                   standardize=FALSE,
-                  A.scale = 10,
+                  A.scale = 1,
                   fix.V = FALSE,
                   fix.W = FALSE,
-                  W1.LKJ = TRUE
+                  W1.LKJ = FALSE
                   )
 }
 
-nfact.V <- 0
-nfact.W1 <- 0
-nfact.W2 <- 0
+nfact.V <- 2
+nfact.W1 <- 3
+nfact.W2 <- 3
 
 get.f <- function(P, ...) return(cl$get.f(P))
 get.df <- function(P, ...) return(cl$get.fdf(P)$grad)
@@ -63,7 +63,7 @@ Y <- mcmod$Y[1:T]
 F1 <- mcmod$F1[1:T]
 F2 <- mcmod$F2[1:T]
 A <- mcmod$A[1:T]
-##A <- llply(mcmod$A[1:T],function(x) return(x/flags$A.scale))
+
 
 if (flags$include.phi) {
   E <- mcmod$E[1:T]
@@ -121,11 +121,11 @@ for (j in 1:Jb) {
     M20[j+1,j] <-  0
 }
 
-C20 <- 1000*diag(1+P+Jb,1+P+Jb)
-
+##C20 <- 1000*diag(1+P+Jb,1+P+Jb)
+C20 <- diag(c(100,rep(1,Jb),rep(10,P)))
 
 E.Sigma <-  diag(J) ## expected covariance across brands
-nu0 <- P + 2*J + 4  ## must be greater than theta2 rows+cols
+nu0 <- P + 2*J + 5  ## must be greater than theta2 rows+cols
 Omega0 <- (nu0-J-1)*E.Sigma
 
 ## The following priors are optional
@@ -134,8 +134,8 @@ if (flags$add.prior) {
     if (flags$include.phi) {
         ## prior on phi:  matrix normal with sparse covariances
         mean.phi <- matrix(0,Jb,J)
-        cov.row.phi <- 50*diag(Jb)
-        cov.col.phi <- 50*diag(J)
+        cov.row.phi <- diag(Jb)
+        cov.col.phi <- diag(J)
         chol.cov.row.phi <- t(chol(cov.row.phi))
         chol.cov.col.phi <- t(chol(cov.col.phi))
 
@@ -150,8 +150,8 @@ if (flags$add.prior) {
     if (flags$include.X) {
         ## prior on theta12:  matrix normal with sparse covariances
         mean.theta12 <- matrix(0,K,J)
-        cov.row.theta12 <- 200*diag(K) ## across covariates within brand
-        cov.col.theta12 <- 200*diag(J) ## across brand within covariates
+        cov.row.theta12 <- 100*diag(K) ## across covariates within brand
+        cov.col.theta12 <- 100*diag(J) ## across brand within covariates
         chol.cov.row.theta12 <- t(chol(cov.row.theta12))
         chol.cov.col.theta12 <- t(chol(cov.col.theta12))
 
@@ -169,20 +169,21 @@ if (flags$add.prior) {
 
     ## For V, W1 and W2:   normal or truncated normal priors (if needed)
     if (!flags$fix.V) {
-        prior.V <- list(diag.scale=2, diag.mode=1,
+        prior.V <- list(diag.scale=1, diag.mode=1,
                          fact.scale=1, fact.mode=0)
     } else {
         prior.V <-  NULL
     }
 
     if (!flags$fix.W) {
-        prior.W2 <- list(diag.scale=2, diag.mode=1,
+        prior.W2 <- list(diag.scale=0.5, diag.mode=0,
                          fact.scale=1, fact.mode=0)
         if (flags$W1.LKJ) {
-            ## LKJ prior on W1.  Scale parameter has truncated(0) normal prior
-            prior.W1 <- list(scale.mode=0, scale.s=5, eta=1)
+            ## LKJ prior on W1.
+            ## Scale parameter has truncated(0) normal prior
+            prior.W1 <- list(scale.mode=0, scale.s=0.5, eta=1)
         } else {
-            prior.W1 <- list(diag.scale=2, diag.mode=1,
+            prior.W1 <- list(diag.scale=0.5, diag.mode=0,
                              fact.scale=1, fact.mode=0)
         }
     } else {
@@ -315,37 +316,18 @@ opt1 <- optim(start,
                   fnscale=-1,
                   REPORT=1,
                   trace=3,
-                  maxit=100
+                  maxit=300
                   )
               )
 
 opt2 <- trust.optim(opt1$par,
                     fn=get.f,
                     gr=get.df,
-                    method="SR1",
-                    control=list(
-                        report.level=5L,
-                        report.precision=4L,
-                        maxit=2000L,
-                        function.scale.factor=-1,
-                        preconditioner=0,
-                        start.trust.radius=.01,
-                        stop.trust.radius=1e-15,
-                        contract.factor=.4,
-                        expand.factor=2,
-                        expand.threshold.radius=.85,
-                        report.freq = 10L
-                        )
-                   )
-
-opt <- trust.optim(opt2$solution,
-                    fn=get.f,
-                    gr=get.df,
                     method="BFGS",
                     control=list(
                         report.level=5L,
                         report.precision=4L,
-                        maxit=2000L,
+                        maxit=3000L,
                         function.scale.factor=-1,
                         preconditioner=1,
                         start.trust.radius=.01,
@@ -355,7 +337,27 @@ opt <- trust.optim(opt2$solution,
                         expand.threshold.radius=.85,
                         report.freq = 10L
                         )
-                    )
+                   )
+
+
+opt <- trust.optim(opt2$solution,
+                    fn=get.f,
+                    gr=get.df,
+                    method="BFGS",
+                    control=list(
+                        report.level=5L,
+                        report.precision=4L,
+                        maxit=3000L,
+                        function.scale.factor=-1,
+                        preconditioner=1,
+                        start.trust.radius=.01,
+                        stop.trust.radius=1e-15,
+                        contract.factor=.4,
+                        expand.factor=2,
+                        expand.threshold.radius=.85,
+                        report.freq = 10L
+                        )
+                   )
 
 
 opt$par <- opt$solution
