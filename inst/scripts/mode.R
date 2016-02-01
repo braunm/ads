@@ -40,7 +40,7 @@ if (data.is.sim) {
                   )
 }
 
-nfact.V <- 2
+nfact.V <- 3
 nfact.W1 <- 3
 nfact.W2 <- 3
 

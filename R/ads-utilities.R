@@ -181,7 +181,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
 ##' @return T x Jb matrix with integer corresponding to number of new creatives added that week
 ##' @examples
 ##' getcreatives(category, brands.adv, Jb, fweek, T) - called from within function mcmod()
-getcreatives <- function(category, brands.adv, fweek, T, max.distance=0.2, make.binary=TRUE) {
+getcreatives <- function(category, brands.adv, fweek, T, max.distance=0.2, make.binary=FALSE) {
 
     Jb = length(brands.adv)
     cf <- paste0("nobuild/data-raw/",category,"creatives.txt")
@@ -222,7 +222,7 @@ getcreatives <- function(category, brands.adv, fweek, T, max.distance=0.2, make.
     creatives[weekID==cIDfweek, nnc := uniqueN(cID),by=c("weekID","brand")]
     creatives[is.na(nnc), nnc := 0]
     
-    if(make.binary) creatives[nnc>0,nnc:=1]    
+    if(make.binary) creatives[nnc>0,nnc:=1]
 
     # collapse to get total new creatives
     .nnc <- creatives[,max(nnc),by=c("weekID","brand")]
