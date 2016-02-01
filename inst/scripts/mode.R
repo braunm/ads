@@ -13,7 +13,7 @@ library(reshape2)
 
 set.seed(1234)
 
-data.name <- "dpp"
+data.name <- "lld"
 data.is.sim <- FALSE
 
 ## data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
@@ -113,8 +113,8 @@ if (flags$W1.LKJ & nfact.W1>0) stop("Using LKJ prior on W1.  Set nfact.W1 to 0")
 
 M20 <- matrix(0,1+P+Jb,J)
 M20[1,] <- 10
-M20[2:(Jb+1),] <- -.005
-M20[(Jb+2):(1+P+Jb),] <- 1
+M20[2:(Jb+1),] <- 0
+M20[(Jb+2):(1+P+Jb),] <- 0
 for (j in 1:J) {
     M20[Jb+1+j,j] <- -2
 }
@@ -122,10 +122,10 @@ for (j in 1:Jb) {
     M20[j+1,j] <- .25
 }
 
-C20 <- 500*diag(1+P+Jb,1+P+Jb)
+C20 <- 1000*diag(1+P+Jb,1+P+Jb)
 
 E.Sigma <-  diag(J) ## expected covariance across brands
-nu0 <- P + 2*J + 4  ## must be greater than theta2 rows+cols
+nu0 <- P + 2*J + 3  ## must be greater than theta2 rows+cols
 Omega0 <- (nu0-J-1)*E.Sigma
 
 ## The following priors are optional
@@ -134,8 +134,8 @@ if (flags$add.prior) {
     if (flags$include.phi) {
         ## prior on phi:  matrix normal with sparse covariances
         mean.phi <- matrix(0,Jb,J)
-        cov.row.phi <- 500*diag(Jb)
-        cov.col.phi <- 500*diag(J)
+        cov.row.phi <- 50*diag(Jb)
+        cov.col.phi <- 50*diag(J)
         chol.cov.row.phi <- t(chol(cov.row.phi))
         chol.cov.col.phi <- t(chol(cov.col.phi))
 
@@ -150,8 +150,8 @@ if (flags$add.prior) {
     if (flags$include.X) {
         ## prior on theta12:  matrix normal with sparse covariances
         mean.theta12 <- matrix(0,K,J)
-        cov.row.theta12 <- 500*diag(K) ## across covariates within brand
-        cov.col.theta12 <- 500*diag(J) ## across brand within covariates
+        cov.row.theta12 <- 200*diag(K) ## across covariates within brand
+        cov.col.theta12 <- 200*diag(J) ## across brand within covariates
         chol.cov.row.theta12 <- t(chol(cov.row.theta12))
         chol.cov.col.theta12 <- t(chol(cov.col.theta12))
 
@@ -165,12 +165,12 @@ if (flags$add.prior) {
 
 
     ## prior on logit.delta.  transformed beta with 2 parameters
-    prior.delta <- list(a=1, b=1)
+    prior.delta <- list(a=1, b=3)
 
     ## For V, W1 and W2:   normal or truncated normal priors (if needed)
     if (!flags$fix.V) {
         prior.V <- list(diag.scale=2, diag.mode=1,
-                         fact.scale=2, fact.mode=0)
+                         fact.scale=1, fact.mode=0)
     } else {
         prior.V <-  NULL
     }
@@ -180,9 +180,9 @@ if (flags$add.prior) {
                          fact.scale=1, fact.mode=0)
         if (flags$W1.LKJ) {
             ## LKJ prior on W1.  Scale parameter has truncated(0) normal prior
-            prior.W1 <- list(scale.mode=0, scale.s=1, eta=1)
+            prior.W1 <- list(scale.mode=0, scale.s=5, eta=1)
         } else {
-            prior.W1 <- list(diag.scale=1, diag.mode=1,
+            prior.W1 <- list(diag.scale=2, diag.mode=1,
                              fact.scale=1, fact.mode=0)
         }
     } else {
@@ -315,11 +315,30 @@ opt1 <- optim(start,
                   fnscale=-1,
                   REPORT=1,
                   trace=3,
-                  maxit=200
+                  maxit=100
                   )
               )
 
-opt <- trust.optim(opt1$par,
+opt2 <- trust.optim(opt1$par,
+                    fn=get.f,
+                    gr=get.df,
+                    method="SR1",
+                    control=list(
+                        report.level=5L,
+                        report.precision=4L,
+                        maxit=2000L,
+                        function.scale.factor=-1,
+                        preconditioner=0,
+                        start.trust.radius=.01,
+                        stop.trust.radius=1e-15,
+                        contract.factor=.4,
+                        expand.factor=2,
+                        expand.threshold.radius=.85,
+                        report.freq = 10L
+                        )
+                   )
+
+opt <- trust.optim(opt2$solution,
                     fn=get.f,
                     gr=get.df,
                     method="BFGS",
@@ -330,7 +349,7 @@ opt <- trust.optim(opt1$par,
                         function.scale.factor=-1,
                         preconditioner=1,
                         start.trust.radius=.01,
-                        stop.trust.radius=1e-12,
+                        stop.trust.radius=1e-15,
                         contract.factor=.4,
                         expand.factor=2,
                         expand.threshold.radius=.85,
