@@ -171,16 +171,17 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     return(mcmod)
 }
 
-#' Generate creatives renewal/replacement/addition. Currently only identifies (0,1) whether
-#'
-#' @param category Three letter category acronym (being one of dpp, fti, lld, ptw, tti)
-#' @param brands.adv Which brands advertised
-#' @param fweek Integer value for first week to start analysis
-#' @param T Integer value for number of weeks to include from and inclusive of fweek
-#' @return T x Jb matrix with integer corresponding to number of new creatives added that week
-#' @examples
-#' getcreatives(category, brands.adv, Jb, fweek, T) - called from within function mcmod()
-getcreatives <- function(category, brands.adv, fweek, T) {
+##' Generate creatives renewal/replacement/addition. Currently only identifies (0,1) whether
+##'
+##' @param category Three letter category acronym (being one of dpp, fti, lld, ptw, tti)
+##' @param brands.adv Which brands advertised
+##' @param fweek Integer value for first week to start analysis
+##' @param T Integer value for number of weeks to include from and inclusive of fweek
+##' @param max.distance A value passed in that uses Levehnstein's distance in agrep
+##' @return T x Jb matrix with integer corresponding to number of new creatives added that week
+##' @examples
+##' getcreatives(category, brands.adv, Jb, fweek, T) - called from within function mcmod()
+getcreatives <- function(category, brands.adv, fweek, T, max.distance=0.2, make.binary=TRUE) {
 
     Jb = length(brands.adv)
     cf <- paste0("nobuild/data-raw/",category,"creatives.txt")
@@ -194,9 +195,34 @@ getcreatives <- function(category, brands.adv, fweek, T) {
     creatives[,ENEWS:=0]
     #### now generic code
 
+    ## group creatives together and create a new creativeID (cID) for each
+    ## Note that "other" creatives are assigned an ID of 5000 and all grouped together
+    
+    #### now generic code
+    ## collapse
+    
+    creatives[,cID := (Jb+1)*1000]
+    for(j in 1:Jb){
+        li<-list()
+        .c <- creatives[brand==brands.adv[j],unique(tvcreative)]
+        li[[1]]<-clist<-agrep(.c[1],.c,max.distance=max.distance)
+        mc<-1
+        for(m in 2:length(.c)) if(!any(clist==m)) {
+            mc<-mc+1
+            li[[mc]]<-agrep(.c[m],.c,max.distance=max.distance)	# max.distance is measuring how difft two creative descriptors are
+            clist<-c(clist,li[[mc]])
+        }
+        for(m in 1:length(li)) creatives[tvcreative %in% .c[li[[m]]] & toupper(brand)==brands.adv[j],cID:= j * 1000 + m]
+    }
+    
+    #
+    creatives[,cIDfweek:=min(fweek),by=cID]
+    
     # count new ads (just use different labels, perhaps can improve on this with distance)
-    creatives[weekID==fweek, nnc := uniqueN(tvcreative),by=c("weekID","brand")]
+    creatives[weekID==cIDfweek, nnc := uniqueN(cID),by=c("weekID","brand")]
     creatives[is.na(nnc), nnc := 0]
+    
+    if(make.binary) creatives[nnc>0,nnc:=1]    
 
     # collapse to get total new creatives
     .nnc <- creatives[,max(nnc),by=c("weekID","brand")]
