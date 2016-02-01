@@ -186,10 +186,7 @@ getcreatives <- function(category, brands.adv, fweek, T) {
     cf <- paste0("nobuild/data-raw/",category,"creatives.txt")
     ## convert brand names
 
-    creatives <- fread(cf)
-
-    # the following hack is due to a file inconsistency in ptw
-    if(category=="ptw") colnames(creatives) <- c('brand','program','progtype','tvcreative','property','media','avg30','avg30d','dols','sec','dtime','creativeID','firstdateshown','weekID','fweek') else colnames(creatives) <- c('brand','program','progtype','tvcreative','property','media','avg30','avg30d','dols','sec','dtime','firstdateshown','weekID','fweek')
+    creatives <- fread(cf,col.names= c('brand','program','progtype','tvcreative','property','media','avg30','avg30d','dols','sec','dtime','firstdateshown','weekID','fweek'))
 
     for(j in 1:Jb) creatives[agrep(brands.adv[j],brand,ignore.case=T), brand:= brands.adv[j]]
     creatives <- creatives[brand %in% brands.adv,]			# delete any brands not advertised in list

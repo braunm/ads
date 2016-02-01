@@ -9,9 +9,8 @@ library(trustOptim)
 library(plyr)
 library(reshape2)
 
-
-
 set.seed(1234)
+
 
 data.name <- "lld"
 data.is.sim <- FALSE
@@ -34,7 +33,7 @@ if (data.is.sim) {
                   add.prior=TRUE,
                   include.X=TRUE,
                   standardize=FALSE,
-                  A.scale = 1,
+                  A.scale = 10,
                   fix.V = FALSE,
                   fix.W = FALSE,
                   W1.LKJ = TRUE
@@ -119,13 +118,14 @@ for (j in 1:J) {
     M20[Jb+1+j,j] <- -2
 }
 for (j in 1:Jb) {
-    M20[j+1,j] <- .25
+    M20[j+1,j] <-  0
 }
 
 C20 <- 1000*diag(1+P+Jb,1+P+Jb)
 
+
 E.Sigma <-  diag(J) ## expected covariance across brands
-nu0 <- P + 2*J + 3  ## must be greater than theta2 rows+cols
+nu0 <- P + 2*J + 4  ## must be greater than theta2 rows+cols
 Omega0 <- (nu0-J-1)*E.Sigma
 
 ## The following priors are optional
