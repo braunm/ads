@@ -9,11 +9,9 @@ library(trustOptim)
 library(plyr)
 library(reshape2)
 
-
-
 set.seed(1234)
 
-data.name <- "dpp"
+data.name <- "tti"
 data.is.sim <- FALSE
 
 ## data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
@@ -34,7 +32,7 @@ if (data.is.sim) {
                   add.prior=TRUE,
                   include.X=TRUE,
                   standardize=FALSE,
-                  A.scale = 1,
+                  A.scale = 10,
                   fix.V = FALSE,
                   fix.W = FALSE,
                   W1.LKJ = TRUE
@@ -113,18 +111,18 @@ if (flags$W1.LKJ & nfact.W1>0) stop("Using LKJ prior on W1.  Set nfact.W1 to 0")
 
 M20 <- matrix(0,1+P+Jb,J)
 M20[1,] <- 10
-M20[2:(Jb+1),] <- -.005
-M20[(Jb+2):(1+P+Jb),] <- 1
+M20[2:(Jb+1),] <- 0
+M20[(Jb+2):(1+P+Jb),] <- 0
 for (j in 1:J) {
     M20[Jb+1+j,j] <- -2
 }
 for (j in 1:Jb) {
-    M20[j+1,j] <- .25
+    M20[j+1,j] <-  0
 }
 
 C20 <- 500*diag(1+P+Jb,1+P+Jb)
 
-E.Sigma <-  diag(J) ## expected covariance across brands
+E.Sigma <- 10* diag(J) ## expected covariance across brands
 nu0 <- P + 2*J + 4  ## must be greater than theta2 rows+cols
 Omega0 <- (nu0-J-1)*E.Sigma
 

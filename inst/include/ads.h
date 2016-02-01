@@ -777,7 +777,7 @@ void ads::set_Gt(const int& tt) {
   Gt(0,0) = 1.0 - delta;
   for (int j=0; j<Jb; j++) {
     //   Gt(0, j+1) = Afunc(A[tt](j), A_scale);
-    Gt(0, j+1) = Afunc(A[tt](j), 1.0);
+    Gt(0, j+1) = Afunc(A[tt](j), 10.0);
     Gt(j+1, j+1) = 1.0;
   }
   if (P>0) {
