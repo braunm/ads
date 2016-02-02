@@ -127,11 +127,10 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     brands_nnc <- brands.adv[.brands_changed]
 
     ## Data for creatives - note if any adv = 0 then columns removed
-    ## 2/2/2015 - now E is same dimension as ads (Jb)
+    ## 2/2/2015 - now E is same dimension as ads (Jb) but JbE measures the number of brands with observed changes so JbE could be less than Jb
     ##    E <- s.nnc[1:T,.brands_changed]
     E <- s.nnc[1:T,]
-    ##JbE <- length(brands_nnc)
-    JbE <- ncol(E)
+    JbE <- length(brands_nnc)
     JbEv <- match(brands_nnc, brands.adv)			# pointer to brands.adv, which ones changed
 
 

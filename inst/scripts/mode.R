@@ -12,7 +12,7 @@ library(reshape2)
 set.seed(1234)
 
 
-data.name <- "ptw"
+data.name <- "lld"
 data.is.sim <- FALSE
 
 ## data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
