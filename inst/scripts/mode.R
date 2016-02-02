@@ -132,10 +132,14 @@ if (flags$add.prior) {
                           chol.col = chol.cov.col.phi
                           )
     } else { ## diagonal phi
-        mean.phi <- rep(0.2,Jb);
-        sd.phi <- rep(0.1,Jb);
-        prior.phi <- list(mean=mean.phi,
-                          sd=sd.phi)
+    ##    mean.phi <- rep(0.2,Jb);
+    ##    sd.phi <- rep(0.1,Jb);
+
+        prior.phi <- list(mean.mean=0,
+                          sd.mean=0.5,
+                          mode.var=1,
+                          scale.var=1)
+
     } ## end diagonal phi
 
 
@@ -222,7 +226,8 @@ logit.delta.start <- 0
 if (flags$full.phi) {
     phi.start <- matrix(0,Jb,J)
 } else {
-    phi.start <- rep(0,Jb)
+##    phi.start <- rep(0,Jb)
+    phi.start <- rep(0,Jb+2)
 }
 
 
