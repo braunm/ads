@@ -12,7 +12,7 @@ library(reshape2)
 set.seed(1234)
 
 
-data.name <- "lld"
+data.name <- "ptw"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -33,9 +33,9 @@ if (data.is.sim) {
                   )
 }
 
-nfact.V <- 3
-nfact.W1 <- 3
-nfact.W2 <- 3
+nfact.V <- 0
+nfact.W1 <- 2
+nfact.W2 <- 2
 
 get.f <- function(P, ...) return(cl$get.f(P))
 get.df <- function(P, ...) return(cl$get.fdf(P)$grad)
@@ -132,8 +132,8 @@ if (flags$add.prior) {
                           chol.col = chol.cov.col.phi
                           )
     } else { ## diagonal phi
-        mean.phi <- rep(0,Jb);
-        sd.phi <- rep(1,Jb);
+        mean.phi <- rep(0.2,Jb);
+        sd.phi <- rep(0.1,Jb);
         prior.phi <- list(mean=mean.phi,
                           sd=sd.phi)
     } ## end diagonal phi
@@ -345,7 +345,7 @@ opt <- trust.optim(opt2$solution,
                         function.scale.factor=-1,
                         preconditioner=1,
                         start.trust.radius=.01,
-                        stop.trust.radius=1e-15,
+                        stop.trust.radius=1e-1,
                         contract.factor=.4,
                         expand.factor=2,
                         expand.threshold.radius=.85,
