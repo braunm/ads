@@ -12,7 +12,7 @@ library(reshape2)
 set.seed(1234)
 
 
-data.name <- "ptw"
+data.name <- "lld"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
