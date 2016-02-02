@@ -83,6 +83,7 @@ private:
   MatrixXA mean_phi;
   MatrixXA chol_cov_row_phi;
   MatrixXA chol_cov_col_phi;
+  VectorXA sd_phi;
 
   AScalar delta_a;
   AScalar delta_b;
@@ -324,7 +325,7 @@ ads::ads(const List& params)
   Ht = MatrixXA::Zero(Jb,J); // ignoring zeros in bottom P rows
 
  
-  phi = MatrixXA::Zeros(Jb,J);
+  phi = MatrixXA::Zero(Jb,J);
  
 
 
@@ -368,9 +369,8 @@ ads::ads(const List& params)
   
   // The following priors are optional
   if (add_prior) {
+    const List priors_phi = as<List>(priors["phi"]);
     if (full_phi) {
-      
-      const List priors_phi = as<List>(priors["phi"]);
       const Map<MatrixXd> mean_phi_d(as<Map<MatrixXd> >(priors_phi["mean"]));
       mean_phi = mean_phi_d.cast<AScalar>();
       const Map<MatrixXd> chol_cov_row_phi_d(as<Map<MatrixXd> >(priors_phi["chol.row"]));
@@ -378,11 +378,10 @@ ads::ads(const List& params)
       const Map<MatrixXd> chol_cov_col_phi_d(as<Map<MatrixXd> >(priors_phi["chol.col"]));
       chol_cov_col_phi = chol_cov_col_phi_d.cast<AScalar>();
     } else {
-
-
-
-
-
+      const Map<VectorXd> mean_phi_d(as<Map<VectorXd> >(priors_phi["mean"]));
+      mean_phi = mean_phi_d.cast<AScalar>();
+      const Map<VectorXd> sd_phi_d(as<Map<VectorXd> >(priors_phi["sd"]));
+      sd_phi = sd_phi_d.cast<AScalar>();
     }
 
     Rcout << "Constructor: Prior delta\n";    
@@ -494,7 +493,8 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     phi = MatrixXA::Map(par.derived().data() + ind, Jb, J);
     ind += Jb*J;
   } else {
-    phi = MatrixXA::Map(par.derived().data() + ind, Jb, J);
+    phi = MatrixXA::Zero(Jb,J);
+    phi.leftCols(Jb) = par.segment(ind,Jb).asDiagonal();
     ind += Jb;
   }
 
@@ -678,10 +678,9 @@ AScalar ads::eval_hyperprior() {
 			       chol_cov_col_phi,
 			       false);
   } else {
-    
-    
-    
-    
+    for (int i=0; i<Jb; i++) {
+      prior_phi += dnorm_log(phi(i,i),mean_phi(i),sd_phi(i));
+    }
   }
   
 
@@ -781,8 +780,7 @@ void ads::set_Gt(const int& tt) {
   Gt.setZero();
   Gt(0,0) = 1.0 - delta;
   for (int j=0; j<Jb; j++) {
-    //   Gt(0, j+1) = Afunc(A[tt](j), A_scale);
-    Gt(0, j+1) = Afunc(A[tt](j), 10.0);
+    Gt(0, j+1) = Afunc(A[tt](j), A_scale);
     Gt(j+1, j+1) = 1.0;
   }
   if (P>0) {
@@ -795,7 +793,6 @@ void ads::set_Gt(const int& tt) {
 void ads::set_Ht(const int& tt) {
   Ht.setZero();
   Ht = E[tt].asDiagonal() * phi; // H2t
-  }
 } // end set_Ht
 
 

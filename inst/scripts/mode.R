@@ -132,7 +132,10 @@ if (flags$add.prior) {
                           chol.col = chol.cov.col.phi
                           )
     } else { ## diagonal phi
-        prior.phi <- NULL
+        mean.phi <- rep(0,Jb);
+        sd.phi <- rep(1,Jb);
+        prior.phi <- list(mean=mean.phi,
+                          sd=sd.phi)
     } ## end diagonal phi
 
 
