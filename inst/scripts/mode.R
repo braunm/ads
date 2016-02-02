@@ -15,13 +15,6 @@ set.seed(1234)
 data.name <- "ptw"
 data.is.sim <- FALSE
 
-## data.file <- paste0("~/Documents/hdlm/ads/data/mcmod",data.name,".RData")
-## save.file <- paste0("~/Documents/hdlm/results/",mod.name,"_",data.name,"_mode.Rdata")
-## load(data.file)
-
-#data.file <- paste0("data/mcmod",data.name,".RData")
-#save.file <- paste0("inst/results/",mod.name,"_",data.name,"_modeXX.Rdata")
-
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
 data(list=dn)  ## load data
 mcmod <- eval(parse(text=dn)) ## rename to mcmod
@@ -29,7 +22,7 @@ mcmod <- eval(parse(text=dn)) ## rename to mcmod
 if (data.is.sim) {
     flags <- mcmod$trueflags
 } else {
-    flags <- list(include.phi=TRUE,
+    flags <- list(full.phi=FALSE, # default is a diagonal phi matrix
                   add.prior=TRUE,
                   include.X=TRUE,
                   standardize=FALSE,
@@ -63,13 +56,7 @@ Y <- mcmod$Y[1:T]
 F1 <- mcmod$F1[1:T]
 F2 <- mcmod$F2[1:T]
 A <- mcmod$A[1:T]
-
-
-if (flags$include.phi) {
-  E <- mcmod$E[1:T]
-} else {
-  E <- NULL
-}
+E <- mcmod$E[1:T]
 
 if (flags$include.X) {
   X <- mcmod$X[1:T]
@@ -131,7 +118,8 @@ Omega0 <- (nu0-J-1)*E.Sigma
 ## The following priors are optional
 
 if (flags$add.prior) {
-    if (flags$include.phi) {
+    if (flags$full.phi) {
+
         ## prior on phi:  matrix normal with sparse covariances
         mean.phi <- matrix(0,Jb,J)
         cov.row.phi <- diag(Jb)
@@ -143,9 +131,12 @@ if (flags$add.prior) {
                           chol.row = chol.cov.row.phi,
                           chol.col = chol.cov.col.phi
                           )
-    } else {
+    } else { ## diagonal phi
         prior.phi <- NULL
-    } ## end include.phi
+    } ## end diagonal phi
+
+
+
 
     if (flags$include.X) {
         ## prior on theta12:  matrix normal with sparse covariances
@@ -225,10 +216,10 @@ if (flags$include.X) {
 
 logit.delta.start <- 0
 
-if (flags$include.phi) {
+if (flags$full.phi) {
     phi.start <- matrix(0,Jb,J)
 } else {
-    phi.start <- NULL
+    phi.start <- rep(0,Jb)
 }
 
 

@@ -168,7 +168,7 @@ private:
   AScalar log_mvgamma_post;
   
   // flags for model specification
-  bool include_phi;
+  bool full_phi;
   bool add_prior;
   bool include_X;
   bool fix_V;
@@ -198,11 +198,9 @@ ads::ads(const List& params)
   K = as<int>(dimensions["K"]);
   P = as<int>(dimensions["P"]);
 
-
-  include_phi = as<bool>(flags["include.phi"]);
+  full_phi = as<bool>(flags["full.phi"]);
   add_prior = as<bool>(flags["add.prior"]);
   include_X = as<bool>(flags["include.X"]);
-
 
   A_scale = as<double>(flags["A.scale"]);
   fix_V = as<bool>(flags["fix.V"]);
@@ -234,12 +232,8 @@ ads::ads(const List& params)
   A.resize(T);
   AjIsZero.resize(T);
 
-  List Elist;
-  if (include_phi) {
-    Elist = as<List>(data["E"]);
-    E.resize(T);
-  }
-
+  const List Elist = as<List>(data["E"]);
+  E.resize(T);
 
   V_dim = N;
   W1_dim = 1+Jb;
@@ -287,11 +281,9 @@ ads::ads(const List& params)
       AjIsZero[i](j) = A[i](j)==0 ? 1. : 0.;
     }
 
-    if (include_phi) {
-      const Map<VectorXd> Ed(as<Map<VectorXd> >(Elist[i]));
-      E[i] = Ed.cast<AScalar>();
-    }
-
+    const Map<VectorXd> Ed(as<Map<VectorXd> >(Elist[i]));
+    E[i] = Ed.cast<AScalar>();
+  
     const MappedSparseXd F1d(as<MappedSparseXd >(F1list[i]));
     F1[i] = F1d.cast<AScalar>().transpose(); // transpose should force row major
 
@@ -331,9 +323,9 @@ ads::ads(const List& params)
 
   Ht = MatrixXA::Zero(Jb,J); // ignoring zeros in bottom P rows
 
-  if (include_phi) {
-    phi.resize(Jb,J);
-  }
+ 
+  phi = MatrixXA::Zeros(Jb,J);
+ 
 
 
   Rcout << "Allocating memory for intermediate parameters\n";
@@ -376,7 +368,7 @@ ads::ads(const List& params)
   
   // The following priors are optional
   if (add_prior) {
-    if (include_phi) {
+    if (full_phi) {
       
       const List priors_phi = as<List>(priors["phi"]);
       const Map<MatrixXd> mean_phi_d(as<Map<MatrixXd> >(priors_phi["mean"]));
@@ -385,6 +377,12 @@ ads::ads(const List& params)
       chol_cov_row_phi = chol_cov_row_phi_d.cast<AScalar>();
       const Map<MatrixXd> chol_cov_col_phi_d(as<Map<MatrixXd> >(priors_phi["chol.col"]));
       chol_cov_col_phi = chol_cov_col_phi_d.cast<AScalar>();
+    } else {
+
+
+
+
+
     }
 
     Rcout << "Constructor: Prior delta\n";    
@@ -492,9 +490,12 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     }
   }
   
-  if (include_phi) {
+  if (full_phi) {
     phi = MatrixXA::Map(par.derived().data() + ind, Jb, J);
     ind += Jb*J;
+  } else {
+    phi = MatrixXA::Map(par.derived().data() + ind, Jb, J);
+    ind += Jb;
   }
 
   logit_delta = par(ind++);
@@ -671,11 +672,16 @@ AScalar ads::eval_hyperprior() {
   // J x J matrix normal, diagonal (sparse) covariance matrices
   
   AScalar prior_phi = 0;
-  if (include_phi) {
+  if (full_phi) {
     prior_phi = MatNorm_logpdf(phi, mean_phi,
 			       chol_cov_row_phi,
 			       chol_cov_col_phi,
 			       false);
+  } else {
+    
+    
+    
+    
   }
   
 
@@ -788,8 +794,7 @@ void ads::set_Gt(const int& tt) {
 // set_Ht
 void ads::set_Ht(const int& tt) {
   Ht.setZero();
-  if (include_phi) {
-    Ht = E[tt].asDiagonal() * phi; // H2t
+  Ht = E[tt].asDiagonal() * phi; // H2t
   }
 } // end set_Ht
 
