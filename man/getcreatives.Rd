@@ -2,26 +2,31 @@
 % Please edit documentation in R/ads-utilities.R
 \name{getcreatives}
 \alias{getcreatives}
-\title{Generate creatives renewal/replacement/addition. Currently only identifies (0,1) whether}
+\title{Generate creatives renewal/replacement/addition.}
 \usage{
-getcreatives(category, brands.adv, fweek, T)
+getcreatives(category, brands.adv, fweek, T, max.distance = 0.2,
+  make.binary = FALSE)
 }
 \arguments{
   \item{category}{Three letter category acronym (being one
   of dpp, fti, lld, ptw, tti)} \item{brands.adv}{Which brands
   advertised} \item{fweek}{Integer value for first week to
   start analysis} \item{T}{Integer value for number of weeks
-  to include from and inclusive of fweek}
+  to include from and inclusive of fweek} \item{max.distance}
+  {A value passed in that uses Levenshtein distance in agrep}
+  \item{make.binary}{Flag (T/F) for whether E should be
+  dichotomous}
 }
 \value{
 T x Jb matrix with integer corresponding to number of new
 creatives added that week
 }
 \description{
-Generate creatives renewal/replacement/addition. Currently
-only identifies (0,1) whether
+Builds a matrix of values for creatives. Currently only
+supports integer values indicating the number of new
+creatives added.
 }
 \examples{
-getcreatives(category, brands.adv, Jb, fweek, T) - called from within function mcmod()
+getcreatives(category, brands.adv, Jb, fweek, T, make.binary=F) - called from within function mcmod()
 }
 

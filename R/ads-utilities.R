@@ -112,13 +112,14 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     # first get brands advertising over this period
     A <- simplify2array(XAdv)[1:T,]
     .brands_advertised <- as.numeric(which(colSums(A)>0))
+    if(any(diff(which(colSums(A)>0))>1)) stop("Reorder columns for advertised brands, unless you make sure all 1:Jb brands advertise, the estimation will likely be incorrect.")
     Jb <- length(.brands_advertised)
     brands.adv <- brands.to_keep[.brands_advertised]
     A <- A[,.brands_advertised]
 
     ## for this subset, which brands launched new creatives in that time frame?
     # call creatives function for Jb brands
-    ownadnnc <- getcreatives(category, brands.adv, fweek, T)
+    ownadnnc <- getcreatives(category, brands.adv, fweek, T, make.binary=FALSE)
     #load(paste(codepath,"/",category,"creatives.RData",sep=""))
     s.nnc <- as.data.frame(ownadnnc[weekID >= fweek & weekID < fweek+T,])
     s.nnc$weekID <- NULL
@@ -173,16 +174,20 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     return(mcmod)
 }
 
-##' Generate creatives renewal/replacement/addition. Currently only identifies (0,1) whether
+##' Generate creatives renewal,replacement,addition. 
+##'
+##' Builds a matrix of values for creatives. Currently only supports integer values indicating
+##' the number of new creatives added.
 ##'
 ##' @param category Three letter category acronym (being one of dpp, fti, lld, ptw, tti)
 ##' @param brands.adv Which brands advertised
 ##' @param fweek Integer value for first week to start analysis
 ##' @param T Integer value for number of weeks to include from and inclusive of fweek
-##' @param max.distance A value passed in that uses Levehnstein's distance in agrep
+##' @param max.distance A value passed in that uses Levenshtein distance in agrep
+##' @param make.binary Flag (T or F) for whether E should be dichotomous
 ##' @return T x Jb matrix with integer corresponding to number of new creatives added that week
 ##' @examples
-##' getcreatives(category, brands.adv, Jb, fweek, T) - called from within function mcmod()
+##' getcreatives(category, brands.adv, Jb, fweek, T, make.binary=F) - called from within function mcmod()
 getcreatives <- function(category, brands.adv, fweek, T, max.distance=0.2, make.binary=FALSE) {
 
     Jb = length(brands.adv)
