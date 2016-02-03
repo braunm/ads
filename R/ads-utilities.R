@@ -47,8 +47,10 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     if(aggregated) cf <- paste(category,'agg',sep="") else cf <- category
     dfname <- sprintf('nobuild/data-raw/%siritns.txt',cf)
 
+    ## Trim characters, just in case
     df1 <- fread(dfname)
-
+    df1 <- trim_characters(df1)
+    
     market_list <- unique(df1$market_name)
 
 
@@ -196,6 +198,9 @@ getcreatives <- function(category, brands.adv, fweek, T, max.distance=0.2, make.
 
     creatives <- fread(cf,col.names= c('brand','program','progtype','tvcreative','property','media','avg30','avg30d','dols','sec','dtime','firstdateshown','weekID','fweek'))
 
+    ## Trim fields here just in case
+    creatives <- trim_characters(creatives)
+    
     for(j in 1:Jb) creatives[agrep(brands.adv[j],brand,ignore.case=T), brand:= brands.adv[j]]
     creatives <- creatives[brand %in% brands.adv,]			# delete any brands not advertised in list
 
@@ -249,4 +254,18 @@ getcreatives <- function(category, brands.adv, fweek, T, max.distance=0.2, make.
     ownadnnc <- merge(allweeks,ownadnnc,all.x=TRUE)
     ownadnnc[is.na(ownadnnc)] <- 0
     return(ownadnnc)
+}
+
+##' Trim white space.
+##'
+##' Trim characters recursively in a data table.
+##'
+##' @param DT Data table name
+##' @return A new data table with trimmed characters
+##' @examples
+##' b <- trim_characters(a)
+trim_characters = function(DT) {
+    df <- data.frame(DT)
+    for (i in names(df)) if(is.character(df[,i])) df[,i] <- str_trim(df[,i])
+    return(data.table(df))
 }

@@ -10,7 +10,7 @@ Depends:
     RcppEigen (>= 0.3.2.3),
     methods,
     CppADutils
-Imports: data.table, Matrix
+Imports: data.table, Matrix, stringr
 License: file LICENSE
 LazyData: true
 LinkingTo: Rcpp, RcppEigen, CppADutils

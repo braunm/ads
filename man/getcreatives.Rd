@@ -2,7 +2,7 @@
 % Please edit documentation in R/ads-utilities.R
 \name{getcreatives}
 \alias{getcreatives}
-\title{Generate creatives renewal/replacement/addition.}
+\title{Generate creatives renewal,replacement,addition.}
 \usage{
 getcreatives(category, brands.adv, fweek, T, max.distance = 0.2,
   make.binary = FALSE)
@@ -14,7 +14,7 @@ getcreatives(category, brands.adv, fweek, T, max.distance = 0.2,
   start analysis} \item{T}{Integer value for number of weeks
   to include from and inclusive of fweek} \item{max.distance}
   {A value passed in that uses Levenshtein distance in agrep}
-  \item{make.binary}{Flag (T/F) for whether E should be
+  \item{make.binary}{Flag (T or F) for whether E should be
   dichotomous}
 }
 \value{
