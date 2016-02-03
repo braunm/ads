@@ -9,6 +9,7 @@
 #include <Eigen/Cholesky>
 #include <cppad_atomics.h>
 #include <mat_normAD.h>
+#include <MVN_AD.h>
 #include <LKJ_AD.h>
 #include <LDLT_cppad.h>
 
@@ -181,6 +182,7 @@ private:
   
   // flags for model specification
   bool full_phi;
+  bool phi_re;
   bool add_prior;
   bool include_X;
   bool fix_V;
@@ -211,6 +213,7 @@ ads::ads(const List& params)
   P = as<int>(dimensions["P"]);
 
   full_phi = as<bool>(flags["full.phi"]);
+  phi_re = as<bool>(flags["phi.re"]);
   add_prior = as<bool>(flags["add.prior"]);
   include_X = as<bool>(flags["include.X"]);
 
@@ -388,11 +391,17 @@ ads::ads(const List& params)
       
     } else {
 
-      mean_mean_phi=as<double>(priors_phi["mean.mean"]);
-      sd_mean_phi=as<double>(priors_phi["sd.mean"]);
-      mode_var_phi=as<double>(priors_phi["mode.var"]);
-      scale_var_phi=as<double>(priors_phi["scale.var"]);
-      
+      if (phi_re) {
+	mean_mean_phi=as<double>(priors_phi["mean.mean"]);
+	sd_mean_phi=as<double>(priors_phi["sd.mean"]);
+	mode_var_phi=as<double>(priors_phi["mode.var"]);
+	scale_var_phi=as<double>(priors_phi["scale.var"]);	
+      } else {	
+	const Map<MatrixXd> mean_phi_d(as<Map<MatrixXd> >(priors_phi["mean"]));
+	mean_phi = mean_phi_d.cast<AScalar>();
+	const Map<MatrixXd> chol_cov_col_phi_d(as<Map<MatrixXd> >(priors_phi["chol.col"]));
+	chol_cov_col_phi = chol_cov_col_phi_d.cast<AScalar>();
+      }      
     }
 
     Rcout << "Constructor: Prior delta\n";    
@@ -504,18 +513,19 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     phi = MatrixXA::Map(par.derived().data() + ind, Jb, J);
     ind += Jb*J;
   } else {
-    phi_mean = par(ind++);
-    phi_log_var = par(ind++);
+    phi = MatrixXA::Zero(Jb,J);
     phi_z = par.segment(ind,Jb);
     ind += Jb;
-    
-    phi_var = exp(phi_log_var);
-    phi_log_sd = phi_log_var * 0.5;
-    phi_sd = exp(phi_log_sd);
- 
-    phi = MatrixXA::Zero(Jb,J);
-    phi.leftCols(Jb) = (phi_z.array() * phi_sd + phi_mean).matrix().asDiagonal();
-
+    if (phi_re) {
+      phi_mean = par(ind++);
+      phi_log_var = par(ind++);
+      phi_var = exp(phi_log_var);
+      phi_log_sd = phi_log_var * 0.5;
+      phi_sd = exp(phi_log_sd);     
+      phi.leftCols(Jb) = (phi_z.array() * phi_sd + phi_mean).matrix().asDiagonal();
+    } else {
+      phi.leftCols(Jb) = phi_z.asDiagonal();
+    }
   }
 
   logit_delta = par(ind++);
@@ -698,15 +708,19 @@ AScalar ads::eval_hyperprior() {
 			       chol_cov_col_phi,
 			       false);
   } else {
-    
-    for (int i=0; i<Jb; i++) {
-      prior_phi += dnorm_log(phi_z(i),0,1);
-    }
-    
-    prior_phi += dnorm_log(phi_mean, mean_mean_phi, sd_mean_phi);
-    prior_phi += dnormTrunc0_log(phi_var, mode_var_phi, scale_var_phi);
-    prior_phi += phi_log_var; // Inv Jacobian for log_var -> var
 
+    if (phi_re) {
+      for (int i=0; i<Jb; i++) {
+	prior_phi += dnorm_log(phi_z(i),0,1);
+      }
+      prior_phi += dnorm_log(phi_mean, mean_mean_phi, sd_mean_phi);
+      prior_phi += dnormTrunc0_log(phi_var, mode_var_phi, scale_var_phi);
+      prior_phi += phi_log_var; // Inv Jacobian for log_var -> var
+    } else {
+      MatrixXA pp(1,1);
+      MVN_logpdf(phi_z, mean_phi.col(0), chol_cov_row_phi, pp, false);
+      prior_phi += pp(0,0);
+    }
   }
   
 

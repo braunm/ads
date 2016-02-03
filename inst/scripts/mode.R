@@ -23,6 +23,7 @@ if (data.is.sim) {
     flags <- mcmod$trueflags
 } else {
     flags <- list(full.phi=FALSE, # default is a diagonal phi matrix
+                  phi.re=FALSE,
                   add.prior=TRUE,
                   include.X=TRUE,
                   standardize=FALSE,
@@ -34,8 +35,8 @@ if (data.is.sim) {
 }
 
 nfact.V <- 0
-nfact.W1 <- 2
-nfact.W2 <- 2
+nfact.W1 <- 0
+nfact.W2 <- 0
 
 get.f <- function(P, ...) return(cl$get.f(P))
 get.df <- function(P, ...) return(cl$get.fdf(P)$grad)
@@ -132,18 +133,20 @@ if (flags$add.prior) {
                           chol.col = chol.cov.col.phi
                           )
     } else { ## diagonal phi
-    ##    mean.phi <- rep(0.2,Jb);
-    ##    sd.phi <- rep(0.1,Jb);
-
-        prior.phi <- list(mean.mean=0,
-                          sd.mean=0.5,
-                          mode.var=0.001,
-                          scale.var=10)
-
+        if (flags$phi.re) {
+            prior.phi <- list(mean.mean=0,
+                              sd.mean=10,
+                              mode.var=0.001,
+                              scale.var=10)
+        } else {
+            mean.phi <- matrix(0,Jb,1)
+            cov.col.phi <- 10*diag(J)
+            chol.cov.col.phi <- t(chol(cov.col.phi))
+            prior.phi <- list(mean=mean.phi,
+                              chol.col = chol.cov.col.phi
+                              )
+        }
     } ## end diagonal phi
-
-
-
 
     if (flags$include.X) {
         ## prior on theta12:  matrix normal with sparse covariances
@@ -167,21 +170,21 @@ if (flags$add.prior) {
 
     ## For V, W1 and W2:   normal or truncated normal priors (if needed)
     if (!flags$fix.V) {
-        prior.V <- list(diag.scale=1, diag.mode=1,
+        prior.V <- list(diag.scale=.001, diag.mode=0,
                          fact.scale=1, fact.mode=0)
     } else {
         prior.V <-  NULL
     }
 
     if (!flags$fix.W) {
-        prior.W2 <- list(diag.scale=0.5, diag.mode=0,
+        prior.W2 <- list(diag.scale=0.001, diag.mode=0,
                          fact.scale=1, fact.mode=0)
         if (flags$W1.LKJ) {
             ## LKJ prior on W1.
             ## Scale parameter has truncated(0) normal prior
             prior.W1 <- list(scale.mode=0, scale.s=0.5, eta=1)
         } else {
-            prior.W1 <- list(diag.scale=0.5, diag.mode=0,
+            prior.W1 <- list(diag.scale=0.001, diag.mode=0,
                              fact.scale=1, fact.mode=0)
         }
     } else {
@@ -226,8 +229,11 @@ logit.delta.start <- 0
 if (flags$full.phi) {
     phi.start <- matrix(0,Jb,J)
 } else {
-##    phi.start <- rep(0,Jb)
-    phi.start <- rep(0,Jb+2)
+    if (flags$phi.re) {
+        phi.start <- rep(0,Jb+2)
+    } else {
+        phi.start <- rep(0,Jb)
+    }
 }
 
 
