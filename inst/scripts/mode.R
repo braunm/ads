@@ -12,7 +12,7 @@ library(reshape2)
 set.seed(1234)
 
 
-data.name <- "ptw"
+data.name <- "dpp"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -111,7 +111,7 @@ for (j in 1:Jb) {
 ##C20 <- 1000*diag(1+P+Jb,1+P+Jb)
 C20 <- diag(c(100,rep(1,Jb),rep(10,P)))
 
-E.Sigma <-  diag(J) ## expected covariance across brands
+E.Sigma <-  0.01*diag(J) ## expected covariance across brands
 nu0 <- P + 2*J + 5  ## must be greater than theta2 rows+cols
 Omega0 <- (nu0-J-1)*E.Sigma
 
@@ -137,8 +137,8 @@ if (flags$add.prior) {
 
         prior.phi <- list(mean.mean=0,
                           sd.mean=0.5,
-                          mode.var=1,
-                          scale.var=1)
+                          mode.var=0.001,
+                          scale.var=10)
 
     } ## end diagonal phi
 
@@ -315,7 +315,7 @@ opt1 <- optim(start,
                   fnscale=-1,
                   REPORT=1,
                   trace=3,
-                  maxit=300
+                  maxit=50
                   )
               )
 
@@ -331,6 +331,7 @@ opt2 <- trust.optim(opt1$par,
                         preconditioner=1,
                         start.trust.radius=.01,
                         stop.trust.radius=1e-15,
+                        cg.tol=1e-9,
                         contract.factor=.4,
                         expand.factor=2,
                         expand.threshold.radius=.85,
@@ -342,15 +343,15 @@ opt2 <- trust.optim(opt1$par,
 opt <- trust.optim(opt2$solution,
                     fn=get.f,
                     gr=get.df,
-                    method="BFGS",
+                    method="SR1",
                     control=list(
                         report.level=5L,
                         report.precision=4L,
                         maxit=3000L,
                         function.scale.factor=-1,
-                        preconditioner=1,
+                        preconditioner=0,
                         start.trust.radius=.01,
-                        stop.trust.radius=1e-1,
+                        stop.trust.radius=1e-15,
                         contract.factor=.4,
                         expand.factor=2,
                         expand.threshold.radius=.85,

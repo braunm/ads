@@ -150,7 +150,6 @@ private:
   AScalar phi_log_var;
   VectorXA phi_z;
   
-  
   AScalar phi_var;
   AScalar phi_log_sd;
   AScalar phi_sd;
@@ -271,8 +270,6 @@ ads::ads(const List& params)
     }
   }
   
- 
-  
   for (int i=0; i<T; i++) {
 
     
@@ -333,10 +330,8 @@ ads::ads(const List& params)
     }    
   }  
   
-
   Ht = MatrixXA::Zero(Jb,J); // ignoring zeros in bottom P rows
 
- 
   phi = MatrixXA::Zero(Jb,J);
   phi_z = VectorXA::Zero(Jb);
  
@@ -392,11 +387,6 @@ ads::ads(const List& params)
       chol_cov_col_phi = chol_cov_col_phi_d.cast<AScalar>();
       
     } else {
-
-      /* const Map<VectorXd> mean_phi_d(as<Map<VectorXd> >(priors_phi["mean"])); */
-      /* mean_phi = mean_phi_d.cast<AScalar>(); */
-      /* const Map<VectorXd> sd_phi_d(as<Map<VectorXd> >(priors_phi["sd"])); */
-      /* sd_phi = sd_phi_d.cast<AScalar>(); */
 
       mean_mean_phi=as<double>(priors_phi["mean.mean"]);
       sd_mean_phi=as<double>(priors_phi["sd.mean"]);
