@@ -23,18 +23,19 @@ if (data.is.sim) {
     flags <- mcmod$trueflags
 } else {
     flags <- list(full.phi=FALSE, # default is a diagonal phi matrix
-                  phi.re=FALSE,
+                  phi.re=TRUE,
                   add.prior=TRUE,
                   include.X=TRUE,
                   standardize=FALSE,
                   A.scale = 1,
+                  E.scale = 1,
                   fix.V = FALSE,
                   fix.W = FALSE,
                   W1.LKJ = FALSE
                   )
 }
 
-nfact.V <- 0
+nfact.V <- 1
 nfact.W1 <- 0
 nfact.W2 <- 0
 
@@ -57,7 +58,8 @@ Y <- mcmod$Y[1:T]
 F1 <- mcmod$F1[1:T]
 F2 <- mcmod$F2[1:T]
 A <- mcmod$A[1:T]
-E <- mcmod$E[1:T]
+E <- llply(mcmod$E[1:T], function (x) return(x/flags$E.scale))
+
 
 if (flags$include.X) {
   X <- mcmod$X[1:T]
@@ -112,7 +114,7 @@ for (j in 1:Jb) {
 ##C20 <- 1000*diag(1+P+Jb,1+P+Jb)
 C20 <- diag(c(100,rep(1,Jb),rep(10,P)))
 
-E.Sigma <-  0.01*diag(J) ## expected covariance across brands
+E.Sigma <-  0.1*diag(J) ## expected covariance across brands
 nu0 <- P + 2*J + 5  ## must be greater than theta2 rows+cols
 Omega0 <- (nu0-J-1)*E.Sigma
 
@@ -136,8 +138,8 @@ if (flags$add.prior) {
         if (flags$phi.re) {
             prior.phi <- list(mean.mean=0,
                               sd.mean=10,
-                              mode.var=0.001,
-                              scale.var=10)
+                              mode.var=0,
+                              scale.var=0.01)
         } else {
             mean.phi <- matrix(0,Jb,1)
             cov.col.phi <- 10*diag(J)
@@ -151,8 +153,8 @@ if (flags$add.prior) {
     if (flags$include.X) {
         ## prior on theta12:  matrix normal with sparse covariances
         mean.theta12 <- matrix(0,K,J)
-        cov.row.theta12 <- 100*diag(K) ## across covariates within brand
-        cov.col.theta12 <- 100*diag(J) ## across brand within covariates
+        cov.row.theta12 <- 50*diag(K) ## across covariates within brand
+        cov.col.theta12 <- 50*diag(J) ## across brand within covariates
         chol.cov.row.theta12 <- t(chol(cov.row.theta12))
         chol.cov.col.theta12 <- t(chol(cov.col.theta12))
 
@@ -170,22 +172,22 @@ if (flags$add.prior) {
 
     ## For V, W1 and W2:   normal or truncated normal priors (if needed)
     if (!flags$fix.V) {
-        prior.V <- list(diag.scale=.001, diag.mode=0,
-                         fact.scale=1, fact.mode=0)
+        prior.V <- list(diag.scale=0.1, diag.mode=0,
+                         fact.scale=0.1, fact.mode=0)
     } else {
         prior.V <-  NULL
     }
 
     if (!flags$fix.W) {
-        prior.W2 <- list(diag.scale=0.001, diag.mode=0,
-                         fact.scale=1, fact.mode=0)
+        prior.W2 <- list(diag.scale=0.1, diag.mode=0,
+                         fact.scale=0.1, fact.mode=0)
         if (flags$W1.LKJ) {
             ## LKJ prior on W1.
             ## Scale parameter has truncated(0) normal prior
-            prior.W1 <- list(scale.mode=0, scale.s=0.5, eta=1)
+            prior.W1 <- list(scale.mode=0, scale.s=0.1, eta=1)
         } else {
-            prior.W1 <- list(diag.scale=0.001, diag.mode=0,
-                             fact.scale=1, fact.mode=0)
+            prior.W1 <- list(diag.scale=0.1, diag.mode=0,
+                             fact.scale=0.1, fact.mode=0)
         }
     } else {
         prior.W1 <- NULL
@@ -219,20 +221,24 @@ priors <- Filter(function(x) !is.null(x), tmp)
 ## starting parameters
 
 if (flags$include.X) {
-    theta12.start <- matrix(0,K,J)
+    ##    theta12.start <- matrix(0,K,J)
+    theta12.start <- matrix(rnorm(K*J),K,J)
 } else {
     theta12.start <- NULL
 }
 
-logit.delta.start <- 0
+logit.delta.start <- 0.2
 
 if (flags$full.phi) {
-    phi.start <- matrix(0,Jb,J)
+    ##    phi.start <- matrix(0,Jb,J)
+    phi.start <- matrix(rnorm(Jb*J),Jb,J)
 } else {
     if (flags$phi.re) {
-        phi.start <- rep(0,Jb+2)
+        ##        phi.start <- rep(0,Jb+2)
+        phi.start <- rnorm(Jb+2)
     } else {
-        phi.start <- rep(0,Jb)
+        ##        phi.start <- rep(0,Jb)str(
+        phi.start <- rnorm(Jb)
     }
 }
 
@@ -315,26 +321,24 @@ opt1 <- optim(start,
               gr=get.df,
               hessian=FALSE,
               method="BFGS",
-              ##        lower = start-5,
-              ##        upper=start+5,
-              control=list(
+               control=list(
                   fnscale=-1,
                   REPORT=1,
                   trace=3,
-                  maxit=50
+                  maxit=150
                   )
               )
 
 opt2 <- trust.optim(opt1$par,
                     fn=get.f,
                     gr=get.df,
-                    method="BFGS",
+                    method="SR1",
                     control=list(
                         report.level=5L,
                         report.precision=4L,
                         maxit=3000L,
                         function.scale.factor=-1,
-                        preconditioner=1,
+                        preconditioner=0,
                         start.trust.radius=.01,
                         stop.trust.radius=1e-15,
                         cg.tol=1e-9,
@@ -349,13 +353,13 @@ opt2 <- trust.optim(opt1$par,
 opt <- trust.optim(opt2$solution,
                     fn=get.f,
                     gr=get.df,
-                    method="SR1",
+                    method="BFGS",
                     control=list(
                         report.level=5L,
                         report.precision=4L,
                         maxit=3000L,
                         function.scale.factor=-1,
-                        preconditioner=0,
+                        preconditioner=1,
                         start.trust.radius=.01,
                         stop.trust.radius=1e-15,
                         contract.factor=.4,
@@ -425,6 +429,30 @@ cat("inverting negative Hessian\n")
 cv <- solve(-hs)
 se <- sqrt(diag(cv))
 se.sol <- relist(se,skeleton=start.list)
+
+## Standard errors of phi for real effects model
+
+if (flags$phi.re) {
+
+    px <- seq(J*K+1, J*K+Jb+2)
+    cv.phi <- cv[px,px]
+    GD <- matrix(0,Jb+2,Jb+2)
+    diag(GD)[1:Jb] <- exp(sol$phi[Jb+2]/2)
+    GD[Jb+1,Jb+1] <- 1
+    GD[Jb+2,Jb+2] <- exp(sol$phi[Jb+2]/2)/2
+    GD[1:Jb,Jb+1] <- exp(sol$phi[Jb+2]/2)*sol$phi[1:Jb]/2
+    GD[1:Jb,Jb+2] <- 1
+    s <- exp(sol$phi[Jb+2]/2)
+    pp <- s * sol$phi[1:3] + sol$phi[Jb+1]
+    sep <- GD %*% cv.phi %*% t(GD)
+
+
+
+
+
+}
+
+
 
 ##save(sol, se.sol, opt, dimensions, priors, flags, file=save.file)
 

@@ -878,6 +878,7 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
   NumericMatrix C2treturn(C2t.rows(), C2t.cols());
   NumericMatrix OmegaTreturn(OmegaT.rows(), OmegaT.cols());
   NumericMatrix LW1return(LW1.rows(), LW1.cols());
+  NumericMatrix phiReturn(phi.rows(), phi.cols());
 
   for (size_t i=0; i<V.rows(); i++) {
     for (size_t j=0; j<V.cols(); j++) {
@@ -918,6 +919,12 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
     }
   }
 
+  for (size_t i=0; i<phi.rows(); i++) {
+    for (size_t j=0; j<phi.cols(); j++) {
+      phiReturn(i,j) = Value(phi(i,j));
+    }
+  }
+
 
   Rcpp::List Greturn(T);
   for (size_t tt=0; tt<T; tt++) {
@@ -938,7 +945,8 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 			  Named("chol_W1") = wrap(LW1return),
 			  Named("M2t") = wrap(M2treturn),
 			  Named("C2t") = wrap(C2treturn),
-			  Named("OmegaT") = wrap(OmegaTreturn)
+			  Named("OmegaT") = wrap(OmegaTreturn),
+			  Named("phi") = wrap(phiReturn)
 			  );
   return(res);
 			  			  
