@@ -9,6 +9,7 @@
 #include <Eigen/Cholesky>
 #include <cppad_atomics.h>
 #include <mat_normAD.h>
+#include <MVN_AD.h>
 #include <LKJ_AD.h>
 #include <LDLT_cppad.h>
 
@@ -83,6 +84,12 @@ private:
   MatrixXA mean_phi;
   MatrixXA chol_cov_row_phi;
   MatrixXA chol_cov_col_phi;
+  VectorXA sd_phi;
+
+  AScalar mean_mean_phi;
+  AScalar sd_mean_phi;
+  AScalar mode_var_phi;
+  AScalar scale_var_phi;
 
   AScalar delta_a;
   AScalar delta_b;
@@ -140,6 +147,14 @@ private:
   MatrixXA LW2;
   AScalar log_W1_jac;
 
+  AScalar phi_mean;
+  AScalar phi_log_var;
+  VectorXA phi_z;
+  
+  AScalar phi_var;
+  AScalar phi_log_sd;
+  AScalar phi_sd;
+
  
   // intermediate values
 
@@ -162,13 +177,12 @@ private:
   MatrixXA chol_DX_L;
   VectorXA chol_DX_D;
   
-
-
   AScalar log_mvgamma_prior;
   AScalar log_mvgamma_post;
   
   // flags for model specification
-  bool include_phi;
+  bool full_phi;
+  bool phi_re;
   bool add_prior;
   bool include_X;
   bool fix_V;
@@ -198,11 +212,10 @@ ads::ads(const List& params)
   K = as<int>(dimensions["K"]);
   P = as<int>(dimensions["P"]);
 
-
-  include_phi = as<bool>(flags["include.phi"]);
+  full_phi = as<bool>(flags["full.phi"]);
+  phi_re = as<bool>(flags["phi.re"]);
   add_prior = as<bool>(flags["add.prior"]);
   include_X = as<bool>(flags["include.X"]);
-
 
   A_scale = as<double>(flags["A.scale"]);
   fix_V = as<bool>(flags["fix.V"]);
@@ -234,12 +247,8 @@ ads::ads(const List& params)
   A.resize(T);
   AjIsZero.resize(T);
 
-  List Elist;
-  if (include_phi) {
-    Elist = as<List>(data["E"]);
-    E.resize(T);
-  }
-
+  const List Elist = as<List>(data["E"]);
+  E.resize(T);
 
   V_dim = N;
   W1_dim = 1+Jb;
@@ -264,8 +273,6 @@ ads::ads(const List& params)
     }
   }
   
- 
-  
   for (int i=0; i<T; i++) {
 
     
@@ -287,11 +294,9 @@ ads::ads(const List& params)
       AjIsZero[i](j) = A[i](j)==0 ? 1. : 0.;
     }
 
-    if (include_phi) {
-      const Map<VectorXd> Ed(as<Map<VectorXd> >(Elist[i]));
-      E[i] = Ed.cast<AScalar>();
-    }
-
+    const Map<VectorXd> Ed(as<Map<VectorXd> >(Elist[i]));
+    E[i] = Ed.cast<AScalar>();
+  
     const MappedSparseXd F1d(as<MappedSparseXd >(F1list[i]));
     F1[i] = F1d.cast<AScalar>().transpose(); // transpose should force row major
 
@@ -328,12 +333,11 @@ ads::ads(const List& params)
     }    
   }  
   
-
   Ht = MatrixXA::Zero(Jb,J); // ignoring zeros in bottom P rows
 
-  if (include_phi) {
-    phi.resize(Jb,J);
-  }
+  phi = MatrixXA::Zero(Jb,J);
+  phi_z = VectorXA::Zero(Jb);
+ 
 
 
   Rcout << "Allocating memory for intermediate parameters\n";
@@ -376,15 +380,28 @@ ads::ads(const List& params)
   
   // The following priors are optional
   if (add_prior) {
-    if (include_phi) {
-      
-      const List priors_phi = as<List>(priors["phi"]);
+    const List priors_phi = as<List>(priors["phi"]);
+    if (full_phi) {
       const Map<MatrixXd> mean_phi_d(as<Map<MatrixXd> >(priors_phi["mean"]));
       mean_phi = mean_phi_d.cast<AScalar>();
       const Map<MatrixXd> chol_cov_row_phi_d(as<Map<MatrixXd> >(priors_phi["chol.row"]));
       chol_cov_row_phi = chol_cov_row_phi_d.cast<AScalar>();
       const Map<MatrixXd> chol_cov_col_phi_d(as<Map<MatrixXd> >(priors_phi["chol.col"]));
       chol_cov_col_phi = chol_cov_col_phi_d.cast<AScalar>();
+      
+    } else {
+
+      if (phi_re) {
+	mean_mean_phi=as<double>(priors_phi["mean.mean"]);
+	sd_mean_phi=as<double>(priors_phi["sd.mean"]);
+	mode_var_phi=as<double>(priors_phi["mode.var"]);
+	scale_var_phi=as<double>(priors_phi["scale.var"]);	
+      } else {	
+	const Map<MatrixXd> mean_phi_d(as<Map<MatrixXd> >(priors_phi["mean"]));
+	mean_phi = mean_phi_d.cast<AScalar>();
+	const Map<MatrixXd> chol_cov_col_phi_d(as<Map<MatrixXd> >(priors_phi["chol.col"]));
+	chol_cov_col_phi = chol_cov_col_phi_d.cast<AScalar>();
+      }      
     }
 
     Rcout << "Constructor: Prior delta\n";    
@@ -492,9 +509,23 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     }
   }
   
-  if (include_phi) {
+  if (full_phi) {
     phi = MatrixXA::Map(par.derived().data() + ind, Jb, J);
     ind += Jb*J;
+  } else {
+    phi = MatrixXA::Zero(Jb,J);
+    phi_z = par.segment(ind,Jb);
+    ind += Jb;
+    if (phi_re) {
+      phi_mean = par(ind++);
+      phi_log_var = par(ind++);
+      phi_var = exp(phi_log_var);
+      phi_log_sd = phi_log_var * 0.5;
+      phi_sd = exp(phi_log_sd);     
+      phi.leftCols(Jb) = (phi_z.array() * phi_sd + phi_mean).matrix().asDiagonal();
+    } else {
+      phi.leftCols(Jb) = phi_z.asDiagonal();
+    }
   }
 
   logit_delta = par(ind++);
@@ -671,11 +702,25 @@ AScalar ads::eval_hyperprior() {
   // J x J matrix normal, diagonal (sparse) covariance matrices
   
   AScalar prior_phi = 0;
-  if (include_phi) {
+  if (full_phi) {
     prior_phi = MatNorm_logpdf(phi, mean_phi,
 			       chol_cov_row_phi,
 			       chol_cov_col_phi,
 			       false);
+  } else {
+
+    if (phi_re) {
+      for (int i=0; i<Jb; i++) {
+	prior_phi += dnorm_log(phi_z(i),0,1);
+      }
+      prior_phi += dnorm_log(phi_mean, mean_mean_phi, sd_mean_phi);
+      prior_phi += dnormTrunc0_log(phi_var, mode_var_phi, scale_var_phi);
+      prior_phi += phi_log_var; // Inv Jacobian for log_var -> var
+    } else {
+      MatrixXA pp(1,1);
+      MVN_logpdf(phi_z, mean_phi.col(0), chol_cov_row_phi, pp, false);
+      prior_phi += pp(0,0);
+    }
   }
   
 
@@ -751,8 +796,7 @@ AScalar ads::eval_hyperprior() {
 	    prior_fact_W2 += dnorm_log(LW2(i,j), fact_mode_W2, fact_scale_W2);	
 	  }
 	}
-      }
-      
+      }      
     }
   }
     
@@ -775,8 +819,7 @@ void ads::set_Gt(const int& tt) {
   Gt.setZero();
   Gt(0,0) = 1.0 - delta;
   for (int j=0; j<Jb; j++) {
-    //   Gt(0, j+1) = Afunc(A[tt](j), A_scale);
-    Gt(0, j+1) = Afunc(A[tt](j), 10.0);
+    Gt(0, j+1) = Afunc(A[tt](j), A_scale);
     Gt(j+1, j+1) = 1.0;
   }
   if (P>0) {
@@ -788,9 +831,7 @@ void ads::set_Gt(const int& tt) {
 // set_Ht
 void ads::set_Ht(const int& tt) {
   Ht.setZero();
-  if (include_phi) {
-    Ht = E[tt].asDiagonal() * phi; // H2t
-  }
+  Ht = E[tt].asDiagonal() * phi; // H2t
 } // end set_Ht
 
 
@@ -837,6 +878,7 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
   NumericMatrix C2treturn(C2t.rows(), C2t.cols());
   NumericMatrix OmegaTreturn(OmegaT.rows(), OmegaT.cols());
   NumericMatrix LW1return(LW1.rows(), LW1.cols());
+  NumericMatrix phiReturn(phi.rows(), phi.cols());
 
   for (size_t i=0; i<V.rows(); i++) {
     for (size_t j=0; j<V.cols(); j++) {
@@ -877,6 +919,12 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
     }
   }
 
+  for (size_t i=0; i<phi.rows(); i++) {
+    for (size_t j=0; j<phi.cols(); j++) {
+      phiReturn(i,j) = Value(phi(i,j));
+    }
+  }
+
 
   Rcpp::List Greturn(T);
   for (size_t tt=0; tt<T; tt++) {
@@ -897,7 +945,8 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 			  Named("chol_W1") = wrap(LW1return),
 			  Named("M2t") = wrap(M2treturn),
 			  Named("C2t") = wrap(C2treturn),
-			  Named("OmegaT") = wrap(OmegaTreturn)
+			  Named("OmegaT") = wrap(OmegaTreturn),
+			  Named("phi") = wrap(phiReturn)
 			  );
   return(res);
 			  			  
