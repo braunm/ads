@@ -68,7 +68,7 @@ private:
   std::vector<VectorXA> A; // national advertising, Jb
   std::vector<MatrixXA> Ybar; // each is  N x J
   std::vector<VectorXA> AjIsZero; // 1 if A_j == 0, 0 otherwise
-  std::vector<VectorXA> E; // number of new creatives added for each brand
+  std::vector<MatrixXA> E; // Jb x R creative measures
 
   // priors
 
@@ -115,12 +115,16 @@ private:
   AScalar fact_scale_W2;
   AScalar fact_mode_W2;
 
+  VectorXA mean_cr;
+  MatrixXA chol_cov_cr;
+
   int J; // number of brands
   int Jb; // number of brands that advertise
   int N; // number of cities
   int T; // number of weeks
   int K; // covariates with stationary parameters
   int P; // covariates with nonstationary parameters
+  int R; // covariates in creative metric
   int nfact_V; // factors to estimate V
   int nfact_W1; // factors to estimate W2 (if active)
   int nfact_W2; // factors to estimate W2 (if active)
@@ -154,6 +158,8 @@ private:
   AScalar phi_var;
   AScalar phi_log_sd;
   AScalar phi_sd;
+
+  VectorXA cr;
 
  
   // intermediate values
@@ -211,6 +217,7 @@ ads::ads(const List& params)
   Jb = as<int>(dimensions["Jb"]);
   K = as<int>(dimensions["K"]);
   P = as<int>(dimensions["P"]);
+  R = as<int>(dimensions["R"]);
 
   full_phi = as<bool>(flags["full.phi"]);
   phi_re = as<bool>(flags["phi.re"]);
@@ -294,7 +301,7 @@ ads::ads(const List& params)
       AjIsZero[i](j) = A[i](j)==0 ? 1. : 0.;
     }
 
-    const Map<VectorXd> Ed(as<Map<VectorXd> >(Elist[i]));
+    const Map<MatrixXd> Ed(as<Map<MatrixXd> >(Elist[i]));
     E[i] = Ed.cast<AScalar>();
   
     const MappedSparseXd F1d(as<MappedSparseXd >(F1list[i]));
@@ -480,7 +487,17 @@ ads::ads(const List& params)
 	fact_scale_W2 = as<double>(priors_W2["fact.scale"]);
 	fact_mode_W2 = as<double>(priors_W2["fact.mode"]);
       }
-    }    
+    }
+
+    Rcout << "Creative priors\n";
+    const List priors_cr = as<List>(priors["creatives"]);
+
+    const Map<VectorXd> mean_cr_d(as<Map<VectorXd> >(priors_cr["mean"]));
+    mean_cr = mean_cr_d.cast<AScalar>();
+    
+    const Map<MatrixXd> chol_cov_cr_d(as<Map<MatrixXd> >(priors_cr["chol.cov"]));
+    chol_cov_cr = chol_cov_cr_d.cast<AScalar>();
+ 
 
     
   } // end priors
@@ -611,6 +628,11 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
       }
     }
   }
+
+  // parameters for creatives
+  cr = par.segment(ind, R);
+  ind += R;
+
 }
 
 AScalar ads::eval_LL()
@@ -733,7 +755,8 @@ AScalar ads::eval_hyperprior() {
   if (!fix_V) {
   
     for (size_t i=0; i<V_dim; i++) {
-      prior_diag_V += dnormTrunc0_log(V(i,i), diag_mode_V, diag_scale_V);      
+      prior_diag_V += dnormTrunc0_log(exp(V_log_diag(i)),
+				      diag_mode_V, diag_scale_V);      
       prior_diag_V += V_log_diag(i); // Jacobian
     }
     
@@ -799,17 +822,26 @@ AScalar ads::eval_hyperprior() {
       }      
     }
   }
+
+
+ 
+
+  MatrixXA crp(1,1);
+  MVN_logpdf(cr, mean_cr, chol_cov_cr, crp, false);
+  AScalar prior_cr = crp(0,0);
+  
     
   AScalar prior_W2 = prior_diag_W2 + prior_fact_W2;
   AScalar prior_mats = prior_diag_V + prior_fact_V + prior_W1 + prior_W2;
   AScalar prior_logit_delta = dlogitbeta_log(logit_delta, delta_a, delta_b);
-  AScalar res =  prior_logit_delta + prior_theta12 + prior_phi + prior_mats;
+  AScalar res =  prior_logit_delta + prior_theta12 +
+    prior_phi + prior_mats + prior_cr;
   return(res);
 }
 
 // Afunc
 AScalar ads::Afunc(const AScalar& aT, const AScalar& s) {
-  AScalar res = log( 1.0 + aT/s);
+  AScalar res = log1p(aT/s);
   return(res);
 }
 
@@ -831,7 +863,7 @@ void ads::set_Gt(const int& tt) {
 // set_Ht
 void ads::set_Ht(const int& tt) {
   Ht.setZero();
-  Ht = E[tt].asDiagonal() * phi; // H2t
+  Ht = (E[tt] * cr).eval().asDiagonal() * phi; // H2t
 } // end set_Ht
 
 

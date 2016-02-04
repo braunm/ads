@@ -22,13 +22,12 @@ mcmod <- eval(parse(text=dn)) ## rename to mcmod
 if (data.is.sim) {
     flags <- mcmod$trueflags
 } else {
-    flags <- list(full.phi=FALSE, # default is a diagonal phi matrix
-                  phi.re=TRUE,
+    flags <- list(full.phi=TRUE, # default is a diagonal phi matrix
+                  phi.re=FALSE,
                   add.prior=TRUE,
                   include.X=TRUE,
                   standardize=FALSE,
                   A.scale = 1,
-                  E.scale = 1,
                   fix.V = FALSE,
                   fix.W = FALSE,
                   W1.LKJ = FALSE
@@ -50,6 +49,8 @@ N <- mcmod$dimensions$N
 T <- mcmod$dimensions$T
 J <- mcmod$dimensions$J
 Jb <- mcmod$dimensions$Jb
+##R <- mcmod$dimensions$R
+R <- 3
 
 if (flags$include.X) K <- mcmod$dimensions$K else K <- 0
 P <- mcmod$dimensions$P
@@ -58,7 +59,11 @@ Y <- mcmod$Y[1:T]
 F1 <- mcmod$F1[1:T]
 F2 <- mcmod$F2[1:T]
 A <- mcmod$A[1:T]
-E <- llply(mcmod$E[1:T], function (x) return(x/flags$E.scale))
+##E <- mcmod$E[1:T]
+
+## Test list for E
+E <- replicate(T, matrix(rnorm(Jb*R),Jb,R),simplify=FALSE)
+
 
 
 if (flags$include.X) {
@@ -81,7 +86,8 @@ dim.W1 <- Jb+1
 dim.W2 <- P
 dim.W <- dim.W1+dim.W2
 
-dimensions <- c(N=N,T=T,J=J,K=K,P=P,Jb=Jb,
+dimensions <- c(N=N,T=T,J=J,K=K,P=P,
+                Jb=Jb,R=R,
                 nfact.V=nfact.V,
                 nfact.W1=nfact.W1,
                 nfact.W2=nfact.W2
@@ -114,7 +120,7 @@ for (j in 1:Jb) {
 ##C20 <- 1000*diag(1+P+Jb,1+P+Jb)
 C20 <- diag(c(100,rep(1,Jb),rep(10,P)))
 
-E.Sigma <-  0.1*diag(J) ## expected covariance across brands
+E.Sigma <-  diag(J) ## expected covariance across brands
 nu0 <- P + 2*J + 5  ## must be greater than theta2 rows+cols
 Omega0 <- (nu0-J-1)*E.Sigma
 
@@ -172,27 +178,31 @@ if (flags$add.prior) {
 
     ## For V, W1 and W2:   normal or truncated normal priors (if needed)
     if (!flags$fix.V) {
-        prior.V <- list(diag.scale=0.1, diag.mode=0,
-                         fact.scale=0.1, fact.mode=0)
+        prior.V <- list(diag.scale=1, diag.mode=0,
+                         fact.scale=1, fact.mode=0)
     } else {
         prior.V <-  NULL
     }
 
     if (!flags$fix.W) {
-        prior.W2 <- list(diag.scale=0.1, diag.mode=0,
-                         fact.scale=0.1, fact.mode=0)
+        prior.W2 <- list(diag.scale=1, diag.mode=0,
+                         fact.scale=1, fact.mode=0)
         if (flags$W1.LKJ) {
             ## LKJ prior on W1.
             ## Scale parameter has truncated(0) normal prior
-            prior.W1 <- list(scale.mode=0, scale.s=0.1, eta=1)
+            prior.W1 <- list(scale.mode=0, scale.s=1, eta=1)
         } else {
-            prior.W1 <- list(diag.scale=0.1, diag.mode=0,
-                             fact.scale=0.1, fact.mode=0)
+            prior.W1 <- list(diag.scale=1, diag.mode=0,
+                             fact.scale=1, fact.mode=0)
         }
     } else {
         prior.W1 <- NULL
         prior.W2 <- NULL
     }
+    prior.creatives <- list(mean=rep(0,R),
+                            chol.cov=t(chol(diag(R)))
+                            )
+
 
 } else {
     prior.phi <- NULL
@@ -201,6 +211,7 @@ if (flags$add.prior) {
     prior.W2 <- NULL
     prior.delta <- NULL
     prior.theta12 <- NULL
+    prior.creatives <- NULL
 }
 
 tmp <- list(M20=M20,
@@ -212,7 +223,8 @@ tmp <- list(M20=M20,
             delta=prior.delta,
             V=prior.V,
             W1=prior.W1,
-            W2=prior.W2
+            W2=prior.W2,
+            creatives=prior.creatives
             )
 
 priors <- Filter(function(x) !is.null(x), tmp)
@@ -273,6 +285,8 @@ if (flags$fix.W) {
     W2.start <- rep(0,W2.length)
 }
 
+creatives <- rep(0,R)
+
 
 tmp <- list(
     theta12=theta12.start,
@@ -280,7 +294,8 @@ tmp <- list(
     logit.delta=logit.delta.start,
     V=V.start,
     W1=W1.start,
-    W2=W2.start
+    W2=W2.start,
+    creatives=creatives
     )
 
 start.list <- as.relistable(Filter(function(x) !is.null(x), tmp))
@@ -325,7 +340,7 @@ opt1 <- optim(start,
                   fnscale=-1,
                   REPORT=1,
                   trace=3,
-                  maxit=150
+                  maxit=250
                   )
               )
 
