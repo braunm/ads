@@ -34,7 +34,7 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 #' @examples
 #' mcmod() - Runs default with "dpp"
 #' mcmod(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PL'), covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE)
-mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PL'), covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE) {
+mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PRIVATE LABEL'), covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE) {
 
     J = length(brands.to_keep)
     P <- J * length(covv)          # total number of time varying covariates at city level
@@ -53,7 +53,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     
     market_list <- unique(df1$market_name)
 
-
+    ## not sure if this next feature is working.
         if(any(brands.to_keep == "OTHER"))
     df1 <- rbind(df1, df1[!brand %in% brands.to_keep[-which(brands.to_keep == "OTHER")] ,list(brand="OTHER",volume=sum(volume),units=sum(units),dollars=sum(dollars),lavgprc = mean(lavgprc), sumfeature=mean(sumfeature),sumdisplay=mean(sumdisplay),sumfnp=mean(sumfnp),sumdnp=mean(sumdnp),numproducts=mean(numproducts),numoutlets=mean(numoutlets),totalnumstores=min(totalnumstores),est_acv=mean(est_acv),tot_acv=min(tot_acv),fvol=sum(fvol),dvol=sum(dvol),pvol=sum(pvol),spotadsecs=sum(spotadsecs,na.rm=TRUE),spotaddols=sum(spotaddols,na.rm=TRUE),spotadunits=sum(spotadunits,na.rm=TRUE),natsecs=sum(natsecs,na.rm=TRUE),natdols=sum(natdols,na.rm=TRUE),natunits=sum(natunits,na.rm=TRUE),networkadsecs=sum(networkadsecs,na.rm=TRUE),networkaddols=sum(networkaddols,na.rm=TRUE),networkadunits=sum(networkadunits,na.rm=TRUE),syndicationadsecs=sum(syndicationadsecs,na.rm=TRUE),syndicationaddols=sum(syndicationaddols,na.rm=TRUE),syndicationadunits=sum(syndicationadunits,na.rm=TRUE),cableadsecs=sum(cableadsecs,na.rm=TRUE),cableaddols=sum(cableaddols,na.rm=TRUE),cableadunits=sum(cableadunits,na.rm=TRUE),SLNadsecs=sum(SLNadsecs,na.rm=TRUE),SLNaddols=sum(SLNaddols,na.rm=TRUE), SLNadunits=sum(SLNadunits,na.rm=TRUE),avprc=mean(avprc),fracdnp=mean(fracdnp),fracfnp=mean(fracfnp),fracdist=mean(fracdist)),by=c("market_name","week")])
 

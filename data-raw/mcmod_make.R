@@ -12,29 +12,29 @@ for(category in categories) {
     if(category=='lld') {
         ## liquid laundry detergents
         brands.to_keep<-c('TIDE','ALL','PUREX','GAIN',
-                          'CHEER','WISK','AH','PL')  # 91.7% share
+                          'CHEER','WISK','ARM & HAMMER','PRIVATE LABEL')  # 91.7% share
     }
 
     if(category=='tti'){
         ## toilet tissue
-        brands.to_keep<-c('CHARMIN','QUILTEDNORTHERN',
-                          'SCOTT','PL') # (including Kleenex) 93.0% of share
+        brands.to_keep<-c('CHARMIN','QUILTED NORTHERN',
+                          'SCOTT','PRIVATE LABEL') # (including Kleenex) 93.0% of share
     }
 
     if(category=='fti'){
         ## facial tissue
-        brands.to_keep<-c('KLEENEX','PUFFS','PL') # 93.0% of share
+        brands.to_keep<-c('KLEENEX','PUFFS','PRIVATE LABEL') # 93.0% of share
     }
 
     if(category=='dpp'){
         ## disposable diapers
-        brands.to_keep<-c('HUGGIES','PAMPERS','LUVS','PL')  # 98.2% of share
+        brands.to_keep<-c('HUGGIES','PAMPERS','LUVS','PRIVATE LABEL')  # 98.2% of share
     }
 
     if(category=='ptw'){
         ## paper towels
         brands.to_keep<-c('BOUNTY','BRAWNY','SCOTT',
-                          'VIVA','SPARKLE','PL') # 94.2% of share
+                          'VIVA','SPARKLE','PRIVATE LABEL') # 94.2% of share
     }
 
 
