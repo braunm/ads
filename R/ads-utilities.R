@@ -165,8 +165,8 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     for (t in 1:T) {
         El[[t]] <- as.numeric(E[t,])
 
-        CMl[[t]] <- .a$creativemix[[1]][weekID == fweek+(t-1),]
-        for(r in 2:R) CMl[[t]] <- rbind(CMl[[t]], .a$creativemix[[r]][weekID == fweek+(t-1),])
+        CMl[[t]] <- .a$creativemix[[1]][weekID == fweek+(t-1),brands.adv,with=FALSE]
+        for(r in 2:R) CMl[[t]] <- rbind(CMl[[t]], .a$creativemix[[r]][weekID == fweek+(t-1),brands.adv, with=FALSE])
 
    ##     names(El[[t]]) <- colnames(E)
         Al[[t]] <- A[t, ]
