@@ -4,8 +4,7 @@
 \alias{getcreatives}
 \title{Generate creatives renewal,replacement,addition.}
 \usage{
-getcreatives(category, brands.adv, fweek, T, max.distance = 0.2,
-  make.binary = FALSE)
+getcreatives(category, brands.adv, fweek, T, max.distance = 0.2)
 }
 \arguments{
   \item{category}{Three letter category acronym (being one
@@ -14,12 +13,12 @@ getcreatives(category, brands.adv, fweek, T, max.distance = 0.2,
   start analysis} \item{T}{Integer value for number of weeks
   to include from and inclusive of fweek} \item{max.distance}
   {A value passed in that uses Levenshtein distance in agrep}
-  \item{make.binary}{Flag (T or F) for whether E should be
-  dichotomous}
 }
 \value{
-T x Jb matrix with integer corresponding to number of new
-creatives added that week
+T x Jb matrix with integer corresponding to number of
+new creatives added that week. (Note, removed make.binary
+flag so nnc is always integer for number of creatives
+introduced.)
 }
 \description{
 Builds a matrix of values for creatives. Currently only

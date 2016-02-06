@@ -30,7 +30,7 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 #' @param N Integer value for number of markets to include (constructs from market_list being an alphabetic list)
 #' @param fweek Integer value for first week to start analysis
 #' @param aggregated (Defaults to FALSE) Boolean flag to indicate generation of aggregated (all US) versus city level data
-#' @return mcmod object being a list with the following elements: list(dimensions=dimensions,Y = Y,E = El, A = Al, X = Xl, F1 = F1l, F2 = F2)
+#' @return mcmod object being a list with the following elements: list(dimensions=dimensions,Y = Y,CM = CMl, E = El, A = Al, X = Xl, F1 = F1l, F2 = F2)
 #' @examples
 #' mcmod() - Runs default with "dpp"
 #' mcmod(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PL'), covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE)
@@ -109,7 +109,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
         }
         rm(.a,.xcov)
     }
-
+    
     ####### work on advertising data
     # first get brands advertising over this period
     A <- simplify2array(XAdv)[1:T,]
@@ -121,7 +121,8 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
 
     ## for this subset, which brands launched new creatives in that time frame?
     # call creatives function for Jb brands
-    ownadnnc <- getcreatives(category, brands.adv, fweek, T, make.binary=FALSE)
+    .a <- getcreatives(category, brands.adv, fweek, T)
+    ownadnnc <- .a$ownadnnc
     #load(paste(codepath,"/",category,"creatives.RData",sep=""))
     s.nnc <- as.data.frame(ownadnnc[weekID >= fweek & weekID < fweek+T,])
     s.nnc$weekID <- NULL
@@ -136,6 +137,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     JbE <- length(brands_nnc)
     JbEv <- match(brands_nnc, brands.adv)			# pointer to brands.adv, which ones changed
 
+    R <- length(.a$creativemix)
 
     ####################### set up structure for mcmod
 
@@ -159,20 +161,22 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     }
 
     # create final mcmod components
-    Al <- El <- Xl <- F1l <- Yl <- list()
+    Al <- El <- CMl <- Xl <- F1l <- Yl <- list()
     for (t in 1:T) {
-   ##     El[[t]] <- E[t, ]
         El[[t]] <- as.numeric(E[t,])
+
+        CMl[[t]] <- .a$creativemix[[1]][weekID == fweek+(t-1),]
+        for(r in 2:R) CMl[[t]] <- rbind(CMl[[t]], .a$creativemix[[r]][weekID == fweek+(t-1),])
+
    ##     names(El[[t]]) <- colnames(E)
         Al[[t]] <- A[t, ]
         Xl[[t]] <- X1[t,,]
         F1l[[t]] <- t(as(F1[t,,], "dgCMatrix"))
-	Yl[[t]] <- Y[t,,]
+        Yl[[t]] <- Y[t,,]
     }
 
-    dimensions <- list(N = N, T= T, J=J, Jb = Jb, JbE = JbE, K = ncol(Xl[[1]]), P = P)
-
-    mcmod <- list(dimensions=dimensions,Y = Yl,E = El, A = Al, X = Xl, F1 = F1l, F2 = F2)
+    dimensions <- list(N = N, T= T, J=J, R = R, Jb = Jb, JbE = JbE, K = ncol(Xl[[1]]), P = P)
+    mcmod <- list(dimensions=dimensions,Y = Yl, CM = CMl, E = El, A = Al, X = Xl, F1 = F1l, F2 = F2)
     return(mcmod)
 }
 
@@ -186,11 +190,11 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
 ##' @param fweek Integer value for first week to start analysis
 ##' @param T Integer value for number of weeks to include from and inclusive of fweek
 ##' @param max.distance A value passed in that uses Levenshtein distance in agrep
-##' @param make.binary Flag (T or F) for whether E should be dichotomous
-##' @return T x Jb matrix with integer corresponding to number of new creatives added that week
+##' @return T x Jb matrix with integer corresponding to number of new creatives added that week.
+##' (Note, removed make.binary flag so nnc is always integer for number of creatives introduced.)
 ##' @examples
 ##' getcreatives(category, brands.adv, Jb, fweek, T, make.binary=F) - called from within function mcmod()
-getcreatives <- function(category, brands.adv, fweek, T, max.distance=0.2, make.binary=FALSE) {
+getcreatives <- function(category, brands.adv, fweek, T, max.distance=0.2) {
 
     Jb = length(brands.adv)
     cf <- paste0("nobuild/data-raw/",category,"creatives.txt")
@@ -212,48 +216,35 @@ getcreatives <- function(category, brands.adv, fweek, T, max.distance=0.2, make.
     
     #### now generic code
     ## collapse
-    
-    creatives[,cID := (Jb+1)*1000]
-    for(j in 1:Jb){
-        li<-list()
-        .c <- creatives[brand==brands.adv[j],unique(tvcreative)]
-        li[[1]]<-clist<-agrep(.c[1],.c,max.distance=max.distance)
-        mc<-1
-        for(m in 2:length(.c)) if(!any(clist==m)) {
-            mc<-mc+1
-            li[[mc]]<-agrep(.c[m],.c,max.distance=max.distance)	# max.distance is measuring how difft two creative descriptors are
-            clist<-c(clist,li[[mc]])
-        }
-        for(m in 1:length(li)) creatives[tvcreative %in% .c[li[[m]]] & toupper(brand)==brands.adv[j],cID:= j * 1000 + m]
-    }
-    
-    #
-    creatives[,cIDfweek:=min(fweek),by=cID]
+    # this sets creativeID
+    setcreativeID(creatives,max.distance=max.distance)
     
     # count new ads (just use different labels, perhaps can improve on this with distance)
-    creatives[weekID==cIDfweek, nnc := uniqueN(cID),by=c("weekID","brand")]
-    creatives[is.na(nnc), nnc := 0]
+    #    creatives[weekID==cIDfweek, nnc := uniqueN(cID),by=c("weekID","brand")]
+    #    creatives[is.na(nnc), nnc := 0]
     
-    if(make.binary) creatives[nnc>0,nnc:=1]
+    # if(make.binary) creatives[nnc>0,nnc:=1]
 
     # collapse to get total new creatives
-    .nnc <- creatives[,max(nnc),by=c("weekID","brand")]
+    #.nnc <- creatives[,max(nnc),by=c("weekID","brand")]
 
-    ownadnnc <- merge(creatives[,.N,by=weekID], creatives[brand == brands.adv[1],max(nnc),by=c("weekID")],by="weekID",all.x=TRUE,all.y=F)
-    setnames(ownadnnc,"V1",brands.adv[1])
-    for(b in 2:Jb) {
-        ownadnnc <- merge(ownadnnc, creatives[brand == brands.adv[b],max(nnc),by=c("weekID")],by="weekID",all.x=TRUE,all.y=F)
-        setnames(ownadnnc,"V1", brands.adv[b])
-    }
-    ownadnnc <- ownadnnc[,N := NULL]
+    #ownadnnc <- merge(creatives[,.N,by=weekID], creatives[brand == brands.adv[1],max(nnc),by=c("weekID")],by="weekID",all.x=TRUE,all.y=F)
+    #setnames(ownadnnc,"V1",brands.adv[1])
+    #for(b in 2:Jb) {
+    #    ownadnnc <- merge(ownadnnc, creatives[brand == brands.adv[b],max(nnc),by=c("weekID")],by="weekID",all.x=TRUE,all.y=F)
+    #    setnames(ownadnnc,"V1", brands.adv[b])
+    #}
+    #ownadnnc <- ownadnnc[,N := NULL]
 
-    allweeks <- data.table(weekID=min(ownadnnc$weekID):max(ownadnnc$weekID))
-    setkey(allweeks,weekID)
-    setkey(ownadnnc,weekID)
+    return(getcreativemix(creatives))
 
-    ownadnnc <- merge(allweeks,ownadnnc,all.x=TRUE)
-    ownadnnc[is.na(ownadnnc)] <- 0
-    return(ownadnnc)
+#allweeks <- data.table(weekID=min(ownadnnc$weekID):max(ownadnnc$weekID))
+#setkey(allweeks,weekID)
+#   setkey(ownadnnc,weekID)
+
+#    ownadnnc <- merge(allweeks,ownadnnc,all.x=TRUE)
+#    ownadnnc[is.na(ownadnnc)] <- 0
+#    return(ownadnnc)
 }
 
 ##' Trim white space.
@@ -269,3 +260,101 @@ trim_characters = function(DT) {
     for (i in names(df)) if(is.character(df[,i])) df[,i] <- str_trim(df[,i])
     return(data.table(df))
 }
+
+
+##' Set creative IDs
+##'
+##' Takes a data table of creatives and assigns each unique creative with its own ID, and adds first week aired.
+##'
+##' @param DT A data table
+##' @param Jb Number of brands advertised
+##' @param max.distance Levenshtein's distance
+##' @param brands.adv Which brands are advertised
+setcreativeID <- function(DT,Jb=DT[,uniqueN(brand)], max.distance=0.2, brands.adv=DT[,unique(brand)]) {
+    DT[,cID := (Jb+1)*1000]
+    for(j in 1:Jb){
+        li<-list()
+        .c <- DT[brand==brands.adv[j],unique(tvcreative)]
+        li[[1]]<-clist<-agrep(.c[1],.c,max.distance=max.distance)
+        mc<-1
+        for(m in 2:length(.c)) if(!any(clist==m)) {
+            mc<-mc+1
+            li[[mc]]<-agrep(.c[m],.c,max.distance=max.distance)	# max.distance is measuring how difft two creative descriptors are
+            clist<-c(clist,li[[mc]])
+        }
+        for(m in 1:length(li)) DT[tvcreative %in% .c[li[[m]]] & toupper(brand)==brands.adv[j],cID:= j * 1000 + m]
+    }
+    
+    ##
+    DT[,cIDfweek:=min(fweek),by=cID]
+}
+
+
+##' Get creative data for a category
+##'
+##' Creatives a data table from raw data on creatives
+##'
+##' @param category Three letter acronym for category (e.g. "dpp")
+##' @param brands.to_keep
+##' @param max.distance Levenshtein's distance
+##' @return A list with a data table for creatives, Jb being the maximum brands, and a brand list for brands advertised
+getcreativedata <- function(category, brands.to_keep, max.distance = 0.2){
+    
+    cf <- paste0("~/Documents/ads/nobuild/data-raw/",category,"creatives.txt")
+    
+    ## convert brand names
+    creatives <- fread(cf,col.names= c('brand','program','progtype','tvcreative','property','media','avg30','avg30d','dols','sec','dtime','firstdateshown','weekID','fweek'))
+    creatives <- trim_characters(creatives)
+    creatives[,brand:=toupper(brand)]
+    creatives <- creatives[brand %in% brands.to_keep,]
+    
+    creatives <- creatives[!like(toupper(tvcreative),"CREATIVE UNKNOWN"),]
+    brands.adv <- creatives[,unique(brand)]
+    
+    Jb = length(brands.adv)
+    
+    creatives <- creatives[brand %in% brands.adv,]			# delete any brands not advertised in list
+    
+    ## collapse
+    setcreativeID(creatives)
+    
+    return(list(creatives = creatives,Jb = Jb,brands.adv = brands.adv))
+}
+
+
+##' Make creative mix
+##'
+##' Returns a matrix of weekly observations including whether new ads were released, or
+##' some metric of average age.
+##'
+##' @param category Three letter acronym for category (e.g. "dpp")
+##' @param brands.to_keep
+##' @param max.distance Levenshtein's distance
+##' @return A list with a list of metrics for creatives, each element being a T x Jb,
+##' @return data table, with Jb being the maximum brands on columns
+getcreativemix <- function(creatives){
+    
+    ## Average age per cID, number of new creatives, average number of creatives
+    creatives[,cIDavgage:=weighted.mean(weekID-cIDfweek,dols),by=c("brand","weekID")]
+    creatives[,nnc:=uniqueN(ifelse(cIDfweek==weekID,cID,0))-1,by=c("brand","weekID")]
+    
+    ## 1. Integer count of number of new creatives from beginning of series
+    ownadnnc <- dcast(creatives, weekID ~ brand, value.var = "nnc", fun=max, fill=0)
+    
+    ## 2. Creative mix element 1: Novelty being expenditure weighted average age
+    creativemix <- list()
+    creativemix[[1]] <- data.table(na.approx(dcast(creatives, weekID ~ brand, value.var = "cIDavgage", fun=max, fill=NA)))
+    
+    ## 3. Creative mix element 2: being number of creative ads being shown, weighted by spend
+    creativemix[[2]] <- dcast(creatives, weekID ~ brand, value.var = "cID", fun = uniqueN, fill = 0)
+    
+    ## 4. Creative mix element 3: Concentration (Lerner index) being total spent on advertising for
+    ##    each brand, and share by each creative for that week
+    creatives[,totalspent := sum(dols),by=c("brand","weekID")]
+    .c <- creatives[,list(fracspent = sum(ifelse(totalspent>0, dols/totalspent, 0))), by=c("cID","brand","weekID")]
+    .c[,mean_fracspent_squared := mean(fracspent^2),by=c("brand","weekID")]
+    
+    creativemix[[3]] <- dcast(.c, weekID ~ brand, value.var = "mean_fracspent_squared", fun=max, fill = 0)
+    return(list(ownadnnc = ownadnnc,creativemix = creativemix))
+}
+

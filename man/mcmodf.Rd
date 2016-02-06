@@ -6,8 +6,9 @@
 Create data files for analysis from raw IRI and TNS data files.}
 \usage{
 mcmodf(data.name = "dpp", brands.to_keep = c("HUGGIES", "PAMPERS", "LUVS",
-  "PL"), covv = c("avprc"), covnv = c("fracfnp", "fracdnp", "fracdist",
-  "numproducts"), T = 226, N = 42, fweek = 1200, aggregated = FALSE)
+  "PRIVATE LABEL"), covv = c("avprc"), covnv = c("fracfnp", "fracdnp",
+  "fracdist", "numproducts"), T = 226, N = 42, fweek = 1200,
+  aggregated = FALSE)
 }
 \arguments{
   \item{data.name}{Three letter category acronym (being one
@@ -25,8 +26,8 @@ mcmodf(data.name = "dpp", brands.to_keep = c("HUGGIES", "PAMPERS", "LUVS",
 }
 \value{
 mcmod object being a list with the following elements:
-list(dimensions=dimensions,Y = Y,E = El, A = Al, X = Xl, F1
-= F1l, F2 = F2)
+list(dimensions=dimensions,Y = Y,CM = CMl, E = El, A = Al, X
+= Xl, F1 = F1l, F2 = F2)
 }
 \description{
 mcmodf Create data files for analysis from raw IRI and TNS
