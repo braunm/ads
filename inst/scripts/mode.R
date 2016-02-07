@@ -121,7 +121,7 @@ for (j in 1:Jb) {
 C20 <- diag(c(100,rep(1,Jb),rep(10,P)))
 
 E.Sigma <-  diag(J) ## expected covariance across brands
-nu0 <- P + 2*J + 5  ## must be greater than theta2 rows+cols
+nu0 <- P + 2*J + 3  ## must be greater than theta2 rows+cols
 Omega0 <- (nu0-J-1)*E.Sigma
 
 ## The following priors are optional
@@ -159,8 +159,8 @@ if (flags$add.prior) {
     if (flags$include.X) {
         ## prior on theta12:  matrix normal with sparse covariances
         mean.theta12 <- matrix(0,K,J)
-        cov.row.theta12 <- 50*diag(K) ## across covariates within brand
-        cov.col.theta12 <- 50*diag(J) ## across brand within covariates
+        cov.row.theta12 <- 100*diag(K) ## across covariates within brand
+        cov.col.theta12 <- 100*diag(J) ## across brand within covariates
         chol.cov.row.theta12 <- t(chol(cov.row.theta12))
         chol.cov.col.theta12 <- t(chol(cov.col.theta12))
 
@@ -460,10 +460,6 @@ if (flags$phi.re) {
     s <- exp(sol$phi[Jb+2]/2)
     pp <- s * sol$phi[1:3] + sol$phi[Jb+1]
     sep <- GD %*% cv.phi %*% t(GD)
-
-
-
-
 
 }
 
