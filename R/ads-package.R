@@ -7,7 +7,7 @@
 #' @description  Functions from Bonfrer and Braun (2015)
 #'
 #' @docType package
-#' @import Rcpp RcppEigen CppADutils methods data.table Matrix stringr
+#' @import Rcpp RcppEigen CppADutils methods data.table Matrix stringr zoo
 #' @useDynLib ads
 NULL
 
