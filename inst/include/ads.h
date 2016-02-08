@@ -889,6 +889,7 @@ template<typename TC, typename TX>
   assert(out.size()==Jb);
   assert(CX.rows()==Jb);
   assert(CX.cols()==R);
+  assert(cr[0]==1);
 
   out = CX * cr;
 }
@@ -948,6 +949,7 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
   NumericMatrix OmegaTreturn(OmegaT.rows(), OmegaT.cols());
   NumericMatrix LW1return(LW1.rows(), LW1.cols());
   NumericMatrix phiReturn(phi.rows(), phi.cols());
+  NumericVector crReturn(cr.size());
 
   for (size_t i=0; i<V.rows(); i++) {
     for (size_t j=0; j<V.cols(); j++) {
@@ -994,6 +996,10 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
     }
   }
 
+  for (size_t i=0; i<cr.size(); i++) { 
+    crReturn(i,j) = Value(cr(i));
+  }
+
 
   Rcpp::List Greturn(T);
   for (size_t tt=0; tt<T; tt++) {
@@ -1015,7 +1021,8 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 			  Named("M2t") = wrap(M2treturn),
 			  Named("C2t") = wrap(C2treturn),
 			  Named("OmegaT") = wrap(OmegaTreturn),
-			  Named("phi") = wrap(phiReturn)
+			  Named("phi") = wrap(phiReturn),
+			  Named("cr") = wrap(crReturn)
 			  );
   return(res);
 			  			  

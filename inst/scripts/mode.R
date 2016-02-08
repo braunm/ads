@@ -34,7 +34,7 @@ if (data.is.sim) {
                   )
 }
 
-nfact.V <- 1
+nfact.V <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
 
@@ -197,7 +197,7 @@ if (flags$add.prior) {
         prior.W2 <- NULL
     }
     prior.creatives <- list(mean=rep(0,R-1),
-                            chol.cov=t(chol(diag(R-1)))
+                            chol.cov=t(chol(0.1*diag(R-1)))
                             )
 
 
@@ -230,8 +230,8 @@ priors <- Filter(function(x) !is.null(x), tmp)
 ## starting parameters
 
 if (flags$include.X) {
-    ##    theta12.start <- matrix(0,K,J)
-    theta12.start <- matrix(rnorm(K*J),K,J)
+    theta12.start <- matrix(0,K,J)
+    ## theta12.start <- matrix(rnorm(K*J),K,J)
 } else {
     theta12.start <- NULL
 }
@@ -239,15 +239,15 @@ if (flags$include.X) {
 logit.delta.start <- 0.2
 
 if (flags$full.phi) {
-    ##    phi.start <- matrix(0,Jb,J)
-    phi.start <- matrix(rnorm(Jb*J),Jb,J)
+    phi.start <- matrix(0,Jb,J)
+   ## phi.start <- matrix(rnorm(Jb*J),Jb,J)
 } else {
     if (flags$phi.re) {
-        ##        phi.start <- rep(0,Jb+2)
-        phi.start <- rnorm(Jb+2)
+        phi.start <- rep(0,Jb+2)
+        ## phi.start <- rnorm(Jb+2)
     } else {
-        ##        phi.start <- rep(0,Jb)str(
-        phi.start <- rnorm(Jb)
+        phi.start <- rep(0,Jb)
+        ## phi.start <- rnorm(Jb)
     }
 }
 
