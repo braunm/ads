@@ -30,7 +30,8 @@ if (data.is.sim) {
                   A.scale = 1,
                   fix.V = FALSE,
                   fix.W = FALSE,
-                  W1.LKJ = FALSE
+                  W1.LKJ = FALSE,
+                  use.cr.pars = FALSE
                   )
 }
 
@@ -60,8 +61,13 @@ F1 <- mcmod$F1[1:T]
 F2 <- mcmod$F2[1:T]
 A <- mcmod$A[1:T]
 ##E <- mcmod$E[1:T]
-CM <- mcmod$CM[1:T]
 
+if (flags$use.cr.pars) {
+    CM <- mcmod$CM[1:T]
+} else {
+    CMcol <- 3
+    CM <- llply(mcmod$CM[1:T], function(x) return(x[,CMcol,drop=FALSE]))
+}
 
 if (flags$include.X) {
   X <- mcmod$X[1:T]
@@ -145,7 +151,7 @@ if (flags$add.prior) {
                               scale.var=0.01)
         } else {
             mean.phi <- matrix(0,Jb,1)
-            cov.col.phi <- 10*diag(J)
+            cov.col.phi <- diag(J)
             chol.cov.col.phi <- t(chol(cov.col.phi))
             prior.phi <- list(mean=mean.phi,
                               chol.col = chol.cov.col.phi
@@ -196,10 +202,14 @@ if (flags$add.prior) {
         prior.W1 <- NULL
         prior.W2 <- NULL
     }
-    prior.creatives <- list(mean=rep(0,R-1),
-                            chol.cov=t(chol(0.1*diag(R-1)))
-                            )
 
+    if (flags$use.cr.pars) {
+        prior.creatives <- list(mean=rep(0,R-1),
+                                chol.cov=t(chol(diag(R-1)))
+                                )
+    } else {
+        prior.creatives <- NULL
+    }
 
 } else {
     prior.phi <- NULL
@@ -282,8 +292,11 @@ if (flags$fix.W) {
     W2.start <- rep(0,W2.length)
 }
 
-creatives <- rep(0,R-1)
-
+if (flags$use.cr.pars) {
+    creatives.start <- rep(0,R-1)
+} else {
+    creatives.start <- NULL
+}
 
 tmp <- list(
     theta12=theta12.start,
@@ -292,12 +305,13 @@ tmp <- list(
     V=V.start,
     W1=W1.start,
     W2=W2.start,
-    creatives=creatives
+    creatives=creatives.start
     )
 
 start.list <- as.relistable(Filter(function(x) !is.null(x), tmp))
 
 start <- unlist(start.list)
+nvars <- length(start)
 
 
 DL <- list(data=data, priors=priors,
@@ -442,23 +456,38 @@ cv <- solve(-hs)
 se <- sqrt(diag(cv))
 se.sol <- relist(se,skeleton=start.list)
 
+## standard errors of products of phi and a
+
+if (flags$use.cr.pars) {
+    ax <- 1
+    px <- seq(J*K+1, J*K + Jb*J)
+    crx <- nvars-R+ax
+    rg <- c(px,crx)
+    cvg <- cv[rg,rg]
+    GD <- matrix(0,Jb*J,Jb*J+1)
+    GD[,1:(Jb*J)] <- diag(rep(sol$creatives[ax],Jb*J))
+    GD[,(Jb*J+1)] <- as.vector(sol$phi)
+    pa <- kronecker(as.vector(sol$phi), sol$creatives)
+    cv.pa <- GD %*% cvg %*% t(GD)
+    se.pa <- sqrt(diag(cv.pa))
+}
+
+
 ## Standard errors of phi for real effects model
 
-if (flags$phi.re) {
-
-    px <- seq(J*K+1, J*K+Jb+2)
-    cv.phi <- cv[px,px]
-    GD <- matrix(0,Jb+2,Jb+2)
-    diag(GD)[1:Jb] <- exp(sol$phi[Jb+2]/2)
-    GD[Jb+1,Jb+1] <- 1
-    GD[Jb+2,Jb+2] <- exp(sol$phi[Jb+2]/2)/2
-    GD[1:Jb,Jb+1] <- exp(sol$phi[Jb+2]/2)*sol$phi[1:Jb]/2
-    GD[1:Jb,Jb+2] <- 1
-    s <- exp(sol$phi[Jb+2]/2)
-    pp <- s * sol$phi[1:3] + sol$phi[Jb+1]
-    sep <- GD %*% cv.phi %*% t(GD)
-
-}
+## if (flags$phi.re) {
+##     px <- seq(J*K+1, J*K+Jb+2)
+##     cv.phi <- cv[px,px]
+##     GD <- matrix(0,Jb+2,Jb+2)
+##     diag(GD)[1:Jb] <- exp(sol$phi[Jb+2]/2)
+##     GD[Jb+1,Jb+1] <- 1
+##     GD[Jb+2,Jb+2] <- exp(sol$phi[Jb+2]/2)/2
+##     GD[1:Jb,Jb+1] <- exp(sol$phi[Jb+2]/2)*sol$phi[1:Jb]/2
+##     GD[1:Jb,Jb+2] <- 1
+##     s <- exp(sol$phi[Jb+2]/2)
+##     pp <- s * sol$phi[1:3] + sol$phi[Jb+1]
+##     sep <- GD %*% cv.phi %*% t(GD)
+## }
 
 
 
