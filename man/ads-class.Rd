@@ -6,9 +6,4 @@
 \alias{ads}
 \alias{ads-class}
 \title{hdlm project}
-\format{An object of class \code{character} of length 1.}
-\usage{
-ads
-}
-\keyword{datasets}
 

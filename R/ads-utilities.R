@@ -161,13 +161,20 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     }
 
     # create final mcmod components
-    Al <- El <- CMl <- Xl <- F1l <- Yl <- list()
+    Al <- El <- CMl <- CMdl <- Xl <- F1l <- Yl <- list()
     for (t in 1:T) {
         El[[t]] <- as.numeric(E[t,])
-
+        # if(t> 144) browser()
         CMl[[t]] <- .a$creativemix[[1]][weekID == fweek+(t-1),brands.adv,with=FALSE]
-        for(r in 2:R) CMl[[t]] <- rbind(CMl[[t]], .a$creativemix[[r]][weekID == fweek+(t-1),brands.adv, with=FALSE])
+        .cd <- .a$creativemix[[1]][weekID == fweek+(t-2),brands.adv,with=FALSE]
+        for(r in 2:R) {
+            CMl[[t]] <- rbind(CMl[[t]], .a$creativemix[[r]][weekID == fweek+(t-1),brands.adv, with=FALSE])
+            .cd <- rbind(.cd, .a$creativemix[[r]][weekID == fweek+(t-2),brands.adv, with=FALSE])
+        }
+        
         CMl[[t]] <- t(CMl[[t]])
+        CMdl[[t]] <- CMl[[t]] - t(.cd)
+        
 
    ##     names(El[[t]]) <- colnames(E)
         Al[[t]] <- A[t, ]
@@ -177,7 +184,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     }
 
     dimensions <- list(N = N, T= T, J=J, R = R, Jb = Jb, JbE = JbE, K = ncol(Xl[[1]]), P = P)
-    mcmod <- list(dimensions=dimensions,Y = Yl, CM = CMl, E = El, A = Al, X = Xl, F1 = F1l, F2 = F2)
+    mcmod <- list(dimensions=dimensions,Y = Yl, CM = CMl, CMd = CMdl, E = El, A = Al, X = Xl, F1 = F1l, F2 = F2)
     return(mcmod)
 }
 
@@ -191,8 +198,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
 ##' @param fweek Integer value for first week to start analysis
 ##' @param T Integer value for number of weeks to include from and inclusive of fweek
 ##' @param max.distance A value passed in that uses Levenshtein distance in agrep
-##' @return T x Jb matrix with integer corresponding to number of new creatives added that week.
-##' (Note, removed make.binary flag so nnc is always integer for number of creatives introduced.)
+##' @return T x Jb matrix with integer corresponding to number of new creatives added that week. (Note, removed make.binary flag so nnc is always integer for number of creatives introduced.)
 ##' @examples
 ##' getcreatives(category, brands.adv, Jb, fweek, T, make.binary=F) - called from within function mcmod()
 getcreatives <- function(category, brands.adv, fweek, T, max.distance=0.2) {
@@ -296,7 +302,7 @@ setcreativeID <- function(DT,Jb=DT[,uniqueN(brand)], max.distance=0.2, brands.ad
 ##' Creatives a data table from raw data on creatives
 ##'
 ##' @param category Three letter acronym for category (e.g. "dpp")
-##' @param brands.to_keep
+##' @param brands.to_keep Character vector of brands that advertise
 ##' @param max.distance Levenshtein's distance
 ##' @return A list with a data table for creatives, Jb being the maximum brands, and a brand list for brands advertised
 getcreativedata <- function(category, brands.to_keep, max.distance = 0.2){
@@ -329,7 +335,7 @@ getcreativedata <- function(category, brands.to_keep, max.distance = 0.2){
 ##' some metric of average age.
 ##'
 ##' @param category Three letter acronym for category (e.g. "dpp")
-##' @param brands.to_keep
+##' @param brands.to_keep Character vector of brands
 ##' @param max.distance Levenshtein's distance
 ##' @return A list with a list of metrics for creatives, each element being a T x Jb,
 ##' @return data table, with Jb being the maximum brands on columns
@@ -346,8 +352,10 @@ getcreativemix <- function(creatives){
     creativemix <- list()
     creativemix[[1]] <- data.table(na.approx(dcast(creatives, weekID ~ brand, value.var = "cIDavgage", fun=max, fill=NA)))
     
+
     ## 3. Creative mix element 2: being number of creative ads being shown, weighted by spend
-    creativemix[[2]] <- dcast(creatives, weekID ~ brand, value.var = "cID", fun = uniqueN, fill = 0)
+    creativemix[[2]] <- data.table(na.approx(dcast(creatives, weekID ~ brand, value.var = "cID", fun = uniqueN, fill = NA)))
+    
     
     ## 4. Creative mix element 3: Concentration (Lerner index) being total spent on advertising for
     ##    each brand, and share by each creative for that week
