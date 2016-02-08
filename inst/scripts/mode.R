@@ -65,7 +65,7 @@ A <- mcmod$A[1:T]
 if (flags$use.cr.pars) {
     CM <- mcmod$CM[1:T]
 } else {
-    CMcol <- 3
+    CMcol <- 2
     CM <- llply(mcmod$CM[1:T], function(x) return(x[,CMcol,drop=FALSE]))
 }
 
@@ -121,7 +121,7 @@ for (j in 1:Jb) {
 }
 
 ##C20 <- 1000*diag(1+P+Jb,1+P+Jb)
-C20 <- diag(c(100,rep(1,Jb),rep(10,P)))
+C20 <- diag(c(1000,rep(1,Jb),rep(10,P)))
 
 E.Sigma <-  diag(J) ## expected covariance across brands
 nu0 <- P + 2*J + 3  ## must be greater than theta2 rows+cols
@@ -134,8 +134,8 @@ if (flags$add.prior) {
 
         ## prior on phi:  matrix normal with sparse covariances
         mean.phi <- matrix(0,Jb,J)
-        cov.row.phi <- diag(Jb)
-        cov.col.phi <- diag(J)
+        cov.row.phi <- 20*diag(Jb)
+        cov.col.phi <- 20*diag(J)
         chol.cov.row.phi <- t(chol(cov.row.phi))
         chol.cov.col.phi <- t(chol(cov.col.phi))
 
@@ -447,7 +447,7 @@ if (!flags$fix.W) {
     }
 }
 
-parcheck <- cl$par.check(opt$par)
+##parcheck <- cl$par.check(opt$par)
 
 cat("Computing Hessian\n")
 hs <- get.hessian(opt$par)

@@ -289,7 +289,9 @@ ads::ads(const List& params)
       nfact_W2 = 0;
     }
   }
-  
+
+  // start modeling at week 2
+  // to use lags for A and CM
   for (int i=0; i<T; i++) {
 
     
@@ -674,8 +676,10 @@ AScalar ads::eval_LL()
     OmegaT = Omega0;
     AScalar log_det_Qt = 0;
     nuT = nu0;
-    
-  for (int t=0; t<T; t++) {
+
+    // start modeling at week 2
+    // to use lags for A and CM    
+  for (int t=1; t<T; t++) {
     check_interrupt();
 
     // run recursion
@@ -882,7 +886,7 @@ void ads::set_Gt(const int& tt) {
   Gt.setZero();
   Gt(0,0) = 1.0 - delta;
   for (int j=0; j<Jb; j++) {
-    Gt(0, j+1) = Afunc(A[tt](j), A_scale);
+    Gt(0, j+1) = Afunc(A[tt-1](j), A_scale);
     Gt(j+1, j+1) = 1.0;
   }
   if (P>0) {
@@ -915,10 +919,10 @@ void ads::set_Ht(const int& tt) {
 
   Ht.setZero();
   if (use_cr_pars) {
-    get_cr_mix(CM[tt], crMet);
+    get_cr_mix(CM[tt-1], crMet);
     Ht = crMet.asDiagonal() * phi; // H2t
   } else {
-    Ht = CM[tt].asDiagonal() * phi;
+    Ht = CM[tt-1].asDiagonal() * phi;
   }
     
 } // end set_Ht
