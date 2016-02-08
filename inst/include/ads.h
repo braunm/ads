@@ -58,6 +58,10 @@ private:
   void set_Gt(const int&);
   void set_Ht(const int&);
   AScalar Afunc(const AScalar&, const AScalar&);
+
+  template<typename TC, typename TX>
+    void get_cr_mix(const MatrixBase<TC>&,
+		    const MatrixBase<TX>&);
  
   // data
   std::vector<MatrixXA> Y; // each is  N x J
@@ -68,7 +72,7 @@ private:
   std::vector<VectorXA> A; // national advertising, Jb
   std::vector<MatrixXA> Ybar; // each is  N x J
   std::vector<VectorXA> AjIsZero; // 1 if A_j == 0, 0 otherwise
-  std::vector<MatrixXA> E; // Jb x R creative measures
+  std::vector<MatrixXA> CM; // Jb x R creative measures
 
   // priors
 
@@ -115,8 +119,8 @@ private:
   AScalar fact_scale_W2;
   AScalar fact_mode_W2;
 
-  VectorXA mean_cr;
-  MatrixXA chol_cov_cr;
+  VectorXA mean_cr; // R-1 elements
+  MatrixXA chol_cov_cr; // R-1 x R-1
 
   int J; // number of brands
   int Jb; // number of brands that advertise
@@ -160,6 +164,7 @@ private:
   AScalar phi_sd;
 
   VectorXA cr;
+  VectorXA cr0;
 
  
   // intermediate values
@@ -177,6 +182,9 @@ private:
   MatrixXA OmegaT;
   AScalar nuT;
 
+  VectorXA crMet; // creative metrics
+
+  
   AScalar log_const;
   MatrixXA QYf;
   MatrixXA tmpNJ;
@@ -254,8 +262,8 @@ ads::ads(const List& params)
   A.resize(T);
   AjIsZero.resize(T);
 
-  const List Elist = as<List>(data["E"]);
-  E.resize(T);
+  const List CMlist = as<List>(data["CM"]);
+  CM.resize(T);
 
   V_dim = N;
   W1_dim = 1+Jb;
@@ -301,8 +309,8 @@ ads::ads(const List& params)
       AjIsZero[i](j) = A[i](j)==0 ? 1. : 0.;
     }
 
-    const Map<MatrixXd> Ed(as<Map<MatrixXd> >(Elist[i]));
-    E[i] = Ed.cast<AScalar>();
+    const Map<MatrixXd> CMd(as<Map<MatrixXd> >(CMlist[i]));
+    CM[i] = CMd.cast<AScalar>();
   
     const MappedSparseXd F1d(as<MappedSparseXd >(F1list[i]));
     F1[i] = F1d.cast<AScalar>().transpose(); // transpose should force row major
@@ -344,6 +352,9 @@ ads::ads(const List& params)
 
   phi = MatrixXA::Zero(Jb,J);
   phi_z = VectorXA::Zero(Jb);
+  cr0.resize(R-1);
+  cr.resize(R);
+  cr[0] = 1; // first element is always 1
  
 
 
@@ -360,7 +371,7 @@ ads::ads(const List& params)
   OmegaT.resize(J,J);
   QYf.resize(N,J);
   tmpNJ.resize(N,J);
-
+  crMet.resize(Jb);
 
   Rcout << "Required prior parameters\n";
   
@@ -630,8 +641,9 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
   }
 
   // parameters for creatives
-  cr = par.segment(ind, R);
-  ind += R;
+  cr0 = par.segment(ind, R-1);
+  cr.tail(R-1) = cr0;
+  ind += R-1;
 
 }
 
@@ -827,7 +839,7 @@ AScalar ads::eval_hyperprior() {
  
 
   MatrixXA crp(1,1);
-  MVN_logpdf(cr, mean_cr, chol_cov_cr, crp, false);
+  MVN_logpdf(cr0, mean_cr, chol_cov_cr, crp, false);
   AScalar prior_cr = crp(0,0);
   
     
@@ -845,6 +857,10 @@ AScalar ads::Afunc(const AScalar& aT, const AScalar& s) {
   return(res);
 }
 
+
+
+
+
 // set_Gt
 void ads::set_Gt(const int& tt) {
 
@@ -860,10 +876,31 @@ void ads::set_Gt(const int& tt) {
 }  // end set_Gt
 
 
+// creative mix
+template<typename TC, typename TX>
+  void ads::get_cr_mix(const MatrixBase<TC>& CX,
+		       const MatrixBase<TX>& out_) {
+  // cr : vector of parameters for creatives
+  // CX input matrix
+  // creative measure for each brand
+
+  MatrixBase<TX> & out = const_cast<MatrixBase<TX>& >(out_); 
+  
+  assert(out.size()==Jb);
+  assert(CX.rows()==Jb);
+  assert(CX.cols()==R);
+
+  out = CX * cr;
+}
+
+
 // set_Ht
 void ads::set_Ht(const int& tt) {
+
   Ht.setZero();
-  Ht = (E[tt] * cr).eval().asDiagonal() * phi; // H2t
+  get_cr_mix(CM[tt], crMet);
+  Ht = crMet.asDiagonal() * phi; // H2t
+
 } // end set_Ht
 
 

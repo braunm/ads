@@ -49,8 +49,8 @@ N <- mcmod$dimensions$N
 T <- mcmod$dimensions$T
 J <- mcmod$dimensions$J
 Jb <- mcmod$dimensions$Jb
-##R <- mcmod$dimensions$R
-R <- 3
+R <- mcmod$dimensions$R
+
 
 if (flags$include.X) K <- mcmod$dimensions$K else K <- 0
 P <- mcmod$dimensions$P
@@ -60,10 +60,7 @@ F1 <- mcmod$F1[1:T]
 F2 <- mcmod$F2[1:T]
 A <- mcmod$A[1:T]
 ##E <- mcmod$E[1:T]
-
-## Test list for E
-E <- replicate(T, matrix(rnorm(Jb*R),Jb,R),simplify=FALSE)
-
+CM <- mcmod$CM[1:T]
 
 
 if (flags$include.X) {
@@ -79,7 +76,7 @@ if (flags$include.X) {
 ## code, to force row-major order.
 
 data <- list(X=X, Y=Y, F1=F1, F2=F2,
-             A=A, E=E)
+             A=A, CM=CM) # E=E)
 
 dim.V <- N
 dim.W1 <- Jb+1
@@ -199,8 +196,8 @@ if (flags$add.prior) {
         prior.W1 <- NULL
         prior.W2 <- NULL
     }
-    prior.creatives <- list(mean=rep(0,R),
-                            chol.cov=t(chol(diag(R)))
+    prior.creatives <- list(mean=rep(0,R-1),
+                            chol.cov=t(chol(diag(R-1)))
                             )
 
 
@@ -285,7 +282,7 @@ if (flags$fix.W) {
     W2.start <- rep(0,W2.length)
 }
 
-creatives <- rep(0,R)
+creatives <- rep(0,R-1)
 
 
 tmp <- list(
