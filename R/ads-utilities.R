@@ -164,7 +164,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     Al <- El <- CMl <- CMdl <- Xl <- F1l <- Yl <- list()
     for (t in 1:T) {
         El[[t]] <- as.numeric(E[t,])
-        
+
         CMl[[t]] <- .a$creativemix[[1]][weekID == fweek+(t-1),brands.adv,with=FALSE]
         .cd <- .a$creativemix[[1]][weekID == fweek+(t-2),brands.adv,with=FALSE]
         for(r in 2:R) {
@@ -175,7 +175,6 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
         CMl[[t]] <- t(CMl[[t]])
         CMdl[[t]] <- CMl[[t]] - t(.cd)
         
-
    ##     names(El[[t]]) <- colnames(E)
         Al[[t]] <- A[t, ]
         Xl[[t]] <- X1[t,,]
@@ -350,12 +349,15 @@ getcreativemix <- function(creatives){
     
     ## 2. Creative mix element 1: Novelty being expenditure weighted average age
     creativemix <- list()
-    creativemix[[1]] <- data.table(na.approx(dcast(creatives, weekID ~ brand, value.var = "cIDavgage", fun=max, fill=NA)))
-    
+    .a <- data.table(na.approx(dcast(creatives, weekID ~ brand, value.var = "cIDavgage", fun=max, fill=NA)))
+    setkey(.a, weekID)
+    ## the following step ensures that weekID is continuous (with values being interpolated)
+    creativemix[[1]] <- .a[.(min(weekID):max(weekID)), roll=TRUE]
 
     ## 3. Creative mix element 2: being number of creative ads being shown, weighted by spend
-    creativemix[[2]] <- data.table(na.approx(dcast(creatives, weekID ~ brand, value.var = "cID", fun = uniqueN, fill = NA)))
-    
+    .a <- data.table(na.approx(dcast(creatives, weekID ~ brand, value.var = "cID", fun = uniqueN, fill = NA)))
+    setkey(.a, weekID)
+    creativemix[[2]] <- .a[.(min(weekID):max(weekID)), roll=TRUE]
     
     ## 4. Creative mix element 3: Concentration (Lerner index) being total spent on advertising for
     ##    each brand, and share by each creative for that week
@@ -363,7 +365,9 @@ getcreativemix <- function(creatives){
     .c <- creatives[,list(fracspent = sum(ifelse(totalspent>0, dols/totalspent, 0))), by=c("cID","brand","weekID")]
     .c[,mean_fracspent_squared := mean(fracspent^2),by=c("brand","weekID")]
     
-    creativemix[[3]] <- dcast(.c, weekID ~ brand, value.var = "mean_fracspent_squared", fun=max, fill = 0)
+    .a <- dcast(.c, weekID ~ brand, value.var = "mean_fracspent_squared", fun=max, fill = 0)
+    setkey(.a, weekID)
+    creativemix[[3]] <- .a[.(min(weekID):max(weekID)), roll=TRUE]
     return(list(ownadnnc = ownadnnc,creativemix = creativemix))
 }
 
