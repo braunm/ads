@@ -997,7 +997,7 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
   }
 
   for (size_t i=0; i<cr.size(); i++) { 
-    crReturn(i,j) = Value(cr(i));
+    crReturn(i) = Value(cr(i));
   }
 
 
