@@ -164,7 +164,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     Al <- El <- CMl <- CMdl <- Xl <- F1l <- Yl <- list()
     for (t in 1:T) {
         El[[t]] <- as.numeric(E[t,])
-        # if(t> 144) browser()
+        
         CMl[[t]] <- .a$creativemix[[1]][weekID == fweek+(t-1),brands.adv,with=FALSE]
         .cd <- .a$creativemix[[1]][weekID == fweek+(t-2),brands.adv,with=FALSE]
         for(r in 2:R) {
@@ -184,7 +184,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     }
 
     dimensions <- list(N = N, T= T, J=J, R = R, Jb = Jb, JbE = JbE, K = ncol(Xl[[1]]), P = P)
-    mcmod <- list(dimensions=dimensions,Y = Yl, CM = CMl, CMd = CMdl, E = El, A = Al, X = Xl, F1 = F1l, F2 = F2)
+    mcmod <- list(dimensions=dimensions,Y = Yl, CM = CMdl, E = El, A = Al, X = Xl, F1 = F1l, F2 = F2)
     return(mcmod)
 }
 
