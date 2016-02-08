@@ -34,7 +34,7 @@ if (data.is.sim) {
                   )
 }
 
-nfact.V <- 1
+nfact.V <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
 
@@ -49,8 +49,8 @@ N <- mcmod$dimensions$N
 T <- mcmod$dimensions$T
 J <- mcmod$dimensions$J
 Jb <- mcmod$dimensions$Jb
-##R <- mcmod$dimensions$R
-R <- 3
+R <- mcmod$dimensions$R
+
 
 if (flags$include.X) K <- mcmod$dimensions$K else K <- 0
 P <- mcmod$dimensions$P
@@ -60,10 +60,7 @@ F1 <- mcmod$F1[1:T]
 F2 <- mcmod$F2[1:T]
 A <- mcmod$A[1:T]
 ##E <- mcmod$E[1:T]
-
-## Test list for E
-E <- replicate(T, matrix(rnorm(Jb*R),Jb,R),simplify=FALSE)
-
+CM <- mcmod$CM[1:T]
 
 
 if (flags$include.X) {
@@ -79,7 +76,7 @@ if (flags$include.X) {
 ## code, to force row-major order.
 
 data <- list(X=X, Y=Y, F1=F1, F2=F2,
-             A=A, E=E)
+             A=A, CM=CM) # E=E)
 
 dim.V <- N
 dim.W1 <- Jb+1
@@ -121,7 +118,7 @@ for (j in 1:Jb) {
 C20 <- diag(c(100,rep(1,Jb),rep(10,P)))
 
 E.Sigma <-  diag(J) ## expected covariance across brands
-nu0 <- P + 2*J + 5  ## must be greater than theta2 rows+cols
+nu0 <- P + 2*J + 3  ## must be greater than theta2 rows+cols
 Omega0 <- (nu0-J-1)*E.Sigma
 
 ## The following priors are optional
@@ -159,8 +156,8 @@ if (flags$add.prior) {
     if (flags$include.X) {
         ## prior on theta12:  matrix normal with sparse covariances
         mean.theta12 <- matrix(0,K,J)
-        cov.row.theta12 <- 50*diag(K) ## across covariates within brand
-        cov.col.theta12 <- 50*diag(J) ## across brand within covariates
+        cov.row.theta12 <- 100*diag(K) ## across covariates within brand
+        cov.col.theta12 <- 100*diag(J) ## across brand within covariates
         chol.cov.row.theta12 <- t(chol(cov.row.theta12))
         chol.cov.col.theta12 <- t(chol(cov.col.theta12))
 
@@ -199,8 +196,8 @@ if (flags$add.prior) {
         prior.W1 <- NULL
         prior.W2 <- NULL
     }
-    prior.creatives <- list(mean=rep(0,R),
-                            chol.cov=t(chol(diag(R)))
+    prior.creatives <- list(mean=rep(0,R-1),
+                            chol.cov=t(chol(0.1*diag(R-1)))
                             )
 
 
@@ -233,8 +230,8 @@ priors <- Filter(function(x) !is.null(x), tmp)
 ## starting parameters
 
 if (flags$include.X) {
-    ##    theta12.start <- matrix(0,K,J)
-    theta12.start <- matrix(rnorm(K*J),K,J)
+    theta12.start <- matrix(0,K,J)
+    ## theta12.start <- matrix(rnorm(K*J),K,J)
 } else {
     theta12.start <- NULL
 }
@@ -242,15 +239,15 @@ if (flags$include.X) {
 logit.delta.start <- 0.2
 
 if (flags$full.phi) {
-    ##    phi.start <- matrix(0,Jb,J)
-    phi.start <- matrix(rnorm(Jb*J),Jb,J)
+    phi.start <- matrix(0,Jb,J)
+   ## phi.start <- matrix(rnorm(Jb*J),Jb,J)
 } else {
     if (flags$phi.re) {
-        ##        phi.start <- rep(0,Jb+2)
-        phi.start <- rnorm(Jb+2)
+        phi.start <- rep(0,Jb+2)
+        ## phi.start <- rnorm(Jb+2)
     } else {
-        ##        phi.start <- rep(0,Jb)str(
-        phi.start <- rnorm(Jb)
+        phi.start <- rep(0,Jb)
+        ## phi.start <- rnorm(Jb)
     }
 }
 
@@ -285,7 +282,7 @@ if (flags$fix.W) {
     W2.start <- rep(0,W2.length)
 }
 
-creatives <- rep(0,R)
+creatives <- rep(0,R-1)
 
 
 tmp <- list(
@@ -460,10 +457,6 @@ if (flags$phi.re) {
     s <- exp(sol$phi[Jb+2]/2)
     pp <- s * sol$phi[1:3] + sol$phi[Jb+1]
     sep <- GD %*% cv.phi %*% t(GD)
-
-
-
-
 
 }
 
