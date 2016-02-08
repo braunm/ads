@@ -202,6 +202,7 @@ private:
   bool fix_V;
   bool fix_W;
   bool W1_LKJ;
+  bool use_cr_pars;
 
   AScalar A_scale;
     
@@ -231,6 +232,7 @@ ads::ads(const List& params)
   phi_re = as<bool>(flags["phi.re"]);
   add_prior = as<bool>(flags["add.prior"]);
   include_X = as<bool>(flags["include.X"]);
+  use_cr_pars = as<bool>(flags["use.cr.pars"]);
 
   A_scale = as<double>(flags["A.scale"]);
   fix_V = as<bool>(flags["fix.V"]);
@@ -311,6 +313,13 @@ ads::ads(const List& params)
 
     const Map<MatrixXd> CMd(as<Map<MatrixXd> >(CMlist[i]));
     CM[i] = CMd.cast<AScalar>();
+
+    if (use_cr_pars) {
+      if (CM[i].cols() != 1) {
+	Rcout << "Warning: use_cr_pars is FALSE. ";
+	Rcout << "CM should be 1 column.\n";
+      }
+    }
   
     const MappedSparseXd F1d(as<MappedSparseXd >(F1list[i]));
     F1[i] = F1d.cast<AScalar>().transpose(); // transpose should force row major
@@ -352,10 +361,12 @@ ads::ads(const List& params)
 
   phi = MatrixXA::Zero(Jb,J);
   phi_z = VectorXA::Zero(Jb);
-  cr0.resize(R-1);
-  cr.resize(R);
-  cr[0] = 1; // first element is always 1
- 
+
+  if (use_cr_pars) {
+    cr0.resize(R-1);
+    cr.resize(R);
+    cr[0] = 1; // first element is always 1
+  }
 
 
   Rcout << "Allocating memory for intermediate parameters\n";
@@ -500,15 +511,16 @@ ads::ads(const List& params)
       }
     }
 
-    Rcout << "Creative priors\n";
-    const List priors_cr = as<List>(priors["creatives"]);
-
-    const Map<VectorXd> mean_cr_d(as<Map<VectorXd> >(priors_cr["mean"]));
-    mean_cr = mean_cr_d.cast<AScalar>();
-    
-    const Map<MatrixXd> chol_cov_cr_d(as<Map<MatrixXd> >(priors_cr["chol.cov"]));
-    chol_cov_cr = chol_cov_cr_d.cast<AScalar>();
- 
+    if (use_cr_pars) {
+      Rcout << "Creative priors\n";
+      const List priors_cr = as<List>(priors["creatives"]);
+      
+      const Map<VectorXd> mean_cr_d(as<Map<VectorXd> >(priors_cr["mean"]));
+      mean_cr = mean_cr_d.cast<AScalar>();
+      
+      const Map<MatrixXd> chol_cov_cr_d(as<Map<MatrixXd> >(priors_cr["chol.cov"]));
+      chol_cov_cr = chol_cov_cr_d.cast<AScalar>();
+    }
 
     
   } // end priors
@@ -641,10 +653,11 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
   }
 
   // parameters for creatives
-  cr0 = par.segment(ind, R-1);
-  cr.tail(R-1) = cr0;
-  ind += R-1;
-
+  if (use_cr_pars) {
+    cr0 = par.segment(ind, R-1);
+    cr.tail(R-1) = cr0;
+    ind += R-1;
+  }
 }
 
 AScalar ads::eval_LL()
@@ -837,10 +850,12 @@ AScalar ads::eval_hyperprior() {
 
 
  
-
-  MatrixXA crp(1,1);
-  MVN_logpdf(cr0, mean_cr, chol_cov_cr, crp, false);
-  AScalar prior_cr = crp(0,0);
+  AScalar prior_cr = 0.0;
+  if (use_cr_pars) {
+    MatrixXA crp(1,1);
+    MVN_logpdf(cr0, mean_cr, chol_cov_cr, crp, false);
+    prior_cr = crp(0,0);
+  }
   
     
   AScalar prior_W2 = prior_diag_W2 + prior_fact_W2;
@@ -899,9 +914,13 @@ template<typename TC, typename TX>
 void ads::set_Ht(const int& tt) {
 
   Ht.setZero();
-  get_cr_mix(CM[tt], crMet);
-  Ht = crMet.asDiagonal() * phi; // H2t
-
+  if (use_cr_pars) {
+    get_cr_mix(CM[tt], crMet);
+    Ht = crMet.asDiagonal() * phi; // H2t
+  } else {
+    Ht = CM[tt].asDiagonal() * phi;
+  }
+    
 } // end set_Ht
 
 
@@ -996,10 +1015,11 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
     }
   }
 
-  for (size_t i=0; i<cr.size(); i++) { 
-    crReturn(i) = Value(cr(i));
+  if (use_cr_pars) {
+    for (size_t i=0; i<cr.size(); i++) { 
+      crReturn(i) = Value(cr(i));
+    }
   }
-
 
   Rcpp::List Greturn(T);
   for (size_t tt=0; tt<T; tt++) {
