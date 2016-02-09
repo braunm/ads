@@ -113,6 +113,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     ####### work on advertising data
     # first get brands advertising over this period
     A <- simplify2array(XAdv)[1:T,]
+
     .brands_advertised <- as.numeric(which(colSums(A)>0))
     if(any(diff(which(colSums(A)>0))>1)) stop("Reorder columns for advertised brands, unless you make sure all 1:Jb brands advertise, the estimation will likely be incorrect.")
     Jb <- length(.brands_advertised)
@@ -123,9 +124,20 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     # call creatives function for Jb brands
     .a <- getcreatives(category, brands.adv, fweek, T)
     ownadnnc <- .a$ownadnnc
+    ownadnnc.fracspent <- .a$ownadnnc.fracspent
+    ownadnnc.fracspent.l1 <- .a$ownadnnc.fracspent.l1
+    
     #load(paste(codepath,"/",category,"creatives.RData",sep=""))
-    s.nnc <- as.data.frame(ownadnnc[weekID >= fweek & weekID < fweek+T,])
+    s.nnc <- as.data.frame(ownadnnc[weekID >= fweek & weekID < fweek+T,brands.adv,with=FALSE])
     s.nnc$weekID <- NULL
+
+    ## same but multiplied by fraction of ad budget that week by that brand
+    s.nnc.fracspent <- as.data.frame(ownadnnc.fracspent[weekID >= fweek & weekID < fweek+T,brands.adv,with=FALSE])
+    s.nnc.fracspent$weekID <- NULL
+
+    ## same but multiplied by fraction of ad budget that week by that brand
+    s.nnc.fracspent.l1 <- as.data.frame(ownadnnc.fracspent.l1[weekID >= fweek & weekID < fweek+T,brands.adv,with=FALSE])
+    s.nnc.fracspent.l1$weekID <- NULL
 
     .brands_changed <- which(colSums(s.nnc)>0)
     brands_nnc <- brands.adv[.brands_changed]
@@ -134,6 +146,8 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     ## 2/2/2015 - now E is same dimension as ads (Jb) but JbE measures the number of brands with observed changes so JbE could be less than Jb
     ##    E <- s.nnc[1:T,.brands_changed]
     E <- s.nnc[1:T,]
+    Ef <- s.nnc.fracspent[1:T,]
+    Efl1 <- s.nnc.fracspent.l1[1:T,]
     JbE <- length(brands_nnc)
     JbEv <- match(brands_nnc, brands.adv)			# pointer to brands.adv, which ones changed
 
@@ -161,9 +175,11 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     }
 
     # create final mcmod components
-    Al <- El <- CMl <- CMdl <- Xl <- F1l <- Yl <- list()
+    Al <- El <- Efl <- Efl1l <- CMl <- CMdl <- Xl <- F1l <- Yl <- list()
     for (t in 1:T) {
         El[[t]] <- as.numeric(E[t,])
+        Efl[[t]] <- as.numeric(Ef[t,])
+        Efl1l[[t]] <- as.numeric(Efl1[t,])
 
         CMl[[t]] <- .a$creativemix[[1]][weekID == fweek+(t-1),brands.adv,with=FALSE]
         .cd <- .a$creativemix[[1]][weekID == fweek+(t-2),brands.adv,with=FALSE]
@@ -183,7 +199,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     }
 
     dimensions <- list(N = N, T= T, J=J, R = R, Jb = Jb, JbE = JbE, K = ncol(Xl[[1]]), P = P)
-    mcmod <- list(dimensions=dimensions,Y = Yl, CM = CMdl, E = El, A = Al, X = Xl, F1 = F1l, F2 = F2)
+    mcmod <- list(dimensions=dimensions,Y = Yl, CM = CMdl, E = El, Ef = Efl, Efl1 = Efl1l, A = Al, X = Xl, F1 = F1l, F2 = F2)
     return(mcmod)
 }
 
@@ -339,14 +355,30 @@ getcreativedata <- function(category, brands.to_keep, max.distance = 0.2){
 ##' @return A list with a list of metrics for creatives, each element being a T x Jb,
 ##' @return data table, with Jb being the maximum brands on columns
 getcreativemix <- function(creatives){
-    
+
+
     ## Average age per cID, number of new creatives, average number of creatives
     creatives[,cIDavgage:=weighted.mean(weekID-cIDfweek,dols),by=c("brand","weekID")]
-    creatives[,nnc:=uniqueN(ifelse(cIDfweek==weekID,cID,0))-1,by=c("brand","weekID")]
+    ## Total spent per brand for a given week
+    creatives[,totalspent := sum(dols),by=c("brand","weekID")]
+    creatives[,cIDfracspent := sum(dols/totalspent),by=c("cID","brand","weekID")]
     
+    ## when a creative was introduced, and how many per week were introduced
+    .a <- creatives[cIDfweek == weekID,list(nnc=uniqueN(cID)),by=c("brand","weekID")]
+    setkey(.a,brand,weekID)
+    setkey(creatives,brand,weekID)
+    .b <- .a[creatives][is.na(nnc),nnc:=0]
+    setkey(.b, weekID)
+    .c <- .b[.(min(weekID):max(weekID)), roll=TRUE] # fill out just in case
+    ##    if(any(.c[,is.na(nnc)])) stop("This step produces NAs for nnc, you must debug")
+
     ## 1. Integer count of number of new creatives from beginning of series
-    ownadnnc <- dcast(creatives, weekID ~ brand, value.var = "nnc", fun=max, fill=0)
-    
+    ownadnnc <- dcast(.c[,list(nnc = max(nnc)),by=c("brand","weekID")], weekID ~ brand, value.var = "nnc", fun=max, fill=0)
+
+    ## The following are metrics across brands, for each time period, going in as columns to a
+    ## an object (CM, being Jb x R), currently R is set at three. This object is used instead
+    ## of E in the H matrix.
+
     ## 2. Creative mix element 1: Novelty being expenditure weighted average age
     creativemix <- list()
     .a <- data.table(na.approx(dcast(creatives, weekID ~ brand, value.var = "cIDavgage", fun=max, fill=NA)))
@@ -361,13 +393,38 @@ getcreativemix <- function(creatives){
     
     ## 4. Creative mix element 3: Concentration (Lerner index) being total spent on advertising for
     ##    each brand, and share by each creative for that week
-    creatives[,totalspent := sum(dols),by=c("brand","weekID")]
     .c <- creatives[,list(fracspent = sum(ifelse(totalspent>0, dols/totalspent, 0))), by=c("cID","brand","weekID")]
     .c[,mean_fracspent_squared := mean(fracspent^2),by=c("brand","weekID")]
     
     .a <- dcast(.c, weekID ~ brand, value.var = "mean_fracspent_squared", fun=max, fill = 0)
     setkey(.a, weekID)
     creativemix[[3]] <- .a[.(min(weekID):max(weekID)), roll=TRUE]
-    return(list(ownadnnc = ownadnnc,creativemix = creativemix))
+    
+    ## This component is to measure ownadnnc weighted by expenditure share, and E.lag variables
+    ##  This is for the share weighted values of new cIDs
+ 
+    .a <- creatives[cIDfweek == weekID,list(cIDfracspent = min(cIDfracspent)),by=c("brand","cID","weekID")] ## collapse first
+    .a <- .a[,list(nnc.fracspent = sum(cIDfracspent)),by=c("brand","weekID")] ## now collapse by brand
+    setkey(.a,brand,weekID)
+    setkey(creatives,brand,weekID)
+    .b <- .a[creatives][is.na(nnc.fracspent),nnc.fracspent := 0]
+    setkey(.b, weekID)
+    .c <- .b[.(min(weekID):max(weekID)), roll=TRUE] # fill out just in case
+
+    ownadnnc.fracspent <- dcast(.c[,list(nnc.fracspent = max(nnc.fracspent)),by=c("brand","weekID")], weekID ~ brand, value.var = "nnc.fracspent", fun=max, fill=0)
+
+    ## exactly the same, but lagged one week
+    .a <- creatives[weekID == (cIDfweek+1),list(cIDfracspent.l1 = min(cIDfracspent)),by=c("brand","cID","weekID")] ## collapse first
+    .a <- .a[,list(nnc.fracspent.l1 = sum(cIDfracspent.l1)),by=c("brand","weekID")] ## now collapse by brand
+    setkey(.a,brand,weekID)
+    setkey(creatives,brand,weekID)
+    .b <- .a[creatives][is.na(nnc.fracspent.l1),nnc.fracspent.l1 := 0]
+    setkey(.b, weekID)
+    .c <- .b[.(min(weekID):max(weekID)), roll=TRUE] # fill out just in case
+
+    ownadnnc.fracspent.l1 <- dcast(.c[,list(nnc.fracspent.l1 = max(nnc.fracspent.l1)),by=c("brand","weekID")], weekID ~ brand, value.var = "nnc.fracspent.l1", fun=max, fill=0)
+    ## done, now returning what we came up with
+    
+    return(list(ownadnnc = ownadnnc, ownadnnc.fracspent = ownadnnc.fracspent, ownadnnc.fracspent.l1 = ownadnnc.fracspent.l1, creativemix = creativemix))
 }
 

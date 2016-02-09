@@ -1,6 +1,6 @@
 ## Script to regenerate mcmod files
 categories <- c("dpp","ptw","fti","tti","lld")
-categories <- c("ptw")
+#categories <- c("ptw")
 T <- 202
 N <- 42
 fweek <- 1200
@@ -15,8 +15,7 @@ brands.to_keep[["tti"]] 	<- c('CHARMIN','QUILTED NORTHERN',
 brands.to_keep[["fti"]] 	<- c('KLEENEX','PUFFS','PRIVATE LABEL') # 93.0% of share
 
 brands.to_keep[["dpp"]]		<- c('HUGGIES','PAMPERS','LUVS','PRIVATE LABEL')  # 98.2% of share
-brands.to_keep[['ptw']] 	<- c('BOUNTY','BRAWNY','SCOTT',
-'VIVA','SPARKLE','PRIVATE LABEL') # 94.2% of share
+brands.to_keep[['ptw']] 	<- c('BOUNTY','BRAWNY','SCOTT','VIVA','SPARKLE','PRIVATE LABEL') # 94.2% of share
 
 
 for(category in categories) {
