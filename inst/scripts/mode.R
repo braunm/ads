@@ -62,12 +62,16 @@ F2 <- mcmod$F2[1:T]
 A <- mcmod$A[1:T]
 ##E <- mcmod$E[1:T]
 
+
+
 if (flags$use.cr.pars) {
     CM <- mcmod$CM[1:T]
 } else {
     CMcol <- 2
     CM <- llply(mcmod$CM[1:T], function(x) return(x[,CMcol,drop=FALSE]))
 }
+
+
 
 if (flags$include.X) {
   X <- mcmod$X[1:T]

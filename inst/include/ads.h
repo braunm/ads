@@ -316,7 +316,7 @@ ads::ads(const List& params)
     const Map<MatrixXd> CMd(as<Map<MatrixXd> >(CMlist[i]));
     CM[i] = CMd.cast<AScalar>();
 
-    if (use_cr_pars) {
+    if (!use_cr_pars) {
       if (CM[i].cols() != 1) {
 	Rcout << "Warning: use_cr_pars is FALSE. ";
 	Rcout << "CM should be 1 column.\n";
