@@ -177,9 +177,9 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     # create final mcmod components
     Al <- El <- Efl <- Efl1l <- CMl <- CMdl <- Xl <- F1l <- Yl <- list()
     for (t in 1:T) {
-        El[[t]] <- as.numeric(E[t,])
-        Efl[[t]] <- as.numeric(Ef[t,])
-        Efl1l[[t]] <- as.numeric(Efl1[t,])
+        El[[t]] <- matrix(as.numeric(E[t,]),nr=Jb,nc=1)
+        Efl[[t]] <- matrix(as.numeric(Ef[t,]),nr=Jb, nc=1)
+        Efl1l[[t]] <- matrix(as.numeric(Efl1[t,]),nr=Jb, nc=1)
 
         CMl[[t]] <- .a$creativemix[[1]][weekID == fweek+(t-1),brands.adv,with=FALSE]
         .cd <- .a$creativemix[[1]][weekID == fweek+(t-2),brands.adv,with=FALSE]
