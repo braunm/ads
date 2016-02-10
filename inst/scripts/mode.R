@@ -18,6 +18,7 @@ data.is.sim <- FALSE
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
 data(list=dn)  ## load data
 mcmod <- eval(parse(text=dn)) ## rename to mcmod
+save.file <- paste0("./nobuild/results/mode_",data.name,".Rdata")
 
 if (data.is.sim) {
     flags <- mcmod$trueflags
@@ -35,7 +36,7 @@ if (data.is.sim) {
                   )
 }
 
-nfact.V <- 0
+nfact.V <- 2
 nfact.W1 <- 0
 nfact.W2 <- 0
 
@@ -50,7 +51,7 @@ N <- mcmod$dimensions$N
 T <- mcmod$dimensions$T
 J <- mcmod$dimensions$J
 Jb <- mcmod$dimensions$Jb
-R <- mcmod$dimensions$R
+
 
 
 if (flags$include.X) K <- mcmod$dimensions$K else K <- 0
@@ -63,12 +64,15 @@ A <- mcmod$A[1:T]
 ##E <- mcmod$E[1:T]
 
 
-
+##R <- mcmod$dimensions$R
+R <- 1
 if (flags$use.cr.pars) {
     CM <- mcmod$CM[1:T]
+    ##CM <- mcmod$Ef[1:T]
 } else {
-    CMcol <- 2
-    CM <- llply(mcmod$CM[1:T], function(x) return(x[,CMcol,drop=FALSE]))
+##    CMcol <- 2
+##    CM <- llply(mcmod$CM[1:T], function(x) return(x[,CMcol,drop=FALSE]))
+    CM <- mcmod$Efl1[1:T]
 }
 
 
@@ -138,8 +142,8 @@ if (flags$add.prior) {
 
         ## prior on phi:  matrix normal with sparse covariances
         mean.phi <- matrix(0,Jb,J)
-        cov.row.phi <- 20*diag(Jb)
-        cov.col.phi <- 20*diag(J)
+        cov.row.phi <- 1000*diag(Jb)
+        cov.col.phi <- 1000*diag(J)
         chol.cov.row.phi <- t(chol(cov.row.phi))
         chol.cov.col.phi <- t(chol(cov.col.phi))
 
@@ -166,8 +170,8 @@ if (flags$add.prior) {
     if (flags$include.X) {
         ## prior on theta12:  matrix normal with sparse covariances
         mean.theta12 <- matrix(0,K,J)
-        cov.row.theta12 <- 100*diag(K) ## across covariates within brand
-        cov.col.theta12 <- 100*diag(J) ## across brand within covariates
+        cov.row.theta12 <- 500*diag(K) ## across covariates within brand
+        cov.col.theta12 <- 500*diag(J) ## across brand within covariates
         chol.cov.row.theta12 <- t(chol(cov.row.theta12))
         chol.cov.col.theta12 <- t(chol(cov.col.theta12))
 
@@ -325,23 +329,12 @@ DL <- list(data=data, priors=priors,
 
 
 cat("Setting up\n")
-tset <- system.time(cl <- new("ads", DL))
-print(tset)
-
+cl <- new("ads", DL)
 cat("Recording tape\n")
-trec <- system.time(cl$record.tape(start))
-
+cl$record.tape(start)
 cat("Objective function - taped\n")
-tmp <- get.f(start)
-tf <- system.time(f <- get.f(start))
+f <- get.f(start)
 cat("f = ",f,"\n")
-print(tf)
-
-
-cat("gradient\n")
-tg <- system.time(df <- get.df(start))
-print(tg)
-
 
 
 ## Need to bound variables to avoid overflow
@@ -355,23 +348,23 @@ opt1 <- optim(start,
                   fnscale=-1,
                   REPORT=1,
                   trace=3,
-                  maxit=250
+                  maxit=300
                   )
               )
 
 opt2 <- trust.optim(opt1$par,
                     fn=get.f,
                     gr=get.df,
-                    method="SR1",
+                    method="BFGS",
                     control=list(
                         report.level=5L,
                         report.precision=4L,
                         maxit=3000L,
                         function.scale.factor=-1,
-                        preconditioner=0,
+                        preconditioner=1,
                         start.trust.radius=.01,
                         stop.trust.radius=1e-15,
-                        cg.tol=1e-9,
+                        cg.tol=1e-11,
                         contract.factor=.4,
                         expand.factor=2,
                         expand.threshold.radius=.85,
@@ -390,9 +383,10 @@ opt <- trust.optim(opt2$solution,
                         maxit=3000L,
                         function.scale.factor=-1,
                         preconditioner=1,
-                        start.trust.radius=.01,
-                        stop.trust.radius=1e-15,
-                        contract.factor=.4,
+                        start.trust.radius=.5,
+                        stop.trust.radius=1e-16,
+                        cg.tol=1e-11,
+                        contract.factor=.6,
                         expand.factor=2,
                         expand.threshold.radius=.85,
                         report.freq = 10L
@@ -453,6 +447,8 @@ if (!flags$fix.W) {
 
 ##parcheck <- cl$par.check(opt$par)
 
+cat("Computing gradient\n")
+gr <- get.df(opt$par)
 cat("Computing Hessian\n")
 hs <- get.hessian(opt$par)
 cat("inverting negative Hessian\n")
@@ -495,5 +491,5 @@ if (flags$use.cr.pars) {
 
 
 
-##save(sol, se.sol, opt, dimensions, priors, flags, file=save.file)
+save(sol, se.sol, opt, DL, gr, hs, data,file=save.file)
 
