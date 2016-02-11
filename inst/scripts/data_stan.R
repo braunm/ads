@@ -1,7 +1,7 @@
 library(rstan)
 
-data.name <- "dpp"      # choose from ptw, tti, lld, dpp for now
-stan.code <-"stan3"     # this file located in the inst/script directory and must have .stan suffix
+data.name <- "sim"      # choose from ptw, tti, lld, dpp for now
+stan.code <-"stan4"     # this file located in the inst/script directory and must have .stan suffix
 numiter <- 1.0e5            # with diagonal V, this should converge in around 500, comfortably
 numcores <- 2           # parallel processing will be done automatically if this is more than one
 
@@ -47,7 +47,7 @@ for (j in 1:J) {
     M20[Jb+1+j,j] <- -2
     M20[j+1,j] <- .25
 }
-C20 <- 50*diag(1+P+Jb,1+P+Jb)
+C20 <- 1000*diag(1+P+Jb,1+P+Jb)
 
 
 for (i in 1:T) {

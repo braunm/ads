@@ -17,7 +17,7 @@ set.seed(10503)
 
 flags <- list(include.phi=TRUE,
     add.prior=TRUE,
-    include.X=TRUE,
+    include.X=FALSE,
     standardize=FALSE,
     A.scale = 1,
     fix.V = FALSE,
