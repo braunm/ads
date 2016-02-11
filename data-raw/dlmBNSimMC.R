@@ -20,8 +20,8 @@ flags <- list(include.phi=TRUE,
     include.X=FALSE,
     standardize=FALSE,
     A.scale = 1,
-    fix.V = FALSE,
-    fix.W = FALSE,
+    fix.V = TRUE,
+    fix.W = TRUE,
     W1.LKJ = FALSE,
 full.dense.V1 = FALSE
 )
@@ -88,7 +88,7 @@ dimensions <- list(N = N, T = T, J = J,
 theta12 <- rnorm(K * J, mean = .5, sd = 0.3)
 dim(theta12) <- c(K, J)
 
-if(include.X==FALSE) theta12 = theta12*0        ## set to zero if we don't want this.
+if(flags$include.X==FALSE) theta12 = theta12*0        ## set to zero if we don't want this.
 
 FF <- list()
 JFF <- list()

@@ -26,7 +26,7 @@ if (data.is.sim) {
     flags <- list(full.phi=TRUE, # default is a diagonal phi matrix
                   phi.re=FALSE,
                   add.prior=TRUE,
-                  include.X=TRUE,
+                  include.X=FALSE,
                   standardize=FALSE,
                   A.scale = 1,
                   fix.V1 = TRUE,
@@ -364,7 +364,7 @@ cat("Objective function - taped\n")
 f <- get.f(start)
 cat("f = ",f,"\n")
 
-stop()
+
 ## Need to bound variables to avoid overflow
 
 opt1 <- optim(start,
