@@ -33,7 +33,7 @@ full.dense.V1 = FALSE
 # parameter section
 
 N   <- 42                                           ## number of 'sites'
-T   <- 220                                          # number of time periods
+T   <- 202                                          # number of time periods
 Tb  <- 0                                            # number of burnin periods (discard first Tb simulated time periods)
 J   <- 3                                            # number of equations
 P   <- J                                            # number of time varying covariates per city (excluding intercept)
@@ -42,7 +42,7 @@ delta <- 0.1                                        # memory decay parameter
 phi <- matrix(runif(J*J,max=0.1), nc = J, nr = J)   # response coefficients for new creatives
 
 # covariance matrixes
-W <- .001 * diag(1 + J + P)                         # time covariance
+W <- .01 * diag(1 + J + P)                         # time covariance
 # W[1]<-0.01 diag(W)[(2+J):(1+J+P)]<-0.001
 Sigma <- diag(rep(0.1,J))              # covariance across columns
 
@@ -229,7 +229,7 @@ for (t in 1:T) {
 truevals <- list(T1=T1true, T2=T2true,
                  theta12=theta12, V=V,
                  Sigma=Sigma, W=W, phi = phi,
-                 theta20=theta20)
+                 theta20=theta20, delta=delta)
 
 
 
