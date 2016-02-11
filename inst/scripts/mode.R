@@ -37,7 +37,7 @@ if (data.is.sim) {
                   )
 }
 
-nfact.V1 <- 0
+nfact.V1 <- 5
 nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
