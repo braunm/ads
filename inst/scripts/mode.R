@@ -12,7 +12,7 @@ library(reshape2)
 set.seed(1234)
 
 
-data.name <- "dpp"
+data.name <- "tti"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -29,14 +29,16 @@ if (data.is.sim) {
                   include.X=TRUE,
                   standardize=FALSE,
                   A.scale = 1,
-                  fix.V = FALSE,
+                  fix.V1 = FALSE,
+                  fix.V2 = FALSE,
                   fix.W = FALSE,
                   W1.LKJ = FALSE,
                   use.cr.pars = FALSE
                   )
 }
 
-nfact.V <- 2
+nfact.V1 <- 2
+nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
 
@@ -92,23 +94,27 @@ if (flags$include.X) {
 data <- list(X=X, Y=Y, F1=F1, F2=F2,
              A=A, CM=CM) # E=E)
 
-dim.V <- N
+dim.V1 <- N
+dim.V2 <- N*(1+P)
 dim.W1 <- Jb+1
 dim.W2 <- P
 dim.W <- dim.W1+dim.W2
 
 dimensions <- c(N=N,T=T,J=J,K=K,P=P,
                 Jb=Jb,R=R,
-                nfact.V=nfact.V,
+                nfact.V1=nfact.V1,
+                nfact.V2=nfact.V2,
                 nfact.W1=nfact.W1,
                 nfact.W2=nfact.W2
                 )
 
-max.nfact.V <- 1+2*dim.V-sqrt(1+8*dim.V)
+max.nfact.V1 <- 1+2*dim.V1-sqrt(1+8*dim.V1)
+max.nfact.V2 <- 1+2*dim.V2-sqrt(1+8*dim.V2)
 max.nfact.W1 <- 1+2*dim.W1-sqrt(1+8*dim.W1)
 max.nfact.W2 <- 1+2*dim.W2-sqrt(1+8*dim.W2)
 
-if (nfact.V > max.nfact.V) stop("Too many factors for V")
+if (nfact.V1 > max.nfact.V1) stop("Too many factors for V1")
+if (nfact.V2 > max.nfact.V2) stop("Too many factors for V2")
 if (nfact.W1 > max.nfact.W1) stop("Too many factors for W1")
 if (nfact.W2 > max.nfact.W2) stop("Too many factors for W2")
 if (flags$W1.LKJ & nfact.W1>0) stop("Using LKJ prior on W1.  Set nfact.W1 to 0")
@@ -187,12 +193,19 @@ if (flags$add.prior) {
     ## prior on logit.delta.  transformed beta with 2 parameters
     prior.delta <- list(a=1, b=3)
 
-    ## For V, W1 and W2:   normal or truncated normal priors (if needed)
-    if (!flags$fix.V) {
-        prior.V <- list(diag.scale=1, diag.mode=0,
+    ## For V1, V2, W1 and W2:   normal or truncated normal priors (if needed)
+    if (!flags$fix.V1) {
+        prior.V1 <- list(diag.scale=1, diag.mode=0,
+                         fact.scale=.01, fact.mode=0)
+    } else {
+        prior.V1 <-  NULL
+    }
+
+    if (!flags$fix.V2) {
+        prior.V2 <- list(diag.scale=1, diag.mode=0,
                          fact.scale=1, fact.mode=0)
     } else {
-        prior.V <-  NULL
+        prior.V2 <-  NULL
     }
 
     if (!flags$fix.W) {
@@ -221,7 +234,8 @@ if (flags$add.prior) {
 
 } else {
     prior.phi <- NULL
-    prior.V <- NULL
+    prior.V1 <- NULL
+    prior.V2 <- NULL
     prior.W1 <- NULL
     prior.W2 <- NULL
     prior.delta <- NULL
@@ -236,7 +250,8 @@ tmp <- list(M20=M20,
             phi=prior.phi,
             theta12=prior.theta12,
             delta=prior.delta,
-            V=prior.V,
+            V1=prior.V1,
+            V2=prior.V2,
             W1=prior.W1,
             W2=prior.W2,
             creatives=prior.creatives
@@ -270,19 +285,29 @@ if (flags$full.phi) {
 }
 
 
-if (flags$fix.V | flags$fix.W) {
-    fixed.cov <- list(V=NULL, W=NULL)
+if (flags$fix.V1 | flags$fix.V2 | flags$fix.W) {
+    fixed.cov <- list(V1=NULL, V2=NULL, W=NULL)
 } else {
     fixed.cov <- NULL
 }
 
-if (flags$fix.V) {
-    fixed.cov$V <- 0.1*diag(N);
-    V.start <- NULL
+if (flags$fix.V1) {
+    fixed.cov$V1 <- 0.1*diag(N);
+    V1.start <- NULL
 } else {
-    V.length <- N + N*nfact.V - nfact.V*(nfact.V-1)/2
-    V.start <- rep(0,V.length)
+    V1.length <- N + N*nfact.V1 - nfact.V1*(nfact.V1-1)/2
+    V1.start <- rep(0,V1.length)
 }
+
+
+if (flags$fix.V2) {
+    fixed.cov$V2 <- 0.1*diag(N*(1+P));
+    V2.start <- NULL
+} else {
+    V2.length <- N*(1+P) + N*nfact.V2 - nfact.V2*(nfact.V2-1)/2
+    V2.start <- rep(0,V2.length)
+}
+
 
 if (flags$fix.W) {
     fixed.cov$W <- .001*diag(1+J+P)
@@ -310,7 +335,8 @@ tmp <- list(
     theta12=theta12.start,
     phi=phi.start,
     logit.delta=logit.delta.start,
-    V=V.start,
+    V1=V1.start,
+    V2=V2.start,
     W1=W1.start,
     W2=W2.start,
     creatives=creatives.start
@@ -326,7 +352,6 @@ DL <- list(data=data, priors=priors,
            dimensions=dimensions,
            flags=flags,
            fixed.cov=fixed.cov)
-
 
 cat("Setting up\n")
 cl <- new("ads", DL)
@@ -363,7 +388,7 @@ opt2 <- trust.optim(opt1$par,
                         function.scale.factor=-1,
                         preconditioner=1,
                         start.trust.radius=.01,
-                        stop.trust.radius=1e-15,
+                        stop.trust.radius=1e-18,
                         cg.tol=1e-11,
                         contract.factor=.4,
                         expand.factor=2,
@@ -384,10 +409,10 @@ opt <- trust.optim(opt2$solution,
                         function.scale.factor=-1,
                         preconditioner=1,
                         start.trust.radius=.5,
-                        stop.trust.radius=1e-16,
+                        stop.trust.radius=1e-17,
                         cg.tol=1e-11,
-                        contract.factor=.6,
-                        expand.factor=2,
+                        contract.factor=.8,
+                        expand.factor=1.5,
                         expand.threshold.radius=.85,
                         report.freq = 10L
                         )
@@ -432,8 +457,12 @@ recover.W1.LKJ <- function(v, d) {
 sol <- sol.vec
 sol$delta <- exp(sol$logit.delta)/(1+exp(sol$logit.delta))
 
-if (!flags$fix.V) {
-    sol$V <- recover.cov.mat(sol.vec$V, dim.V, nfact.V)
+if (!flags$fix.V1) {
+    sol$V1 <- recover.cov.mat(sol.vec$V1, dim.V1, nfact.V1)
+}
+
+if (!flags$fix.V2) {
+    sol$V2 <- recover.cov.mat(sol.vec$V2, dim.V2, nfact.V2)
 }
 
 if (!flags$fix.W) {
