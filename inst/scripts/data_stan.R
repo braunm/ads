@@ -5,10 +5,13 @@ stan.code <-"stan1"     # this file located in the inst/script directory and mus
 numiter <- 1.0e5            # with diagonal V, this should converge in around 500, comfortably
 numcores <- 2           # parallel processing will be done automatically if this is more than one
 
-data.file <- paste0("data/mcmod",data.name,".RData")
+dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
+data(list=dn)  ## load data
+mcmod <- eval(parse(text=dn)) ## rename to mcmod
+
 save.file <- paste0("inst/results/",stan.code,"_", data.name,"_stan.Rdata")
 
-load(data.file)
+sampler <- "MLE"
 
 N <- mcmod$dimensions$N
 T <- as.integer(mcmod$dimensions$T)
@@ -32,7 +35,7 @@ E <- array(dim=c(T, J))
 
 ## priors
 nu0 <- J + 5;
-Omega0 <- diag(J);			# This directly/proportionally impacts the estimated covariance values
+Omega0 <- 10*diag(J);			# This directly/proportionally impacts the estimated covariance values
 M20 <- matrix(0,1+P+J,J)
 M20[1,] <- 15
 M20[2:(J+1),] <- -.005
@@ -62,14 +65,18 @@ DL <- list(N=N, T=T, J=J, K=K, P=P,
 
 
 st <- stan_model(paste0("inst/scripts/",stan.code,".stan"))
-
-
-##fit <- sampling(st,
-##                data=DL,
-##                iter=numiter, cores=numcores)
-fit <- vb(st, data=DL, iter= numiter, verbose=TRUE)
+if(sampler=="NUTS") fit <- sampling(st,
+                data=DL,
+                iter=numiter, cores=numcores)
+if(sampler=="vb") fit <- vb(st, data=DL, iter=numiter, verbose=TRUE)
+if(sampler=="MLE") fit <- optimizing(st, data=DL, iter=numiter, verbose=TRUE)
 
 save.image(save.file)
+
+> truevals$Theta12
+[,1]         [,2]        [,3]
+[1,] 0.01191661 -0.002957971  0.02975694
+[2,] 0.02681056  0.033600195 -0.01369947
 
 
 
