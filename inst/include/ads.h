@@ -98,11 +98,17 @@ private:
   AScalar delta_a;
   AScalar delta_b;
 
-  AScalar diag_scale_V;
-  AScalar diag_mode_V;
-  AScalar fact_scale_V;
-  AScalar fact_mode_V;
+  AScalar diag_scale_V1;
+  AScalar diag_mode_V1;
+  AScalar fact_scale_V1;
+  AScalar fact_mode_V1;
 
+  AScalar diag_scale_V2;
+  AScalar diag_mode_V2;
+  AScalar fact_scale_V2;
+  AScalar fact_mode_V2;
+
+  
   AScalar mode_scale_W1;
   AScalar s_scale_W1;
   AScalar W1_eta;
@@ -129,11 +135,12 @@ private:
   int K; // covariates with stationary parameters
   int P; // covariates with nonstationary parameters
   int R; // covariates in creative metric
-  int nfact_V; // factors to estimate V
+  int nfact_V1; // factors to estimate V1
+  int nfact_V2; // factors to estimate V2
   int nfact_W1; // factors to estimate W2 (if active)
   int nfact_W2; // factors to estimate W2 (if active)
 
-  int V_dim, W_dim, W1_dim, W2_dim, W1_dim_ch2;
+  int V1_dim, V2_dim, W_dim, W1_dim, W2_dim, W1_dim_ch2;
 
   // parameters
 
@@ -143,14 +150,17 @@ private:
 
 
   MatrixXA phi; // Jb x J
-  VectorXA V_log_diag;
+  VectorXA V1_log_diag;
+  VectorXA V2_log_diag;
   AScalar W1_scale;
   VectorXA W1_log_diag;
   AScalar W2_scale;
   VectorXA W2_log_diag;
-  MatrixXA V; 
+  MatrixXA V1;
+  MatrixXA V2;
   MatrixXA W;  
-  MatrixXA LV; 
+  MatrixXA LV1;
+  MatrixXA LV2; 
   MatrixXA LW1;
   MatrixXA LW2;
   AScalar log_W1_jac;
@@ -174,7 +184,8 @@ private:
 
   MatrixXA a2t;
   MatrixXA Yft;
-  MatrixXA Qt; 
+  MatrixXA Qt;
+  MatrixXA R1t;
   MatrixXA R2t; 
   MatrixXA M2t;
   MatrixXA C2t;
@@ -199,7 +210,8 @@ private:
   bool phi_re;
   bool add_prior;
   bool include_X;
-  bool fix_V;
+  bool fix_V1;
+  bool fix_V2;
   bool fix_W;
   bool W1_LKJ;
   bool use_cr_pars;
@@ -235,7 +247,8 @@ ads::ads(const List& params)
   use_cr_pars = as<bool>(flags["use.cr.pars"]);
 
   A_scale = as<double>(flags["A.scale"]);
-  fix_V = as<bool>(flags["fix.V"]);
+  fix_V1 = as<bool>(flags["fix.V1"]);
+  fix_V2 = as<bool>(flags["fix.V2"]);
   fix_W = as<bool>(flags["fix.W"]);
   W1_LKJ = as<bool>(flags["W1.LKJ"]);
 
@@ -267,7 +280,8 @@ ads::ads(const List& params)
   const List CMlist = as<List>(data["CM"]);
   CM.resize(T);
 
-  V_dim = N;
+  V1_dim = N;
+  V2_dim = N*(1+P);
   W1_dim = 1+Jb;
   W2_dim = P;
   W_dim = W1_dim + W2_dim;
@@ -276,8 +290,12 @@ ads::ads(const List& params)
   // number of factors for estimating covariance matrices
 
 
-  if (!fix_V) {
-    nfact_V = as<int>(dimensions["nfact.V"]);
+  if (!fix_V1) {
+    nfact_V1 = as<int>(dimensions["nfact.V1"]);
+  }
+
+  if (!fix_V2) {
+    nfact_V2 = as<int>(dimensions["nfact.V2"]);
   }
   
   if (!fix_W) {
@@ -342,12 +360,18 @@ ads::ads(const List& params)
   }
 
   // Reserve V and W, and their factors
-  V.resize(V_dim, V_dim);
+  V1.resize(V1_dim, V1_dim);
+  V2.resize(V2_dim, V2_dim);
   W.resize(W_dim, W_dim);
   
-  if (!fix_V) {
-    LV.resize(V_dim, nfact_V);
-    V_log_diag.resize(V_dim);
+  if (!fix_V1) {
+    LV1.resize(V1_dim, nfact_V1);
+    V1_log_diag.resize(V1_dim);
+  }
+
+  if (!fix_V2) {
+    LV2.resize(V2_dim, nfact_V2);
+    V2_log_diag.resize(V2_dim);
   }
   
   if (!fix_W) {        
@@ -378,7 +402,8 @@ ads::ads(const List& params)
   C2t.resize(1+Jb+P,1+Jb+P);
   a2t.resize(1+Jb+P,J);
   Yft.resize(N,J);
-  Qt.resize(N,N); 
+  Qt.resize(N,N);
+  R1t.resize(N*(1+P),N*(1+P));
   R2t.resize(1+Jb+P, 1+Jb+P);
   S2t.resize(1+Jb+P, N);
   OmegaT.resize(J,J);
@@ -459,26 +484,38 @@ ads::ads(const List& params)
 
     List fixed_cov;
 
-    if (fix_V || fix_W) {
+    if (fix_V1 || fix_V2 || fix_W) {
       Rcout << "Loading any fixed covariance matrices\n";
       fixed_cov = as<const List>(pars["fixed.cov"]);
     }
 
-    if (fix_V) {
-
-      Rcout << "V is fixed\n";
-      const Map<MatrixXd> V_d(as<Map<MatrixXd> >(fixed_cov["V"]));
-      V = V_d.cast<AScalar>();
-      
+    if (fix_V1) {
+      Rcout << "V1 is fixed\n";
+      const Map<MatrixXd> V1_d(as<Map<MatrixXd> >(fixed_cov["V1"]));
+      V1 = V1_d.cast<AScalar>();      
     } else {
-
-      Rcout << "V is estimated\n";
-      const List priors_V = as<List>(priors["V"]); 
-      diag_scale_V = as<double>(priors_V["diag.scale"]);
-      diag_mode_V = as<double>(priors_V["diag.mode"]);
-      fact_scale_V = as<double>(priors_V["fact.scale"]);
-      fact_mode_V = as<double>(priors_V["fact.mode"]);
+      Rcout << "V1 is estimated\n";
+      const List priors_V1 = as<List>(priors["V1"]); 
+      diag_scale_V1 = as<double>(priors_V1["diag.scale"]);
+      diag_mode_V1 = as<double>(priors_V1["diag.mode"]);
+      fact_scale_V1 = as<double>(priors_V1["fact.scale"]);
+      fact_mode_V1 = as<double>(priors_V1["fact.mode"]);
     }
+
+
+    if (fix_V2) {
+      Rcout << "V2 is fixed\n";
+      const Map<MatrixXd> V2_d(as<Map<MatrixXd> >(fixed_cov["V2"]));
+      V2 = V2_d.cast<AScalar>();      
+    } else {
+      Rcout << "V2 is estimated\n";
+      const List priors_V2 = as<List>(priors["V2"]); 
+      diag_scale_V2 = as<double>(priors_V2["diag.scale"]);
+      diag_mode_V2 = as<double>(priors_V2["diag.mode"]);
+      fact_scale_V2 = as<double>(priors_V2["fact.scale"]);
+      fact_mode_V2 = as<double>(priors_V2["fact.mode"]);
+    }
+    
     
     if (fix_W) {
 
@@ -536,6 +573,7 @@ template<typename Tpars>
 void ads::unwrap_params(const MatrixBase<Tpars>& par)
 {
   int ind = 0;
+  int nvars = par.size();
 
   // unwrap theta12 and construct Ybar
 
@@ -580,22 +618,42 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
   // exponentiated for identification.
 
 
-  if (!fix_V) {
+  if (!fix_V1) {
     
-    V.setZero();
-    V_log_diag = par.segment(ind, V_dim);
-    ind += V_dim;
-    V.diagonal() = V_log_diag.array().exp().matrix();
+    // Build V1
+    V1.setZero();
+    V1_log_diag = par.segment(ind, V1_dim);
+    ind += V1_dim;
+    V1.diagonal() = V1_log_diag.array().exp().matrix();
     
-    if (nfact_V > 0) {
-      LV.setZero();
-      for (int j=0; j<nfact_V; j++) {
-	LV.block(j, j, V_dim - j,1) = par.segment(ind, V_dim - j);
-	ind += V_dim - j;
-	LV(j, j) = exp(LV(j, j));      
+    if (nfact_V1 > 0) {
+      LV1.setZero();
+      for (int j=0; j<nfact_V1; j++) {
+	LV1.block(j, j, V1_dim - j,1) = par.segment(ind, V1_dim - j);
+	ind += V1_dim - j;
+	LV1(j, j) = exp(LV1(j, j));      
       }
-      V.template selfadjointView<Lower>().rankUpdate(LV);      
+      V1.template selfadjointView<Lower>().rankUpdate(LV1);      
     }
+  }
+
+    // Build V2
+
+  if (!fix_V2) { 
+    V2.setZero();
+    V2_log_diag = par.segment(ind, V2_dim);
+    ind += V2_dim;
+    V2.diagonal() = V2_log_diag.array().exp().matrix();
+    
+    if (nfact_V2 > 0) {
+      LV2.setZero();
+      for (int j=0; j<nfact_V2; j++) {
+	LV2.block(j, j, V2_dim - j,1) = par.segment(ind, V2_dim - j);
+	ind += V2_dim - j;
+	LV2(j, j) = exp(LV2(j, j));      
+      }
+      V2.template selfadjointView<Lower>().rankUpdate(LV2);      
+    }    
   }
 
   if (!fix_W) {
@@ -702,8 +760,11 @@ AScalar ads::eval_LL()
     R2t = Gt.triangularView<Upper>() * C2t * Gt.triangularView<Upper>().transpose();
     R2t += W.selfadjointView<Lower>();
 
-    Qt = F1F2[t] * R2t * F1F2[t].transpose();
-    Qt +=  V.selfadjointView<Lower>();
+    R1t = F2[t] * R2t * F2[t].transpose();
+    R1t += V2.selfadjointView<Lower>();
+    
+    Qt = F1[t] * R1t * F1[t].transpose();
+    Qt +=  V1.selfadjointView<Lower>();
     LDLT(Qt, chol_Qt_L, chol_Qt_D);  
     log_det_Qt += chol_Qt_D.array().log().sum();    
 
@@ -778,27 +839,50 @@ AScalar ads::eval_hyperprior() {
   // Prior on V diag and factors
   // log of diagonal elements (includes Jacobian)
 
-  AScalar prior_diag_V = 0;
-  AScalar prior_fact_V = 0;
-
-  if (!fix_V) {
+  AScalar prior_diag_V1 = 0;
+  AScalar prior_fact_V1 = 0;
+  if (!fix_V1) {
   
-    for (size_t i=0; i<V_dim; i++) {
-      prior_diag_V += dnormTrunc0_log(exp(V_log_diag(i)),
-				      diag_mode_V, diag_scale_V);      
-      prior_diag_V += V_log_diag(i); // Jacobian
+    for (size_t i=0; i<V1_dim; i++) {
+      prior_diag_V1 += dnormTrunc0_log(exp(V1_log_diag(i)),
+				      diag_mode_V1, diag_scale_V1);      
+      prior_diag_V1 += V1_log_diag(i); // Jacobian
     }
     
-    if (nfact_V > 0) {
-      for (int j=0; j < nfact_V; j++) {
-	prior_fact_V += dnormTrunc0_log(LV(j,j), fact_mode_V, fact_scale_V);
-	prior_fact_V += log(LV(j,j)); // Jacobian (check this)
-	for (int i=j+1; i<V_dim; i++) {
-	  prior_fact_V += dnorm_log(LV(i,j), fact_mode_V, fact_scale_V);	
+    if (nfact_V1 > 0) {
+      for (int j=0; j < nfact_V1; j++) {
+	prior_fact_V1 += dnormTrunc0_log(LV1(j,j), fact_mode_V1, fact_scale_V1);
+	prior_fact_V1 += log(LV1(j,j)); // Jacobian
+	for (int i=j+1; i<V1_dim; i++) {
+	  prior_fact_V1 += dnorm_log(LV1(i,j), fact_mode_V1, fact_scale_V1);	
 	}
       }
     }
   }
+
+  AScalar prior_diag_V2 = 0;
+  AScalar prior_fact_V2 = 0;
+  if (!fix_V2) {
+  
+    for (size_t i=0; i<V2_dim; i++) {
+      prior_diag_V2 += dnormTrunc0_log(exp(V2_log_diag(i)),
+				      diag_mode_V2, diag_scale_V2);      
+      prior_diag_V2 += V2_log_diag(i); // Jacobian
+    }
+    
+    if (nfact_V2 > 0) {
+      for (int j=0; j < nfact_V2; j++) {
+	prior_fact_V2 += dnormTrunc0_log(LV2(j,j), fact_mode_V2, fact_scale_V2);
+	prior_fact_V2 += log(LV2(j,j)); // Jacobian
+	for (int i=j+1; i<V2_dim; i++) {
+	  prior_fact_V2 += dnorm_log(LV2(i,j), fact_mode_V2, fact_scale_V2);	
+	}
+      }
+    }
+  }
+
+
+  
   
   AScalar prior_scale_W1 = 0;
   AScalar prior_corr_W1 = 0;
@@ -861,9 +945,9 @@ AScalar ads::eval_hyperprior() {
     prior_cr = crp(0,0);
   }
   
-    
+  AScalar prior_V = prior_diag_V1 + prior_fact_V1 + prior_diag_V2 + prior_fact_V2;
   AScalar prior_W2 = prior_diag_W2 + prior_fact_W2;
-  AScalar prior_mats = prior_diag_V + prior_fact_V + prior_W1 + prior_W2;
+  AScalar prior_mats = prior_V + prior_W1 + prior_W2;
   AScalar prior_logit_delta = dlogitbeta_log(logit_delta, delta_a, delta_b);
   AScalar res =  prior_logit_delta + prior_theta12 +
     prior_phi + prior_mats + prior_cr;
@@ -875,9 +959,6 @@ AScalar ads::Afunc(const AScalar& aT, const AScalar& s) {
   AScalar res = log1p(aT/s);
   return(res);
 }
-
-
-
 
 
 // set_Gt
@@ -965,7 +1046,8 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 
 
   double Ldelta = CppAD::Value(logit_delta);
-  NumericMatrix MV(V.rows(), V.cols());
+  NumericMatrix MV1(V1.rows(), V1.cols());
+  NumericMatrix MV2(V2.rows(), V2.cols());
   NumericMatrix MW(W.rows(), W.cols());
   NumericMatrix M2treturn(M2t.rows(), M2t.cols());
   NumericMatrix C2treturn(C2t.rows(), C2t.cols());
@@ -974,9 +1056,15 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
   NumericMatrix phiReturn(phi.rows(), phi.cols());
   NumericVector crReturn(cr.size());
 
-  for (size_t i=0; i<V.rows(); i++) {
-    for (size_t j=0; j<V.cols(); j++) {
-      MV(i,j) = Value(V(i,j));
+  for (size_t i=0; i<V1.rows(); i++) {
+    for (size_t j=0; j<V1.cols(); j++) {
+      MV1(i,j) = Value(V1(i,j));
+    }
+  }
+
+  for (size_t i=0; i<V2.rows(); i++) {
+    for (size_t j=0; j<V2.cols(); j++) {
+      MV2(i,j) = Value(V2(i,j));
     }
   }
 
@@ -1025,21 +1113,22 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
     }
   }
 
-  Rcpp::List Greturn(T);
-  for (size_t tt=0; tt<T; tt++) {
-    set_Gt(tt);
-    Rcpp::NumericMatrix GG(Gt.rows(), Gt.cols());
-    for (size_t col=0; col < Gt.cols(); col++) {
-      for (size_t row=0; row < Gt.rows(); row++) {
-  	GG(row, col) = Value(Gt(row, col));
-      }
-    }
-    Greturn(tt) = wrap(GG);
-  }
+  /* Rcpp::List Greturn(T); */
+  /* for (size_t tt=1; tt<T; tt++) { */
+  /*   set_Gt(tt); */
+  /*   Rcpp::NumericMatrix GG(Gt.rows(), Gt.cols()); */
+  /*   for (size_t col=0; col < Gt.cols(); col++) { */
+  /*     for (size_t row=0; row < Gt.rows(); row++) { */
+  /* 	GG(row, col) = Value(Gt(row, col)); */
+  /*     } */
+  /*   } */
+  /*   Greturn(tt) = wrap(GG); */
+  /* } */
 
 
   List res = List::create(Named("logit_delta") = wrap(Ldelta),
-			  Named("V") = wrap(MV),
+			  Named("V1") = wrap(MV1),
+			  Named("V2") = wrap(MV2),
 			  Named("W") = wrap(MW),
 			  Named("chol_W1") = wrap(LW1return),
 			  Named("M2t") = wrap(M2treturn),
