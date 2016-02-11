@@ -633,7 +633,8 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
 	ind += V1_dim - j;
 	LV1(j, j) = exp(LV1(j, j));      
       }
-      V1.template selfadjointView<Lower>().rankUpdate(LV1);      
+      V1.template selfadjointView<Lower>().rankUpdate(LV1);
+      //V1 += LV1 * LV1.transpose();      
     }
   }
 
@@ -765,6 +766,8 @@ AScalar ads::eval_LL()
     
     Qt = F1[t] * R1t * F1[t].transpose();
     Qt +=  V1.selfadjointView<Lower>();
+    //Qt += V1;
+
     LDLT(Qt, chol_Qt_L, chol_Qt_D);  
     log_det_Qt += chol_Qt_D.array().log().sum();    
 
@@ -951,6 +954,17 @@ AScalar ads::eval_hyperprior() {
   AScalar prior_logit_delta = dlogitbeta_log(logit_delta, delta_a, delta_b);
   AScalar res =  prior_logit_delta + prior_theta12 +
     prior_phi + prior_mats + prior_cr;
+  /*
+  Rcout << "Priors:\n" << "prior_diag_V1 = " << prior_diag_V1 << "\n";
+  Rcout << "prior_fact_V1 = " << prior_fact_V1 << "\n";
+  Rcout << "prior_diag_V2 = " << prior_diag_V2 << "\n";
+  Rcout << "prior_fact_V2 = " << prior_fact_V2 << "\n";
+  Rcout << "prior_W1 = " << prior_W1 << "\n";
+  Rcout << "prior_W2 = " << prior_W2 << "\n";
+  Rcout << "prior_logit_delta = " << prior_logit_delta << "\n";
+  Rcout << "prior_phi = " << prior_phi << "\n";
+  */
+  
   return(res);
 }
 
@@ -1056,6 +1070,35 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
   NumericMatrix phiReturn(phi.rows(), phi.cols());
   NumericVector crReturn(cr.size());
 
+
+  MatrixXA DF1 = F1[1];
+  MatrixXA DF2 = F2[1];
+  MatrixXA DF1F2 = F1F2[1];
+
+  NumericMatrix MF1(DF1.rows(), DF1.cols());
+  NumericMatrix MF2(DF2.rows(), DF2.cols());
+  NumericMatrix MF1F2(DF1F2.rows(), DF1F2.cols());
+
+  
+  for (size_t i=0; i<DF1.rows(); i++) {
+    for (size_t j=0; j<DF1.cols(); j++) {
+      MF1(i,j) = Value(DF1(i,j));
+    }
+  }
+
+  for (size_t i=0; i<DF2.rows(); i++) {
+    for (size_t j=0; j<DF2.cols(); j++) {
+      MF2(i,j) = Value(DF2(i,j));
+    }
+  }
+
+  for (size_t i=0; i<DF1F2.rows(); i++) {
+    for (size_t j=0; j<DF1F2.cols(); j++) {
+      MF1F2(i,j) = Value(DF1F2(i,j));
+    }
+  }
+
+  
   for (size_t i=0; i<V1.rows(); i++) {
     for (size_t j=0; j<V1.cols(); j++) {
       MV1(i,j) = Value(V1(i,j));
@@ -1127,6 +1170,9 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 
 
   List res = List::create(Named("logit_delta") = wrap(Ldelta),
+			  Named("F1") = wrap(MF1),
+			  Named("F2") = wrap(MF2),
+			  Named("F1F2") = wrap(MF1F2),	  
 			  Named("V1") = wrap(MV1),
 			  Named("V2") = wrap(MV2),
 			  Named("W") = wrap(MW),
