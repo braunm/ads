@@ -1070,6 +1070,35 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
   NumericMatrix phiReturn(phi.rows(), phi.cols());
   NumericVector crReturn(cr.size());
 
+
+  MatrixXA DF1 = F1[1];
+  MatrixXA DF2 = F2[1];
+  MatrixXA DF1F2 = F1F2[1];
+
+  NumericMatrix MF1(DF1.rows(), DF1.cols());
+  NumericMatrix MF2(DF2.rows(), DF2.cols());
+  NumericMatrix MF1F2(DF1F2.rows(), DF1F2.cols());
+
+  
+  for (size_t i=0; i<DF1.rows(); i++) {
+    for (size_t j=0; j<DF1.cols(); j++) {
+      MF1(i,j) = Value(DF1(i,j));
+    }
+  }
+
+  for (size_t i=0; i<DF2.rows(); i++) {
+    for (size_t j=0; j<DF2.cols(); j++) {
+      MF2(i,j) = Value(DF2(i,j));
+    }
+  }
+
+  for (size_t i=0; i<DF1F2.rows(); i++) {
+    for (size_t j=0; j<DF1F2.cols(); j++) {
+      MF1F2(i,j) = Value(DF1F2(i,j));
+    }
+  }
+
+  
   for (size_t i=0; i<V1.rows(); i++) {
     for (size_t j=0; j<V1.cols(); j++) {
       MV1(i,j) = Value(V1(i,j));
@@ -1141,6 +1170,9 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 
 
   List res = List::create(Named("logit_delta") = wrap(Ldelta),
+			  Named("F1") = wrap(MF1),
+			  Named("F2") = wrap(MF2),
+			  Named("F1F2") = wrap(MF1F2),	  
 			  Named("V1") = wrap(MV1),
 			  Named("V2") = wrap(MV2),
 			  Named("W") = wrap(MW),

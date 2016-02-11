@@ -74,7 +74,7 @@ if (flags$use.cr.pars) {
 } else {
 ##    CMcol <- 2
 ##    CM <- llply(mcmod$CM[1:T], function(x) return(x[,CMcol,drop=FALSE]))
-    CM <- mcmod$Efl1[1:T]
+    CM <- mcmod$E[1:T]
 }
 
 
@@ -364,7 +364,7 @@ cat("Objective function - taped\n")
 f <- get.f(start)
 cat("f = ",f,"\n")
 
-
+stop()
 ## Need to bound variables to avoid overflow
 
 opt1 <- optim(start,
