@@ -23,7 +23,7 @@ flags <- list(include.phi=TRUE,
     fix.V = FALSE,
     fix.W = FALSE,
     W1.LKJ = FALSE,
-full.dense.V1 = TRUE
+full.dense.V1 = FALSE
 )
 
 #############################################################################

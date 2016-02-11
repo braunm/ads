@@ -13,9 +13,6 @@ set.seed(1234)
 
 
 data.name <- "sim"
-=======
-data.name <- "tti"
->>>>>>> 18b0d3b0a031cc1cffc4937f7a4f6f1e92df1107
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -40,11 +37,8 @@ if (data.is.sim) {
                   )
 }
 
-nfact.V <- 0
-=======
-nfact.V1 <- 2
+nfact.V1 <- 0
 nfact.V2 <- 0
->>>>>>> 18b0d3b0a031cc1cffc4937f7a4f6f1e92df1107
 nfact.W1 <- 0
 nfact.W2 <- 0
 
@@ -359,11 +353,6 @@ DL <- list(data=data, priors=priors,
            flags=flags,
            fixed.cov=fixed.cov)
 
-<<<<<<< HEAD
-browser()
-
-=======
->>>>>>> 18b0d3b0a031cc1cffc4937f7a4f6f1e92df1107
 cat("Setting up\n")
 cl <- new("ads", DL)
 cat("Recording tape\n")

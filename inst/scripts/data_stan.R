@@ -1,8 +1,8 @@
 library(rstan)
 
-data.name <- "ptw"      # choose from ptw, tti, lld, dpp for now
-stan.code <-"stan2"     # this file located in the inst/script directory and must have .stan suffix
-numiter <- 10            # with diagonal V, this should converge in around 500, comfortably
+data.name <- "sim"      # choose from ptw, tti, lld, dpp for now
+stan.code <-"stan1"     # this file located in the inst/script directory and must have .stan suffix
+numiter <- 1.0e5            # with diagonal V, this should converge in around 500, comfortably
 numcores <- 2           # parallel processing will be done automatically if this is more than one
 
 data.file <- paste0("data/mcmod",data.name,".RData")
@@ -61,14 +61,13 @@ DL <- list(N=N, T=T, J=J, K=K, P=P,
            M20=M20,C20=C20)
 
 
-stop()
-
 st <- stan_model(paste0("inst/scripts/",stan.code,".stan"))
 
 
-fit <- sampling(st,
-                data=DL,
-                iter=numiter, cores=numcores)
+##fit <- sampling(st,
+##                data=DL,
+##                iter=numiter, cores=numcores)
+fit <- vb(st, data=DL, iter= numiter, verbose=TRUE)
 
 save.image(save.file)
 
