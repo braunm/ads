@@ -633,7 +633,8 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
 	ind += V1_dim - j;
 	LV1(j, j) = exp(LV1(j, j));      
       }
-      V1.template selfadjointView<Lower>().rankUpdate(LV1);      
+      V1.template selfadjointView<Lower>().rankUpdate(LV1);
+      //V1 += LV1 * LV1.transpose();      
     }
   }
 
@@ -765,6 +766,8 @@ AScalar ads::eval_LL()
     
     Qt = F1[t] * R1t * F1[t].transpose();
     Qt +=  V1.selfadjointView<Lower>();
+    //Qt += V1;
+
     LDLT(Qt, chol_Qt_L, chol_Qt_D);  
     log_det_Qt += chol_Qt_D.array().log().sum();    
 
@@ -951,6 +954,17 @@ AScalar ads::eval_hyperprior() {
   AScalar prior_logit_delta = dlogitbeta_log(logit_delta, delta_a, delta_b);
   AScalar res =  prior_logit_delta + prior_theta12 +
     prior_phi + prior_mats + prior_cr;
+  /*
+  Rcout << "Priors:\n" << "prior_diag_V1 = " << prior_diag_V1 << "\n";
+  Rcout << "prior_fact_V1 = " << prior_fact_V1 << "\n";
+  Rcout << "prior_diag_V2 = " << prior_diag_V2 << "\n";
+  Rcout << "prior_fact_V2 = " << prior_fact_V2 << "\n";
+  Rcout << "prior_W1 = " << prior_W1 << "\n";
+  Rcout << "prior_W2 = " << prior_W2 << "\n";
+  Rcout << "prior_logit_delta = " << prior_logit_delta << "\n";
+  Rcout << "prior_phi = " << prior_phi << "\n";
+  */
+  
   return(res);
 }
 

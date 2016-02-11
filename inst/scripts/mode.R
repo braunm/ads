@@ -29,15 +29,15 @@ if (data.is.sim) {
                   include.X=TRUE,
                   standardize=FALSE,
                   A.scale = 1,
-                  fix.V1 = FALSE,
-                  fix.V2 = FALSE,
-                  fix.W = FALSE,
+                  fix.V1 = TRUE,
+                  fix.V2 = TRUE,
+                  fix.W = TRUE,
                   W1.LKJ = FALSE,
                   use.cr.pars = FALSE
                   )
 }
 
-nfact.V1 <- 5
+nfact.V1 <- 0
 nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
@@ -123,21 +123,22 @@ if (flags$W1.LKJ & nfact.W1>0) stop("Using LKJ prior on W1.  Set nfact.W1 to 0")
 
 ## We have to include these prior parameters
 
-M20 <- matrix(0,1+P+Jb,J)
-M20[1,] <- 10
-M20[2:(Jb+1),] <- 0
-M20[(Jb+2):(1+P+Jb),] <- 0
-for (j in 1:J) {
-    M20[Jb+1+j,j] <- -2
-}
-for (j in 1:Jb) {
-    M20[j+1,j] <-  0
-}
+## M20 <- matrix(0,1+P+Jb,J)
+## M20[1,] <- 10
+## M20[2:(Jb+1),] <- 0
+## M20[(Jb+2):(1+P+Jb),] <- 0
+## for (j in 1:J) {
+##     M20[Jb+1+j,j] <- -2
+## }
+## for (j in 1:Jb) {
+##     M20[j+1,j] <-  0
+## }
+M20 <- mcmod$truevals$theta20
 
 ##C20 <- 1000*diag(1+P+Jb,1+P+Jb)
 C20 <- diag(c(1000,rep(1,Jb),rep(10,P)))
 
-E.Sigma <-  diag(J) ## expected covariance across brands
+E.Sigma <-  0.1*diag(J) ## expected covariance across brands
 nu0 <- P + 2*J + 3  ## must be greater than theta2 rows+cols
 Omega0 <- (nu0-J-1)*E.Sigma
 
@@ -209,14 +210,14 @@ if (flags$add.prior) {
     }
 
     if (!flags$fix.W) {
-        prior.W2 <- list(diag.scale=1, diag.mode=0,
+        prior.W2 <- list(diag.scale=.001, diag.mode=0,
                          fact.scale=1, fact.mode=0)
         if (flags$W1.LKJ) {
             ## LKJ prior on W1.
             ## Scale parameter has truncated(0) normal prior
             prior.W1 <- list(scale.mode=0, scale.s=1, eta=1)
         } else {
-            prior.W1 <- list(diag.scale=1, diag.mode=0,
+            prior.W1 <- list(diag.scale=.001, diag.mode=0,
                              fact.scale=1, fact.mode=0)
         }
     } else {
@@ -263,8 +264,8 @@ priors <- Filter(function(x) !is.null(x), tmp)
 ## starting parameters
 
 if (flags$include.X) {
-    theta12.start <- matrix(0,K,J)
-    ## theta12.start <- matrix(rnorm(K*J),K,J)
+    ##theta12.start <- matrix(0,K,J)
+     theta12.start <- matrix(rnorm(K*J),K,J)
 } else {
     theta12.start <- NULL
 }
@@ -272,21 +273,23 @@ if (flags$include.X) {
 logit.delta.start <- 0.2
 
 if (flags$full.phi) {
-    phi.start <- matrix(0,Jb,J)
-   ## phi.start <- matrix(rnorm(Jb*J),Jb,J)
+    ##phi.start <- matrix(0,Jb,J)
+    phi.start <- matrix(rnorm(Jb*J),Jb,J)
 } else {
     if (flags$phi.re) {
-        phi.start <- rep(0,Jb+2)
-        ## phi.start <- rnorm(Jb+2)
+        ##phi.start <- rep(0,Jb+2)
+         phi.start <- rnorm(Jb+2)
     } else {
-        phi.start <- rep(0,Jb)
-        ## phi.start <- rnorm(Jb)
+        ##phi.start <- rep(0,Jb)
+         phi.start <- rnorm(Jb)
     }
 }
 
 
 if (flags$fix.V1 | flags$fix.V2 | flags$fix.W) {
-    fixed.cov <- list(V1=NULL, V2=NULL, W=NULL)
+    fixed.cov <- list(V1=mcmod$truevals$V$V1,
+                      V2=0.1*diag(N*(1+P)),
+                      W=0.001*diag(1+Jb+P))
 } else {
     fixed.cov <- NULL
 }

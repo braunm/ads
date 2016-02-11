@@ -16,14 +16,14 @@ set.seed(10503)
 # flags here
 
 flags <- list(include.phi=TRUE,
-    add.prior=TRUE,
-    include.X=TRUE,
-    standardize=FALSE,
-    A.scale = 1,
-    fix.V = FALSE,
-    fix.W = FALSE,
-    W1.LKJ = FALSE,
-full.dense.V1 = FALSE
+              add.prior=TRUE,
+              include.X=TRUE,
+              standardize=FALSE,
+              A.scale = 1,
+              fix.V = FALSE,
+              fix.W = FALSE,
+              W1.LKJ = FALSE,
+              full.dense.V1 = FALSE
 )
 
 #############################################################################
@@ -239,6 +239,6 @@ mcmodsim <- list(dimensions = dimensions, Y = Y,
               truevals=truevals,
               trueflags=flags)
 
-
+mmss <- mcmodsim
 
 devtools::use_data(mcmodsim, overwrite=TRUE)
