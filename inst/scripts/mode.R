@@ -12,7 +12,7 @@ library(reshape2)
 set.seed(1234)
 
 
-data.name <- "dpp"
+data.name <- "sim"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -36,7 +36,7 @@ if (data.is.sim) {
                   )
 }
 
-nfact.V <- 2
+nfact.V <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
 
@@ -327,6 +327,7 @@ DL <- list(data=data, priors=priors,
            flags=flags,
            fixed.cov=fixed.cov)
 
+browser()
 
 cat("Setting up\n")
 cl <- new("ads", DL)

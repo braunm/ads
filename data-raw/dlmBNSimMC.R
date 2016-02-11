@@ -7,6 +7,7 @@
 
 library(dlm)
 library(Matrix)
+library(clusterGeneration)
 
 set.seed(10503)
 
@@ -21,7 +22,8 @@ flags <- list(include.phi=TRUE,
     A.scale = 1,
     fix.V = FALSE,
     fix.W = FALSE,
-    W1.LKJ = FALSE
+    W1.LKJ = FALSE,
+full.dense.V1 = TRUE
 )
 
 #############################################################################
@@ -45,11 +47,12 @@ W <- .001 * diag(1 + J + P)                         # time covariance
 Sigma <- diag(rep(0.1,J))              # covariance across columns
 
 
-
 V1 <- diag(.1, nrow = N)                        # covariance across rows
 ## for(i in 1:(ncol(V1)-1)) {
 ##     V1[i,i+1] <- V1[i+1,i] <- 0.02
 ## }
+if(flags$full.dense.V1) V1 <- genPositiveDefMat(dim=N)$Sigma
+
 V2 <- diag(N * (1 + P)) * 0.1                   # covariance of parameters across cities
 
 V <- list(V1=V1, V2=V2)
@@ -66,9 +69,13 @@ for (j in 1:J) {
     # theta20[1+J+j,j]<- 0 theta20[1+j,j]<- 0
 }
 
+R <- 3
+
+CMl <- list()
+for(t in 1:T) CMl[[t]] <- matrix(runif(J*R), nr= J, nc=R)
 
 dimensions <- list(N = N, T = T, J = J,
-                   Jb = J, JbE = J, K = K,
+                   Jb = J, R = R, JbE = J, K = K,
                    P = P)
 
 # end of parameter section
@@ -177,6 +184,7 @@ F12 <- list()
 F1m <- list()
 F1 <- list()
 Y <- list()
+CM <- list()
 
 for (i in (Tb + 1):T) {
     T1true[[i - Tb]] <- T1[[i]]
@@ -194,11 +202,12 @@ if (Tb > 0) { ## if there is burnin
     Ac <- Ac[-(1:Tb), ]
     T <- (T - Tb)
     E <- E[-(1:Tb), ]
-}
+    for(t in 1:(T-Tb)) CM[[t+Tb]] <- CMl[[t]]
+} else CM <- CMl
 
 Al <- El <- list()
 for (t in 1:T) {
-    El[[t]] <- E[t, ]
+    El[[t]] <- matrix(E[t, ],nr=J)
     Al[[t]] <- A[t, ]
 }
 
@@ -225,7 +234,7 @@ truevals <- list(T1=T1true, T2=T2true,
 
 
 mcmodsim <- list(dimensions = dimensions, Y = Y,
-              E = El, A = Al, X = F12,
+              E = El, Ef = El, Efl1 = El, CM = CM, A = Al, X = F12,
               F1 = F1m, F2 = F2,
               truevals=truevals,
               trueflags=flags)
