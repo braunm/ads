@@ -11,7 +11,7 @@ mcmod <- eval(parse(text=dn)) ## rename to mcmod
 
 save.file <- paste0("inst/results/",stan.code,"_", data.name,"_stan.Rdata")
 
-sampler <- "MLE"
+sampler <- "vb"
 
 N <- mcmod$dimensions$N
 T <- as.integer(mcmod$dimensions$T)
@@ -73,10 +73,6 @@ if(sampler=="MLE") fit <- optimizing(st, data=DL, iter=numiter, verbose=TRUE)
 
 save.image(save.file)
 
-> truevals$Theta12
-[,1]         [,2]        [,3]
-[1,] 0.01191661 -0.002957971  0.02975694
-[2,] 0.02681056  0.033600195 -0.01369947
 
 
 

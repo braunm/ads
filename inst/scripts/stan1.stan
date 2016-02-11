@@ -93,6 +93,7 @@ model {
     Ht <- rep_matrix(0, 1+J+P,J);
     log_det_Qt <- 0;
 
+    for(j in 1:J) theta12[,j] ~ normal(0,100);
     delta ~ beta(1,3);
     Gt[1,1] <- 1-delta;
 

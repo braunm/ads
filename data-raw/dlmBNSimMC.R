@@ -47,13 +47,13 @@ W <- .01 * diag(1 + J + P)                         # time covariance
 Sigma <- diag(rep(0.1,J))              # covariance across columns
 
 
-V1 <- diag(.1, nrow = N)                        # covariance across rows
+V1 <- diag(.01, nrow = N)                        # covariance across rows
 ## for(i in 1:(ncol(V1)-1)) {
 ##     V1[i,i+1] <- V1[i+1,i] <- 0.02
 ## }
 if(flags$full.dense.V1) V1 <- genPositiveDefMat(dim=N)$Sigma
 
-V2 <- diag(N * (1 + P)) * 0.1                   # covariance of parameters across cities
+V2 <- diag(N * (1 + P)) * 0.01                   # covariance of parameters across cities
 
 V <- list(V1=V1, V2=V2)
 
@@ -85,8 +85,10 @@ dimensions <- list(N = N, T = T, J = J,
 # Initialize simulation
 
 # Create containers for data
-theta12 <- rnorm(K * J, mean = .02, sd = 0.03)
+theta12 <- rnorm(K * J, mean = .5, sd = 0.3)
 dim(theta12) <- c(K, J)
+
+if(include.X==FALSE) theta12 = theta12*0        ## set to zero if we don't want this.
 
 FF <- list()
 JFF <- list()
