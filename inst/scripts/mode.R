@@ -26,18 +26,18 @@ if (data.is.sim) {
     flags <- list(full.phi=TRUE, # default is a diagonal phi matrix
                   phi.re=FALSE,
                   add.prior=TRUE,
-                  include.X=FALSE,
+                  include.X=TRUE,
                   standardize=FALSE,
                   A.scale = 1,
-                  fix.V1 = TRUE,
-                  fix.V2 = TRUE,
-                  fix.W = TRUE,
+                  fix.V1 = FALSE,
+                  fix.V2 = FALSE,
+                  fix.W = FALSE,
                   W1.LKJ = FALSE,
                   use.cr.pars = FALSE
                   )
 }
 
-nfact.V1 <- 0
+nfact.V1 <- 4
 nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
@@ -63,8 +63,6 @@ Y <- mcmod$Y[1:T]
 F1 <- mcmod$F1[1:T]
 F2 <- mcmod$F2[1:T]
 A <- mcmod$A[1:T]
-##E <- mcmod$E[1:T]
-
 
 ##R <- mcmod$dimensions$R
 R <- 1
@@ -149,8 +147,8 @@ if (flags$add.prior) {
 
         ## prior on phi:  matrix normal with sparse covariances
         mean.phi <- matrix(0,Jb,J)
-        cov.row.phi <- 1000*diag(Jb)
-        cov.col.phi <- 1000*diag(J)
+        cov.row.phi <- 10*diag(Jb)
+        cov.col.phi <- 10*diag(J)
         chol.cov.row.phi <- t(chol(cov.row.phi))
         chol.cov.col.phi <- t(chol(cov.col.phi))
 
@@ -210,14 +208,14 @@ if (flags$add.prior) {
     }
 
     if (!flags$fix.W) {
-        prior.W2 <- list(diag.scale=.001, diag.mode=0,
+        prior.W2 <- list(diag.scale=.01, diag.mode=0,
                          fact.scale=1, fact.mode=0)
         if (flags$W1.LKJ) {
             ## LKJ prior on W1.
             ## Scale parameter has truncated(0) normal prior
             prior.W1 <- list(scale.mode=0, scale.s=1, eta=1)
         } else {
-            prior.W1 <- list(diag.scale=.001, diag.mode=0,
+            prior.W1 <- list(diag.scale=.01, diag.mode=0,
                              fact.scale=1, fact.mode=0)
         }
     } else {
@@ -264,8 +262,8 @@ priors <- Filter(function(x) !is.null(x), tmp)
 ## starting parameters
 
 if (flags$include.X) {
-    ##theta12.start <- matrix(0,K,J)
-     theta12.start <- matrix(rnorm(K*J),K,J)
+    theta12.start <- matrix(0,K,J)
+    ## theta12.start <- matrix(rnorm(K*J),K,J)
 } else {
     theta12.start <- NULL
 }
@@ -273,23 +271,23 @@ if (flags$include.X) {
 logit.delta.start <- 0.2
 
 if (flags$full.phi) {
-    ##phi.start <- matrix(0,Jb,J)
-    phi.start <- matrix(rnorm(Jb*J),Jb,J)
+    phi.start <- matrix(0,Jb,J)
+    ##phi.start <- matrix(rnorm(Jb*J),Jb,J)
 } else {
     if (flags$phi.re) {
-        ##phi.start <- rep(0,Jb+2)
-         phi.start <- rnorm(Jb+2)
+        phi.start <- rep(0,Jb+2)
+        ## phi.start <- rnorm(Jb+2)
     } else {
-        ##phi.start <- rep(0,Jb)
-         phi.start <- rnorm(Jb)
+        phi.start <- rep(0,Jb)
+        ## phi.start <- rnorm(Jb)
     }
 }
 
 
 if (flags$fix.V1 | flags$fix.V2 | flags$fix.W) {
     fixed.cov <- list(V1=mcmod$truevals$V$V1,
-                      V2=0.1*diag(N*(1+P)),
-                      W=0.001*diag(1+Jb+P))
+                      V2=mcmod$truevals$V$VV,
+                      W=mcmod$truevals$V$W)
 } else {
     fixed.cov <- NULL
 }
@@ -392,7 +390,7 @@ opt2 <- trust.optim(opt1$par,
                         preconditioner=1,
                         start.trust.radius=.01,
                         stop.trust.radius=1e-18,
-                        cg.tol=1e-11,
+                        cg.tol=1e-8,
                         contract.factor=.4,
                         expand.factor=2,
                         expand.threshold.radius=.85,
@@ -413,7 +411,7 @@ opt <- trust.optim(opt2$solution,
                         preconditioner=1,
                         start.trust.radius=.5,
                         stop.trust.radius=1e-17,
-                        cg.tol=1e-11,
+                        cg.tol=1e-8,
                         contract.factor=.8,
                         expand.factor=1.5,
                         expand.threshold.radius=.85,

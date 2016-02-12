@@ -738,7 +738,7 @@ AScalar ads::eval_LL()
 
     // start modeling at week 2
     // to use lags for A and CM    
-  for (int t=1; t<T; t++) {
+  for (int t=0; t<T; t++) {
     check_interrupt();
 
     // run recursion
@@ -981,7 +981,7 @@ void ads::set_Gt(const int& tt) {
   Gt.setZero();
   Gt(0,0) = 1.0 - delta;
   for (int j=0; j<Jb; j++) {
-    Gt(0, j+1) = Afunc(A[tt-1](j), A_scale);
+    Gt(0, j+1) = Afunc(A[tt](j), A_scale);
     Gt(j+1, j+1) = 1.0;
   }
   if (P>0) {
@@ -1014,10 +1014,10 @@ void ads::set_Ht(const int& tt) {
 
   Ht.setZero();
   if (use_cr_pars) {
-    get_cr_mix(CM[tt-1], crMet);
+    get_cr_mix(CM[tt], crMet);
     Ht = crMet.asDiagonal() * phi; // H2t
   } else {
-    Ht = CM[tt-1].asDiagonal() * phi;
+    Ht = CM[tt].asDiagonal() * phi;
   }
     
 } // end set_Ht
@@ -1156,17 +1156,17 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
     }
   }
 
-  /* Rcpp::List Greturn(T); */
-  /* for (size_t tt=1; tt<T; tt++) { */
-  /*   set_Gt(tt); */
-  /*   Rcpp::NumericMatrix GG(Gt.rows(), Gt.cols()); */
-  /*   for (size_t col=0; col < Gt.cols(); col++) { */
-  /*     for (size_t row=0; row < Gt.rows(); row++) { */
-  /* 	GG(row, col) = Value(Gt(row, col)); */
-  /*     } */
-  /*   } */
-  /*   Greturn(tt) = wrap(GG); */
-  /* } */
+  Rcpp::List Hreturn(T);
+  for (size_t tt=0; tt<T; tt++) {
+    set_Ht(tt);
+    Rcpp::NumericMatrix HH(Ht.rows(), Ht.cols());
+    for (size_t col=0; col < Ht.cols(); col++) {
+      for (size_t row=0; row < Ht.rows(); row++) {
+  	HH(row, col) = Value(Ht(row, col));
+      }
+    }
+    Hreturn(tt) = wrap(HH);
+  }
 
 
   List res = List::create(Named("logit_delta") = wrap(Ldelta),
@@ -1181,7 +1181,8 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 			  Named("C2t") = wrap(C2treturn),
 			  Named("OmegaT") = wrap(OmegaTreturn),
 			  Named("phi") = wrap(phiReturn),
-			  Named("cr") = wrap(crReturn)
+			  Named("cr") = wrap(crReturn),
+			  Named("Ht") = wrap(Hreturn)
 			  );
   return(res);
 			  			  

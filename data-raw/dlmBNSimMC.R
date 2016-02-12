@@ -17,13 +17,13 @@ set.seed(10503)
 
 flags <- list(include.phi=TRUE,
     add.prior=TRUE,
-    include.X=FALSE,
+    include.X=TRUE,
     standardize=FALSE,
     A.scale = 1,
     fix.V = TRUE,
     fix.W = TRUE,
     W1.LKJ = FALSE,
-full.dense.V1 = FALSE
+full.dense.V1 = TRUE
 )
 
 #############################################################################
