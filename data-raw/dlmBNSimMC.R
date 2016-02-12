@@ -129,6 +129,7 @@ T2 <- list()
 theta2t <- theta20  # initialise
 Y <- NULL
 Yl <- list()
+HtList <- vector("list",length=T)
 for (t in 1:T) {
     FF[[1]] <- F1l[[t]]
 
@@ -152,7 +153,7 @@ for (t in 1:T) {
             Ht[j,] <- Ht[j,] + phi[j,]*E[t,j]
         }
     }
-
+    HtList[[t]] <- Ht
     epsW <- rmvMN(1, , W, Sigma)
     theta2t <- Gt %*% theta2t + epsW
 

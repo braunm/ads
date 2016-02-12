@@ -12,7 +12,7 @@ library(reshape2)
 set.seed(1234)
 
 
-data.name <- "dpp"
+data.name <- "sim"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -34,7 +34,7 @@ if (data.is.sim) {
                   )
 }
 
-nfact.V <- 1
+nfact.V <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
 
@@ -59,10 +59,10 @@ Y <- mcmod$Y[1:T]
 F1 <- mcmod$F1[1:T]
 F2 <- mcmod$F2[1:T]
 A <- mcmod$A[1:T]
-##E <- mcmod$E[1:T]
+E <- mcmod$E[1:T]
 
 ## Test list for E
-E <- replicate(T, matrix(rnorm(Jb*R),Jb,R),simplify=FALSE)
+##E <- replicate(T, matrix(rnorm(Jb*R),Jb,R),simplify=FALSE)
 
 
 
@@ -106,21 +106,23 @@ if (flags$W1.LKJ & nfact.W1>0) stop("Using LKJ prior on W1.  Set nfact.W1 to 0")
 
 ## We have to include these prior parameters
 
-M20 <- matrix(0,1+P+Jb,J)
-M20[1,] <- 10
-M20[2:(Jb+1),] <- 0
-M20[(Jb+2):(1+P+Jb),] <- 0
-for (j in 1:J) {
-    M20[Jb+1+j,j] <- -2
-}
-for (j in 1:Jb) {
-    M20[j+1,j] <-  0
-}
+## M20 <- matrix(0,1+P+Jb,J)
+## M20[1,] <- 10
+## M20[2:(Jb+1),] <- 0
+## M20[(Jb+2):(1+P+Jb),] <- 0
+## for (j in 1:J) {
+##     M20[Jb+1+j,j] <- -2
+## }
+## for (j in 1:Jb) {
+##     M20[j+1,j] <-  0
+## }
+
+M20 <- mcmod$truevals$theta20
 
 ##C20 <- 1000*diag(1+P+Jb,1+P+Jb)
 C20 <- diag(c(100,rep(1,Jb),rep(10,P)))
 
-E.Sigma <-  diag(J) ## expected covariance across brands
+E.Sigma <-  0.1*diag(J) ## expected covariance across brands
 nu0 <- P + 2*J + 3  ## must be greater than theta2 rows+cols
 Omega0 <- (nu0-J-1)*E.Sigma
 
@@ -199,9 +201,9 @@ if (flags$add.prior) {
         prior.W1 <- NULL
         prior.W2 <- NULL
     }
-    prior.creatives <- list(mean=rep(0,R),
-                            chol.cov=t(chol(diag(R)))
-                            )
+##    prior.creatives <- list(mean=rep(0,R),
+##                            chol.cov=t(chol(diag(R)))
+##                            )
 
 
 } else {
@@ -211,7 +213,7 @@ if (flags$add.prior) {
     prior.W2 <- NULL
     prior.delta <- NULL
     prior.theta12 <- NULL
-    prior.creatives <- NULL
+##    prior.creatives <- NULL
 }
 
 tmp <- list(M20=M20,
@@ -223,8 +225,8 @@ tmp <- list(M20=M20,
             delta=prior.delta,
             V=prior.V,
             W1=prior.W1,
-            W2=prior.W2,
-            creatives=prior.creatives
+            W2=prior.W2##,
+##            creatives=prior.creatives
             )
 
 priors <- Filter(function(x) !is.null(x), tmp)
@@ -256,7 +258,8 @@ if (flags$full.phi) {
 
 
 if (flags$fix.V | flags$fix.W) {
-    fixed.cov <- list(V=NULL, W=NULL)
+    fixed.cov <- list(V=0.1*diag(N),
+                      W=0.001*diag(1+J+P))
 } else {
     fixed.cov <- NULL
 }
@@ -285,7 +288,7 @@ if (flags$fix.W) {
     W2.start <- rep(0,W2.length)
 }
 
-creatives <- rep(0,R)
+##creatives <- rep(0,R)
 
 
 tmp <- list(
@@ -294,8 +297,8 @@ tmp <- list(
     logit.delta=logit.delta.start,
     V=V.start,
     W1=W1.start,
-    W2=W2.start,
-    creatives=creatives
+    W2=W2.start##,
+ ##   creatives=creatives
     )
 
 start.list <- as.relistable(Filter(function(x) !is.null(x), tmp))
@@ -347,13 +350,13 @@ opt1 <- optim(start,
 opt2 <- trust.optim(opt1$par,
                     fn=get.f,
                     gr=get.df,
-                    method="SR1",
+                    method="BFGS",
                     control=list(
                         report.level=5L,
                         report.precision=4L,
                         maxit=3000L,
                         function.scale.factor=-1,
-                        preconditioner=0,
+                        preconditioner=1,
                         start.trust.radius=.01,
                         stop.trust.radius=1e-15,
                         cg.tol=1e-9,
@@ -377,7 +380,7 @@ opt <- trust.optim(opt2$solution,
                         preconditioner=1,
                         start.trust.radius=.01,
                         stop.trust.radius=1e-15,
-                        contract.factor=.4,
+                        contract.factor=.8,
                         expand.factor=2,
                         expand.threshold.radius=.85,
                         report.freq = 10L

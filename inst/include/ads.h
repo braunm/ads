@@ -115,8 +115,8 @@ private:
   AScalar fact_scale_W2;
   AScalar fact_mode_W2;
 
-  VectorXA mean_cr;
-  MatrixXA chol_cov_cr;
+  //  VectorXA mean_cr;
+  // MatrixXA chol_cov_cr;
 
   int J; // number of brands
   int Jb; // number of brands that advertise
@@ -124,7 +124,7 @@ private:
   int T; // number of weeks
   int K; // covariates with stationary parameters
   int P; // covariates with nonstationary parameters
-  int R; // covariates in creative metric
+  //  int R; // covariates in creative metric
   int nfact_V; // factors to estimate V
   int nfact_W1; // factors to estimate W2 (if active)
   int nfact_W2; // factors to estimate W2 (if active)
@@ -159,7 +159,7 @@ private:
   AScalar phi_log_sd;
   AScalar phi_sd;
 
-  VectorXA cr;
+  //  VectorXA cr;
 
  
   // intermediate values
@@ -217,7 +217,7 @@ ads::ads(const List& params)
   Jb = as<int>(dimensions["Jb"]);
   K = as<int>(dimensions["K"]);
   P = as<int>(dimensions["P"]);
-  R = as<int>(dimensions["R"]);
+  //  R = as<int>(dimensions["R"]);
 
   full_phi = as<bool>(flags["full.phi"]);
   phi_re = as<bool>(flags["phi.re"]);
@@ -489,6 +489,7 @@ ads::ads(const List& params)
       }
     }
 
+    /*
     Rcout << "Creative priors\n";
     const List priors_cr = as<List>(priors["creatives"]);
 
@@ -497,7 +498,7 @@ ads::ads(const List& params)
     
     const Map<MatrixXd> chol_cov_cr_d(as<Map<MatrixXd> >(priors_cr["chol.cov"]));
     chol_cov_cr = chol_cov_cr_d.cast<AScalar>();
- 
+    */
 
     
   } // end priors
@@ -630,8 +631,8 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
   }
 
   // parameters for creatives
-  cr = par.segment(ind, R);
-  ind += R;
+  //  cr = par.segment(ind, R);
+  //  ind += R;
 
 }
 
@@ -826,10 +827,10 @@ AScalar ads::eval_hyperprior() {
 
  
 
-  MatrixXA crp(1,1);
-  MVN_logpdf(cr, mean_cr, chol_cov_cr, crp, false);
-  AScalar prior_cr = crp(0,0);
-  
+  //  MatrixXA crp(1,1);
+  //  MVN_logpdf(cr, mean_cr, chol_cov_cr, crp, false);
+  //AScalar prior_cr = crp(0,0);
+  AScalar prior_cr = 0;
     
   AScalar prior_W2 = prior_diag_W2 + prior_fact_W2;
   AScalar prior_mats = prior_diag_V + prior_fact_V + prior_W1 + prior_W2;
@@ -863,7 +864,8 @@ void ads::set_Gt(const int& tt) {
 // set_Ht
 void ads::set_Ht(const int& tt) {
   Ht.setZero();
-  Ht = (E[tt] * cr).eval().asDiagonal() * phi; // H2t
+  //  Ht = (E[tt] * cr).eval().asDiagonal() * phi; // H2t
+  Ht = E[tt].asDiagonal() * phi; // H2t
 } // end set_Ht
 
 
@@ -958,16 +960,16 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
   }
 
 
-  Rcpp::List Greturn(T);
+  Rcpp::List Hreturn(T);
   for (size_t tt=0; tt<T; tt++) {
-    set_Gt(tt);
-    Rcpp::NumericMatrix GG(Gt.rows(), Gt.cols());
-    for (size_t col=0; col < Gt.cols(); col++) {
-      for (size_t row=0; row < Gt.rows(); row++) {
-  	GG(row, col) = Value(Gt(row, col));
+    set_Ht(tt);
+    Rcpp::NumericMatrix HH(Ht.rows(), Ht.cols());
+    for (size_t col=0; col < Ht.cols(); col++) {
+      for (size_t row=0; row < Ht.rows(); row++) {
+  	HH(row, col) = Value(Ht(row, col));
       }
     }
-    Greturn(tt) = wrap(GG);
+    Hreturn(tt) = wrap(HH);
   }
 
 
@@ -978,7 +980,8 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 			  Named("M2t") = wrap(M2treturn),
 			  Named("C2t") = wrap(C2treturn),
 			  Named("OmegaT") = wrap(OmegaTreturn),
-			  Named("phi") = wrap(phiReturn)
+			  Named("phi") = wrap(phiReturn),
+			  Named("Ht") = wrap(Hreturn)
 			  );
   return(res);
 			  			  
