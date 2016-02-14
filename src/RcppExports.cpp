@@ -20,3 +20,17 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
+// rMVN
+NumericMatrix rMVN(int N, NumericVector mu_, NumericMatrix L_, bool isPrec);
+RcppExport SEXP ads_rMVN(SEXP NSEXP, SEXP mu_SEXP, SEXP L_SEXP, SEXP isPrecSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< int >::type N(NSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type mu_(mu_SEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type L_(L_SEXP);
+    Rcpp::traits::input_parameter< bool >::type isPrec(isPrecSEXP);
+    __result = Rcpp::wrap(rMVN(N, mu_, L_, isPrec));
+    return __result;
+END_RCPP
+}
