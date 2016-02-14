@@ -243,9 +243,9 @@ ads::ads(const List& params)
   full_phi = as<bool>(flags["full.phi"]);
   phi_re = as<bool>(flags["phi.re"]);
   add_prior = as<bool>(flags["add.prior"]);
+
   include_X = as<bool>(flags["include.X"]);
   use_cr_pars = as<bool>(flags["use.cr.pars"]);
-
   A_scale = as<double>(flags["A.scale"]);
   fix_V1 = as<bool>(flags["fix.V1"]);
   fix_V2 = as<bool>(flags["fix.V2"]);
@@ -261,7 +261,7 @@ ads::ads(const List& params)
     Xlist = as<List>(data["X"]);
     X.resize(T);
   }
-
+ 
   const List Ylist = as<List>(data["Y"]);
   Y.resize(T);
   Ybar.resize(T);
@@ -288,8 +288,6 @@ ads::ads(const List& params)
   W1_dim_ch2 = W1_dim*(W1_dim-1)/2;
 
   // number of factors for estimating covariance matrices
-
-
   if (!fix_V1) {
     nfact_V1 = as<int>(dimensions["nfact.V1"]);
   }
@@ -417,13 +415,10 @@ ads::ads(const List& params)
 
   const Map<MatrixXd> M20_d(as<Map<MatrixXd> >(priors["M20"]));
   M20 = M20_d.cast<AScalar>();
-  
   const Map<MatrixXd> C20_d(as<Map<MatrixXd> >(priors["C20"]));
   C20 = C20_d.cast<AScalar>();
-
   const Map<MatrixXd> Omega_d(as<Map<MatrixXd> >(priors["Omega0"]));
   Omega0 = Omega_d.cast<AScalar>();
-
   nu0 = as<double>(priors["nu0"]);
   log_mvgamma_prior = log_MVgamma(nu0 / 2.0, J);
   log_mvgamma_post = log_MVgamma((nu0+T*N) / 2.0, J);
@@ -738,7 +733,7 @@ AScalar ads::eval_LL()
 
     // start modeling at week 2
     // to use lags for A and CM    
-  for (int t=1; t<T; t++) {
+  for (int t=0; t<T; t++) {
     check_interrupt();
 
     // run recursion
@@ -981,7 +976,7 @@ void ads::set_Gt(const int& tt) {
   Gt.setZero();
   Gt(0,0) = 1.0 - delta;
   for (int j=0; j<Jb; j++) {
-    Gt(0, j+1) = Afunc(A[tt-1](j), A_scale);
+    Gt(0, j+1) = Afunc(A[tt](j), A_scale);
     Gt(j+1, j+1) = 1.0;
   }
   if (P>0) {
@@ -1014,10 +1009,10 @@ void ads::set_Ht(const int& tt) {
 
   Ht.setZero();
   if (use_cr_pars) {
-    get_cr_mix(CM[tt-1], crMet);
+    get_cr_mix(CM[tt], crMet);
     Ht = crMet.asDiagonal() * phi; // H2t
   } else {
-    Ht = CM[tt-1].asDiagonal() * phi;
+    Ht = CM[tt].asDiagonal() * phi;
   }
     
 } // end set_Ht
@@ -1156,17 +1151,17 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
     }
   }
 
-  /* Rcpp::List Greturn(T); */
-  /* for (size_t tt=1; tt<T; tt++) { */
-  /*   set_Gt(tt); */
-  /*   Rcpp::NumericMatrix GG(Gt.rows(), Gt.cols()); */
-  /*   for (size_t col=0; col < Gt.cols(); col++) { */
-  /*     for (size_t row=0; row < Gt.rows(); row++) { */
-  /* 	GG(row, col) = Value(Gt(row, col)); */
-  /*     } */
-  /*   } */
-  /*   Greturn(tt) = wrap(GG); */
-  /* } */
+  Rcpp::List Hreturn(T);
+  for (size_t tt=0; tt<T; tt++) {
+    set_Ht(tt);
+    Rcpp::NumericMatrix HH(Ht.rows(), Ht.cols());
+    for (size_t col=0; col < Ht.cols(); col++) {
+      for (size_t row=0; row < Ht.rows(); row++) {
+  	HH(row, col) = Value(Ht(row, col));
+      }
+    }
+    Hreturn(tt) = wrap(HH);
+  }
 
 
   List res = List::create(Named("logit_delta") = wrap(Ldelta),
@@ -1181,7 +1176,8 @@ List ads::par_check(const Eigen::Ref<VectorXA>& P) {
 			  Named("C2t") = wrap(C2treturn),
 			  Named("OmegaT") = wrap(OmegaTreturn),
 			  Named("phi") = wrap(phiReturn),
-			  Named("cr") = wrap(crReturn)
+			  Named("cr") = wrap(crReturn),
+			  Named("Ht") = wrap(Hreturn)
 			  );
   return(res);
 			  			  

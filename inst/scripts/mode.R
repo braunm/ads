@@ -12,7 +12,7 @@ library(reshape2)
 set.seed(1234)
 
 
-data.name <- "sim"
+data.name <- "dpp"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -29,15 +29,15 @@ if (data.is.sim) {
                   include.X=TRUE,
                   standardize=FALSE,
                   A.scale = 1,
-                  fix.V1 = TRUE,
-                  fix.V2 = TRUE,
-                  fix.W = TRUE,
+                  fix.V1 = FALSE,
+                  fix.V2 = FALSE,
+                  fix.W = FALSE,
                   W1.LKJ = FALSE,
                   use.cr.pars = FALSE
                   )
 }
 
-nfact.V1 <- 0
+nfact.V1 <- 3
 nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
@@ -63,8 +63,6 @@ Y <- mcmod$Y[1:T]
 F1 <- mcmod$F1[1:T]
 F2 <- mcmod$F2[1:T]
 A <- mcmod$A[1:T]
-##E <- mcmod$E[1:T]
-
 
 ##R <- mcmod$dimensions$R
 R <- 1
@@ -123,23 +121,23 @@ if (flags$W1.LKJ & nfact.W1>0) stop("Using LKJ prior on W1.  Set nfact.W1 to 0")
 
 ## We have to include these prior parameters
 
-## M20 <- matrix(0,1+P+Jb,J)
-## M20[1,] <- 10
-## M20[2:(Jb+1),] <- 0
-## M20[(Jb+2):(1+P+Jb),] <- 0
-## for (j in 1:J) {
-##     M20[Jb+1+j,j] <- -2
-## }
-## for (j in 1:Jb) {
-##     M20[j+1,j] <-  0
-## }
-M20 <- mcmod$truevals$theta20
+M20 <- matrix(0,1+P+Jb,J)
+M20[1,] <- 10
+M20[2:(Jb+1),] <- 0
+M20[(Jb+2):(1+P+Jb),] <- 0
+for (j in 1:J) {
+    M20[Jb+1+j,j] <- -2
+}
+for (j in 1:Jb) {
+    M20[j+1,j] <-  0
+}
+
 
 ##C20 <- 1000*diag(1+P+Jb,1+P+Jb)
 C20 <- diag(c(1000,rep(1,Jb),rep(10,P)))
 
-E.Sigma <-  0.1*diag(J) ## expected covariance across brands
-nu0 <- P + 2*J + 3  ## must be greater than theta2 rows+cols
+E.Sigma <-  diag(J) ## expected covariance across brands
+nu0 <- P + 2*J + 6  ## must be greater than theta2 rows+cols
 Omega0 <- (nu0-J-1)*E.Sigma
 
 ## The following priors are optional
@@ -197,7 +195,7 @@ if (flags$add.prior) {
     ## For V1, V2, W1 and W2:   normal or truncated normal priors (if needed)
     if (!flags$fix.V1) {
         prior.V1 <- list(diag.scale=1, diag.mode=0,
-                         fact.scale=.01, fact.mode=0)
+                         fact.scale=0.1, fact.mode=0)
     } else {
         prior.V1 <-  NULL
     }
@@ -210,14 +208,14 @@ if (flags$add.prior) {
     }
 
     if (!flags$fix.W) {
-        prior.W2 <- list(diag.scale=.001, diag.mode=0,
+        prior.W2 <- list(diag.scale=1, diag.mode=0,
                          fact.scale=1, fact.mode=0)
         if (flags$W1.LKJ) {
             ## LKJ prior on W1.
             ## Scale parameter has truncated(0) normal prior
             prior.W1 <- list(scale.mode=0, scale.s=1, eta=1)
         } else {
-            prior.W1 <- list(diag.scale=.001, diag.mode=0,
+            prior.W1 <- list(diag.scale=1, diag.mode=0,
                              fact.scale=1, fact.mode=0)
         }
     } else {
@@ -264,8 +262,8 @@ priors <- Filter(function(x) !is.null(x), tmp)
 ## starting parameters
 
 if (flags$include.X) {
-    ##theta12.start <- matrix(0,K,J)
-     theta12.start <- matrix(rnorm(K*J),K,J)
+    theta12.start <- matrix(0,K,J)
+    ## theta12.start <- matrix(rnorm(K*J),K,J)
 } else {
     theta12.start <- NULL
 }
@@ -273,23 +271,23 @@ if (flags$include.X) {
 logit.delta.start <- 0.2
 
 if (flags$full.phi) {
-    ##phi.start <- matrix(0,Jb,J)
-    phi.start <- matrix(rnorm(Jb*J),Jb,J)
+    phi.start <- matrix(0,Jb,J)
+    ##phi.start <- matrix(rnorm(Jb*J),Jb,J)
 } else {
     if (flags$phi.re) {
-        ##phi.start <- rep(0,Jb+2)
-         phi.start <- rnorm(Jb+2)
+        phi.start <- rep(0,Jb+2)
+        ## phi.start <- rnorm(Jb+2)
     } else {
-        ##phi.start <- rep(0,Jb)
-         phi.start <- rnorm(Jb)
+        phi.start <- rep(0,Jb)
+        ## phi.start <- rnorm(Jb)
     }
 }
 
 
 if (flags$fix.V1 | flags$fix.V2 | flags$fix.W) {
     fixed.cov <- list(V1=mcmod$truevals$V$V1,
-                      V2=0.1*diag(N*(1+P)),
-                      W=0.001*diag(1+Jb+P))
+                      V2=mcmod$truevals$V$VV,
+                      W=mcmod$truevals$V$W)
 } else {
     fixed.cov <- NULL
 }
@@ -364,7 +362,7 @@ cat("Objective function - taped\n")
 f <- get.f(start)
 cat("f = ",f,"\n")
 
-stop()
+
 ## Need to bound variables to avoid overflow
 
 opt1 <- optim(start,
@@ -383,16 +381,16 @@ opt1 <- optim(start,
 opt2 <- trust.optim(opt1$par,
                     fn=get.f,
                     gr=get.df,
-                    method="BFGS",
+                    method="SR1",
                     control=list(
                         report.level=5L,
                         report.precision=4L,
-                        maxit=3000L,
+                        maxit=2000L,
                         function.scale.factor=-1,
-                        preconditioner=1,
+                        preconditioner=0,
                         start.trust.radius=.01,
                         stop.trust.radius=1e-18,
-                        cg.tol=1e-11,
+                        cg.tol=1e-8,
                         contract.factor=.4,
                         expand.factor=2,
                         expand.threshold.radius=.85,
@@ -408,12 +406,12 @@ opt <- trust.optim(opt2$solution,
                     control=list(
                         report.level=5L,
                         report.precision=4L,
-                        maxit=3000L,
+                        maxit=5000L,
                         function.scale.factor=-1,
                         preconditioner=1,
                         start.trust.radius=.5,
                         stop.trust.radius=1e-17,
-                        cg.tol=1e-11,
+                        cg.tol=1e-8,
                         contract.factor=.8,
                         expand.factor=1.5,
                         expand.threshold.radius=.85,

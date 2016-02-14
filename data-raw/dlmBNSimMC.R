@@ -20,8 +20,8 @@ flags <- list(include.phi=TRUE,
     include.X=TRUE,
     standardize=FALSE,
     A.scale = 1,
-    fix.V = FALSE,
-    fix.W = FALSE,
+    fix.V = TRUE,
+    fix.W = TRUE,
     W1.LKJ = FALSE,
 full.dense.V1 = TRUE
 )
