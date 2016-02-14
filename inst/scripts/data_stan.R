@@ -11,7 +11,7 @@ mcmod <- eval(parse(text=dn)) ## rename to mcmod
 
 save.file <- paste0("inst/results/",stan.code,"_", data.name,"_stan.Rdata")
 
-sampler <- "vb"
+sampler <- "MLE"
 
 N <- mcmod$dimensions$N
 T <- as.integer(mcmod$dimensions$T)
@@ -24,7 +24,7 @@ Yr <- mcmod$Y[1:T]
 F1r <- mcmod$F1[1:T]
 F2r <- mcmod$F2[1:T]
 Ar <- mcmod$A[1:T]
-Er <- mcmod$Ef[1:T]     # choose from E, Ef, and Efl1 for dummy, frac of budget, and frac of budget of lagged dummy
+Er <- mcmod$Efl1[1:T]     # choose from E, Ef, and Efl1 for dummy, frac of budget, and frac of budget of lagged dummy
 Xr <- mcmod$X[1:T]
 
 Y <- array(dim=c(T, N, J))
@@ -47,7 +47,7 @@ for (j in 1:J) {
     M20[Jb+1+j,j] <- -2
     M20[j+1,j] <- .25
 }
-C20 <- 1000*diag(1+P+Jb,1+P+Jb)
+C20 <- 10*diag(1+P+Jb,1+P+Jb)
 
 
 for (i in 1:T) {
