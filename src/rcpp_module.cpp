@@ -2,7 +2,10 @@
 #define MB_BASE_PLUGIN <optionals.h>
 #endif
 
-#include <ads.h>
+#ifndef __ADS_MODULE
+#define __ADS_MODULE
+
+#include <ads_class.h>
 
 /* Not exposing functions related to sparse Hessian, because the Hessian is dense */
 
@@ -29,3 +32,5 @@ RCPP_MODULE(ads){
     .method( "par.check", & MB_Base<ads>::par_check_)
     ;
 }
+
+#endif

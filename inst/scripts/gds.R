@@ -7,7 +7,7 @@ library(RcppEigen)
 library(bayesGDS)
 library(plyr)
 library(reshape2)
-library(mvtnorm)
+library(sparseMVN)
 
 ##----parallelSetup
 library(doParallel, quietly=TRUE)
@@ -24,21 +24,24 @@ save.file <- paste0(".nobuild/results/gds_",data.name,".Rdata")
 
 ##----load post.mode, DL, gr, hs
 load(mode.file)
-scale <- 0.87
-M <- 500  ## proposal draws
-n.draws <- 4  ## total number of draws needed
+scale <- 1.2
+M <- 100  ## proposal draws
+n.draws <- 100  ## total number of draws needed
 max.tries <- 10000  ## to keep sample.GDS from running forever
 n.batch <- 2
 
 
 ##----defPropFuncs
 
-rmvn.sparse.wrap <- function(n.draws, params) {
-    rmvn.sparse(n.draws, params[["mean"]], params[["CH"]], prec=TRUE)
+rmvn.wrap <- function(n.draws, params) {
+##    rmvn.sparse(n.draws, params[["mean"]], params[["CH"]], prec=TRUE)
+    rmvn(n.draws, params$mean, params$CH, prec=TRUE)
 }
-dmvn.sparse.wrap <- function(d, params) {
-    dmvn.sparse(d, params[["mean"]], params[["CH"]], prec=TRUE)
+dmvn.wrap <- function(d, params) {
+##    dmvn.sparse(d, params[["mean"]], params[["CH"]], prec=TRUE)
+    dmvn(d, params$mean, params$CH, prec=TRUE)
 }
+
 get.f <- function(P, ...) return(cl$get.f(P))
 get.df <- function(P, ...) return(cl$get.fdf(P)$grad)
 get.hessian <- function(P, ...) return(cl$get.hessian(P))
@@ -53,19 +56,23 @@ log.c1 <- get.f(post.mode)
 
 
 ##----propParams
-CH <- Cholesky(-scale*as(forceSymmetric(hs),"sparseMatrix"))
+cv <- solve(-hs)/scale^2
+##CH <- Cholesky(-scale*as(forceSymmetric(hs),"sparseMatrix"))
+CH <- t(chol(-scale*hs))
 prop.params <- list(mean = post.mode, CH=CH)
 
 ##----proposals
 
 cat("Sampling proposals\n")
-log.c2 <- dmvn.sparse.wrap(post.mode, prop.params)
-draws.m <- as(rmvn.sparse.wrap(M,prop.params),"matrix")
-log.post.m <- plyr::aaply(draws.m, 1, get.f, .parallel=run.par)
-log.prop.m <- dmvn.sparse.wrap(draws.m, params=prop.params)
+log.c2 <- dmvn.wrap(post.mode, prop.params)
+t1 <- system.time(draws.m <- as(rmvn.wrap(M,prop.params),"matrix"))
+t2 <- system.time(log.post.m <- plyr::aaply(draws.m, 1, get.f, .parallel=run.par))
+t3 <- system.time(log.prop.m <- dmvn.wrap(draws.m, params=prop.params))
 log.phi <- log.post.m - log.prop.m + log.c2 - log.c1
 valid.scale <- all(log.phi <= 0)
 stopifnot(valid.scale)
+
+
 ##----sampleGDS_parallel
 if (run.par) {
     print("Parallel")
@@ -77,10 +84,10 @@ if (run.par) {
         log.phi = log.phi,
         post.mode = post.mode,
         fn.dens.post = get.f,
-        fn.dens.prop = dmvn.sparse.wrap,
-        fn.draw.prop = rmvn.sparse.wrap,
+        fn.dens.prop = dmvn.wrap,
+        fn.draw.prop = rmvn.wrap,
         prop.params = prop.params,
-        report.freq = 1000,
+        report.freq = 100,
         thread.id = i,
         announce=TRUE,
         seed=as.integer(seed.id*i))
@@ -96,3 +103,5 @@ str(draws)
 quants <-  plyr::aaply(draws[["draws"]], 2,
                        quantile, probs=c(.025, .5, .975),
                        .parallel = run.par)
+
+save(draws, quants, log.phi, DL, file=save.file)

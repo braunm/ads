@@ -12,7 +12,7 @@ library(reshape2)
 set.seed(1234)
 
 
-data.name <- "sim"
+data.name <- "dpp"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -37,7 +37,7 @@ if (data.is.sim) {
                   )
 }
 
-nfact.V1 <- 4
+nfact.V1 <- 3
 nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
@@ -121,23 +121,23 @@ if (flags$W1.LKJ & nfact.W1>0) stop("Using LKJ prior on W1.  Set nfact.W1 to 0")
 
 ## We have to include these prior parameters
 
-## M20 <- matrix(0,1+P+Jb,J)
-## M20[1,] <- 10
-## M20[2:(Jb+1),] <- 0
-## M20[(Jb+2):(1+P+Jb),] <- 0
-## for (j in 1:J) {
-##     M20[Jb+1+j,j] <- -2
-## }
-## for (j in 1:Jb) {
-##     M20[j+1,j] <-  0
-## }
-M20 <- mcmod$truevals$theta20
+M20 <- matrix(0,1+P+Jb,J)
+M20[1,] <- 10
+M20[2:(Jb+1),] <- 0
+M20[(Jb+2):(1+P+Jb),] <- 0
+for (j in 1:J) {
+    M20[Jb+1+j,j] <- -2
+}
+for (j in 1:Jb) {
+    M20[j+1,j] <-  0
+}
+
 
 ##C20 <- 1000*diag(1+P+Jb,1+P+Jb)
 C20 <- diag(c(1000,rep(1,Jb),rep(10,P)))
 
-E.Sigma <-  0.1*diag(J) ## expected covariance across brands
-nu0 <- P + 2*J + 3  ## must be greater than theta2 rows+cols
+E.Sigma <-  diag(J) ## expected covariance across brands
+nu0 <- P + 2*J + 6  ## must be greater than theta2 rows+cols
 Omega0 <- (nu0-J-1)*E.Sigma
 
 ## The following priors are optional
@@ -147,8 +147,8 @@ if (flags$add.prior) {
 
         ## prior on phi:  matrix normal with sparse covariances
         mean.phi <- matrix(0,Jb,J)
-        cov.row.phi <- 10*diag(Jb)
-        cov.col.phi <- 10*diag(J)
+        cov.row.phi <- 1000*diag(Jb)
+        cov.col.phi <- 1000*diag(J)
         chol.cov.row.phi <- t(chol(cov.row.phi))
         chol.cov.col.phi <- t(chol(cov.col.phi))
 
@@ -195,7 +195,7 @@ if (flags$add.prior) {
     ## For V1, V2, W1 and W2:   normal or truncated normal priors (if needed)
     if (!flags$fix.V1) {
         prior.V1 <- list(diag.scale=1, diag.mode=0,
-                         fact.scale=.01, fact.mode=0)
+                         fact.scale=0.1, fact.mode=0)
     } else {
         prior.V1 <-  NULL
     }
@@ -208,14 +208,14 @@ if (flags$add.prior) {
     }
 
     if (!flags$fix.W) {
-        prior.W2 <- list(diag.scale=.01, diag.mode=0,
+        prior.W2 <- list(diag.scale=1, diag.mode=0,
                          fact.scale=1, fact.mode=0)
         if (flags$W1.LKJ) {
             ## LKJ prior on W1.
             ## Scale parameter has truncated(0) normal prior
             prior.W1 <- list(scale.mode=0, scale.s=1, eta=1)
         } else {
-            prior.W1 <- list(diag.scale=.01, diag.mode=0,
+            prior.W1 <- list(diag.scale=1, diag.mode=0,
                              fact.scale=1, fact.mode=0)
         }
     } else {
@@ -381,13 +381,13 @@ opt1 <- optim(start,
 opt2 <- trust.optim(opt1$par,
                     fn=get.f,
                     gr=get.df,
-                    method="BFGS",
+                    method="SR1",
                     control=list(
                         report.level=5L,
                         report.precision=4L,
-                        maxit=3000L,
+                        maxit=2000L,
                         function.scale.factor=-1,
-                        preconditioner=1,
+                        preconditioner=0,
                         start.trust.radius=.01,
                         stop.trust.radius=1e-18,
                         cg.tol=1e-8,
@@ -406,7 +406,7 @@ opt <- trust.optim(opt2$solution,
                     control=list(
                         report.level=5L,
                         report.precision=4L,
-                        maxit=3000L,
+                        maxit=5000L,
                         function.scale.factor=-1,
                         preconditioner=1,
                         start.trust.radius=.5,

@@ -243,9 +243,9 @@ ads::ads(const List& params)
   full_phi = as<bool>(flags["full.phi"]);
   phi_re = as<bool>(flags["phi.re"]);
   add_prior = as<bool>(flags["add.prior"]);
+
   include_X = as<bool>(flags["include.X"]);
   use_cr_pars = as<bool>(flags["use.cr.pars"]);
-
   A_scale = as<double>(flags["A.scale"]);
   fix_V1 = as<bool>(flags["fix.V1"]);
   fix_V2 = as<bool>(flags["fix.V2"]);
@@ -261,7 +261,7 @@ ads::ads(const List& params)
     Xlist = as<List>(data["X"]);
     X.resize(T);
   }
-
+ 
   const List Ylist = as<List>(data["Y"]);
   Y.resize(T);
   Ybar.resize(T);
@@ -288,8 +288,6 @@ ads::ads(const List& params)
   W1_dim_ch2 = W1_dim*(W1_dim-1)/2;
 
   // number of factors for estimating covariance matrices
-
-
   if (!fix_V1) {
     nfact_V1 = as<int>(dimensions["nfact.V1"]);
   }
@@ -417,13 +415,10 @@ ads::ads(const List& params)
 
   const Map<MatrixXd> M20_d(as<Map<MatrixXd> >(priors["M20"]));
   M20 = M20_d.cast<AScalar>();
-  
   const Map<MatrixXd> C20_d(as<Map<MatrixXd> >(priors["C20"]));
   C20 = C20_d.cast<AScalar>();
-
   const Map<MatrixXd> Omega_d(as<Map<MatrixXd> >(priors["Omega0"]));
   Omega0 = Omega_d.cast<AScalar>();
-
   nu0 = as<double>(priors["nu0"]);
   log_mvgamma_prior = log_MVgamma(nu0 / 2.0, J);
   log_mvgamma_post = log_MVgamma((nu0+T*N) / 2.0, J);
