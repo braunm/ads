@@ -20,18 +20,11 @@ using Rcpp::Rcout;
 using Eigen::Dynamic;
 using Eigen::Map;
 using Eigen::Lower;
+using Rcpp::_;
 
 
 
-//' @title dMVN
-//' @param X_ matrix
-//' @param mu_ vector
-//' @param L_ lower chol of cov or prec matrix
-//' @param isPrec covariance or precision matrix?
-//' @return Numeric vector
-//' @export
-//[[Rcpp::export]]
-NumericVector dMVN(NumericMatrix X_, NumericVector mu_,
+NumericVector dMVN_(NumericMatrix X_, NumericVector mu_,
 		   NumericMatrix L_, bool isPrec){
 	
 
@@ -60,16 +53,17 @@ NumericVector dMVN(NumericMatrix X_, NumericVector mu_,
   return(wrap(logdens));
 }
 
+NumericVector dMVN_(NumericVector X_, NumericVector mu_,
+		       NumericMatrix L_, bool isPrec){
+  NumericMatrix X(1,X_.size());
+  X(0,_) = X_;
+  
+  NumericVector res = dMVN_(X, mu_, L_, isPrec);
+  return(res);
+}
 
-//' @title rMVN
-//' @param N integer, number of draws
-//' @param mu_ mean vector
-//' @param L_ lower chol of cov or prec matrix
-//' @param isPrec covariance or precision matrix?
-//' @return Numeric matrix
-//' @export
-//[[Rcpp::export]]
-NumericMatrix rMVN(int N, NumericVector mu_,
+
+NumericMatrix rMVN_(int N, NumericVector mu_,
 		   NumericMatrix L_, bool isPrec){
        
   size_t k = mu_.size();
