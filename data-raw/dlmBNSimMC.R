@@ -32,8 +32,8 @@ full.dense.V1 = TRUE
 #############################################################################
 # parameter section
 
-N   <- 42                                           ## number of 'sites'
-T   <- 202                                          # number of time periods
+N   <- 15                                           ## number of 'sites'
+T   <- 40                                          # number of time periods
 Tb  <- 0                                            # number of burnin periods (discard first Tb simulated time periods)
 J   <- 3                                            # number of equations
 P   <- J                                            # number of time varying covariates per city (excluding intercept)
@@ -44,7 +44,7 @@ phi <- matrix(runif(J*J,max=0.1), nc = J, nr = J)   # response coefficients for 
 # covariance matrixes
 W <- .01 * diag(1 + J + P)                         # time covariance
 # W[1]<-0.01 diag(W)[(2+J):(1+J+P)]<-0.001
-Sigma <- diag(rep(0.1,J))              # covariance across columns
+Sigma <- diag(rep(1,J))              # covariance across columns
 
 
 V1 <- diag(.01, nrow = N)                        # covariance across rows
@@ -174,11 +174,8 @@ for (t in 1:T) {
     epsV1 <- rmvMN(1, , V[[1]], Sigma)
     Yt <- FF[[1]] %*% theta1t + F12l[[t]] %*% theta12 + epsV1
 
-    Y <- rbind(Y, as.vector(Yt))
     Yl[[t]] <- Yt
 }
-
-Y <- Y[-(1:Tb), ]
 
 T1true <- list()
 T2true <- list()
