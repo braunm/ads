@@ -3,6 +3,7 @@
 export(ads)
 export(dMVN)
 export(dmvn)
+export(make_varnames)
 export(rMVN)
 export(rmvn)
 import(CppADutils)

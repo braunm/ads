@@ -9,6 +9,8 @@ library(plyr)
 library(dplyr)
 library(reshape2)
 library(sparseMVN)
+library(ggplot2)
+library(stringr)
 
 theme_set(theme_bw())
 
@@ -68,9 +70,9 @@ grx <- get.df(as.vector(x))
 
 
 colnames(track) <- c("f.curr","f.prop","log.r","log.u")
-report <- 10
+report <- 1
 
-sig <- 0.03
+sig <- 0.025
 
 rmvn.wrap <- function(n.draws, params) {
     rMVN(n.draws, params$mean, params$CH, TRUE)
@@ -82,8 +84,6 @@ dmvn.wrap <- function(d, params) {
 
 prCov <- sig * solve(-hs)
 prChol <- t(chol(prCov))
-
-
 
 
 for (i in start.i:end.i) {
@@ -115,28 +115,29 @@ for (i in start.i:end.i) {
     logpost[i] <- log.fx
 }
 
-J <- DL$dimensions["J"]
-Jb <- DL$dimensions["Jb"]
-K <- DL$dimensions["K"]
 
-nm <- c(str_c("theta12.",seq(1,J*K)),
-        str_c("phi.",seq(1,Jb*J)),
-        "logit.delta",
-        str_c("other.",seq(1,nvars-J*K-Jb*J-1)))
+
+nm <- make_varnames(DL$dimensions)
 dimnames(draws) <- list(iter=1:NROW(draws),var=nm)
 
 
-save(draws, logpost, acc, track, sig, x, file=save.file)
+save(draws, logpost, acc, track, sig, x,
+     nm, file=save.file)
+
+F <- melt(draws) %>%
+  tidyr::separate(var, into=c("par","D1","D2"), sep="\\.",
+                  remove=FALSE, fill="right")
 
 
-F <- melt(draws)
-F$var <- as.character(F$var)
 
 
-Fphi <- dplyr::filter(F,str_detect(var,"phi"))
+
+
+Fphi <- dplyr::filter(F,par=="phi" & iter>20000)
 trace_phi <- ggplot(Fphi, aes(x=iter,y=value)) %>%
   + geom_line(size=.1) %>%
-  + facet_wrap(~var, scales="free")
+  + geom_hline(yintercept=0,color="red") %>%
+  + facet_grid(D1~D2, scales="free")
 print(trace_phi)
 
 ## Ftheta12 <- dplyr::filter(F,str_detect(var,"theta12"))

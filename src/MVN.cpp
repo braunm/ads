@@ -1,32 +1,34 @@
-
-#ifndef __ADS_MVN
-#define __ADS_MVN
-
-
 #include <RcppEigen.h>
-#include <Eigen/Eigen>
 
+// #include <MVN_headers.h>
 
+using Rcpp::Function;
 using Rcpp::NumericVector;
 using Rcpp::NumericMatrix;
-using Rcpp::as;
-using Rcpp::List;
-using Rcpp::Named;
-using Rcpp::wrap;
-using Eigen::VectorXd;
-using Eigen::MatrixXd;
-using Eigen::MatrixBase;
+using Rcpp::IntegerVector;
 using Rcpp::Rcout;
-using Eigen::Dynamic;
+using Eigen::MatrixXd;
+using Eigen::VectorXd;
 using Eigen::Map;
 using Eigen::Lower;
+using Rcpp::as;
+using Rcpp::Named;
+using Rcpp::List;
 using Rcpp::_;
+using Rcpp::wrap;
 
 
-
-NumericVector dMVN_(NumericMatrix X_, NumericVector mu_,
+//' @title dMVN
+//' @param X_ matrix
+//' @param mu_ vector
+//' @param L_ lower chol of cov or prec matrix
+//' @param isPrec covariance or precision matrix?
+//' @return Numeric vector
+//' @export
+//[[Rcpp::export]]
+NumericVector dMVN(NumericMatrix X_, NumericVector mu_,
 		   NumericMatrix L_, bool isPrec){
-	
+
 
   size_t k = X_.cols();
   size_t N = X_.rows();
@@ -51,35 +53,35 @@ NumericVector dMVN_(NumericMatrix X_, NumericVector mu_,
     logdens.array() = C - detL - 0.5 * (Z.array() * Z.array()).colwise().sum();
   }
   return(wrap(logdens));
-}
-
-NumericVector dMVN_(NumericVector X_, NumericVector mu_,
-		       NumericMatrix L_, bool isPrec){
-  NumericMatrix X(1,X_.size());
-  X(0,_) = X_;
   
-  NumericVector res = dMVN_(X, mu_, L_, isPrec);
-  return(res);
 }
 
 
-NumericMatrix rMVN_(int N, NumericVector mu_,
+//' @title rMVN
+//' @param N integer, number of draws
+//' @param mu_ mean vector
+//' @param L_ lower chol of cov or prec matrix
+//' @param isPrec covariance or precision matrix?
+//' @return Numeric matrix
+//' @export
+//[[Rcpp::export]]
+NumericMatrix rMVN(int N, NumericVector mu_,
 		   NumericMatrix L_, bool isPrec){
-       
+
   size_t k = mu_.size();
   NumericVector z_ = Rcpp::rnorm(N*k);
   Map<MatrixXd> Z = MatrixXd::Map(z_.begin(), k, N);
   Map<VectorXd> mu = VectorXd::Map(mu_.begin(), k);
   Map<MatrixXd> L = MatrixXd::Map(L_.begin(), k, k);
   MatrixXd X;
-
+  
   if (isPrec) {
     X = ((L.triangularView<Lower>().transpose().solve(Z)).colwise() + mu).transpose();
   } else {
     X = ((L.triangularView<Lower>() * Z).colwise() + mu).transpose();
   }
   return(wrap(X));
+ 
 }
 
 
-#endif

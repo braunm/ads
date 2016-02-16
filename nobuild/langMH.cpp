@@ -1,6 +1,6 @@
 #include <RcppEigen.h>
 
-#include <MVN_.h>
+#include <MVN_headers.h>
 
 using Rcpp::Function;
 using Rcpp::NumericVector;
@@ -15,6 +15,7 @@ using Rcpp::Named;
 using Rcpp::List;
 using Rcpp::_;
 using Rcpp::wrap;
+
 
 
 
@@ -38,7 +39,7 @@ List langMH(NumericVector x,
   NumericVector my(k);
 
   Map<VectorXd> xe(as<Map<VectorXd> >(x));
-  Map<VectorXd> ye(as<Map<VectorXd> >(y));
+ 
   Map<VectorXd> grxe(as<Map<VectorXd> >(grx));
   Map<VectorXd> grye(as<Map<VectorXd> >(gry));
   Map<VectorXd> mxe(as<Map<VectorXd> >(mx));
@@ -57,8 +58,13 @@ List langMH(NumericVector x,
 
   
   for (int i=0; i<ndraws; i++) {
+
+    if (remainder(i,10) == 0) {
+      Rcout << "iter " << i << "\t";
+    }
     mxe = xe + 0.5 * prCove * grxe; // defines mx
-    y = rMVN_(1, mx, prChol, false);
+    y = rMVN_vec(mx, prChol, false);
+    Map<VectorXd> ye(as<Map<VectorXd> >(y));   
     log_py = dMVN_(y, mx, prChol, false);
     log_fy = as<double>(fn(y));
 
@@ -70,11 +76,17 @@ List langMH(NumericVector x,
     double log_u = log(as<double>(Rcpp::runif(1)));
 
     if (log_u <- log_r) { // accept
+      if (remainder(i,10) == 0) {
+	Rcout << "ACCEPT\n";
+      }
       x = y;
       log_fx = log_fy;
       grx = gry;
       acc(i) = 1;
     } else {
+      if (remainder(i,10) == 0) {
+	Rcout << "REJECT\n";
+      }
       acc(i) = 0;
     }
     draws(i,_) = x;
@@ -88,3 +100,42 @@ List langMH(NumericVector x,
 
 
 }
+
+
+
+
+
+//' @title dMVN
+//' @param X_ matrix
+//' @param mu_ vector
+//' @param L_ lower chol of cov or prec matrix
+//' @param isPrec covariance or precision matrix?
+//' @return Numeric vector
+//' @export
+//[[Rcpp::export]]
+NumericVector dMVN(NumericMatrix X_, NumericVector mu_,
+		   NumericMatrix L_, bool isPrec){
+	
+  NumericVector res = dMVN_(X_, mu_, L_, isPrec);
+  return(wrap(res));
+ 
+}
+
+
+//' @title rMVN
+//' @param N integer, number of draws
+//' @param mu_ mean vector
+//' @param L_ lower chol of cov or prec matrix
+//' @param isPrec covariance or precision matrix?
+//' @return Numeric matrix
+//' @export
+//[[Rcpp::export]]
+NumericMatrix rMVN(int N, NumericVector mu_,
+		   NumericMatrix L_, bool isPrec){
+
+  NumericMatrix res = rMVN_(N, mu_, L_, isPrec);
+  return(wrap(res));
+
+}
+
+
