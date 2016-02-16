@@ -41,7 +41,7 @@ cl$record.tape(post.mode)
 log.c1 <- get.f(post.mode)
 
 nvars <- length(opt$par)
-n.iter <- 5000
+n.iter <- 10000
 n.thin <- 10
 n.draws <- floor(n.iter/n.thin)
 restart <- TRUE
@@ -77,8 +77,11 @@ grx <- get.df(as.vector(x))
 
 colnames(track) <- c("f.curr","f.prop","log.r","log.u")
 report <- 10
+save.freq <- 2000 ## save if (i %% save.freq) == 0
 
 sig <- 0.015
+
+nm <- make_varnames(DL$dimensions)
 
 rmvn.wrap <- function(n.draws, params) {
     rMVN(n.draws, params$mean, params$CH, TRUE)
@@ -90,6 +93,10 @@ dmvn.wrap <- function(d, params) {
 
 prCov <- sig * solve(-hs)
 prChol <- t(chol(prCov))
+
+sampler_pars <- list(sig=sig, n.thin=n.thin, start.i=start.i,
+                     start.d=start.d, n.draws=n.draws,
+                     n.iter=n.iter)
 
 d <- start.d
 for (i in start.i:end.i) {
@@ -124,20 +131,18 @@ for (i in start.i:end.i) {
         draws[d,] <- x
         logpost[d] <- log.fx
     }
+
+    if ((i %% save.freq)==0) { ## interim save
+        dimnames(draws) <- list(iter=iter_draw, var=nm)
+        save(draws, logpost, acc, track, sig, x,
+             nm, iter_draw, sampler_pars,
+             file=save.file)
+    }
 }
 
 
-
-nm <- make_varnames(DL$dimensions)
+## save at end
 dimnames(draws) <- list(iter=iter_draw, var=nm)
-
-
-sampler_pars <- list(sig=sig, n.thin=n.thin, start.i=start.i,
-                     start.d=start.d, n.draws=n.draws,
-                     n.iter=n.iter)
-
-
-
 save(draws, logpost, acc, track, sig, x,
      nm, iter_draw, sampler_pars,
      file=save.file)
@@ -147,7 +152,7 @@ F <- melt(draws) %>%
                   remove=FALSE, fill="right")
 
 
-Fphi <- dplyr::filter(F,par=="phi" & iter>20000)
+Fphi <- dplyr::filter(F,par=="phi" & iter>=43100)
 trace_phi <- ggplot(Fphi, aes(x=iter,y=value)) %>%
   + geom_line(size=.1) %>%
   + geom_hline(yintercept=0,color="red") %>%
@@ -161,8 +166,8 @@ print(trace_phi)
 ## print(trace_theta12)
 
 
-trace_logpost <- data_frame(iter=1:length(logpost),
-                       value=logpost) %>%
+trace_logpost <- data_frame(iter=iter_draw, value=logpost) %>%
+  filter(iter>=43100) %>%
   ggplot(aes(x=iter, y=value)) %>%
   + geom_line(size=.1)
 print(trace_logpost)
