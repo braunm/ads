@@ -12,7 +12,7 @@ library(sparseMVN)
 ##----parallelSetup
 library(doParallel, quietly=TRUE)
 run.par <- TRUE
-if(run.par) registerDoParallel(cores=2) else registerDoParallel(cores=1)
+if(run.par) registerDoParallel(cores=3) else registerDoParallel(cores=1)
 seed.id <- 123
 set.seed(seed.id)
 
@@ -24,8 +24,8 @@ save.file <- paste0(".nobuild/results/gds_",data.name,".Rdata")
 
 ##----load post.mode, DL, gr, hs
 load(mode.file)
-scale <- 1.2
-M <- 100  ## proposal draws
+scale <- 1.25
+M <- 10000  ## proposal draws
 n.draws <- 10  ## total number of draws needed
 max.tries <- 10000  ## to keep sample.GDS from running forever
 n.batch <- 2
@@ -34,15 +34,10 @@ n.batch <- 2
 ##----defPropFuncs
 
 rmvn.wrap <- function(n.draws, params) {
-##    rmvn.sparse(n.draws, params[["mean"]], params[["CH"]], prec=TRUE)
-##    rmvn(n.draws, params$mean, params$CH, prec=TRUE)
     rMVN(n.draws, params$mean, params$CH, TRUE)
 }
 dmvn.wrap <- function(d, params) {
-##    dmvn.sparse(d, params[["mean"]], params[["CH"]], prec=TRUE)
-    ##    dmvn(d, params$mean, params$CH, prec=TRUE)
-    k <- length(params$mean)
-    dMVN(matrix(d,ncol=k), params$mean, params$CH, TRUE)
+    dMVN(matrix(d,ncol=length(params$mean)), params$mean, params$CH, TRUE)
 }
 
 get.f <- function(P, ...) return(cl$get.f(P))

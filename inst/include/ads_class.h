@@ -201,6 +201,10 @@ private:
   MatrixXA tmpNJ;
   MatrixXA chol_DX_L;
   VectorXA chol_DX_D;
+  MatrixXA chol_Qt_L;
+  VectorXA chol_Qt_D;
+  MatrixXA tmp1;
+  MatrixXA tmp2;
   
   AScalar log_mvgamma_prior;
   AScalar log_mvgamma_post;
@@ -408,6 +412,12 @@ ads::ads(const List& params)
   QYf.resize(N,J);
   tmpNJ.resize(N,J);
   crMet.resize(Jb);
+  chol_DX_L.resize(J,J);
+  chol_DX_D.resize(J);
+  chol_Qt_L.resize(N,N);
+  chol_Qt_D.resize(N);
+  tmp1.resize(N, 1+Jb+P);
+  tmp2.resize(N, 1+Jb+P);
 
   Rcout << "Required prior parameters\n";
   
@@ -723,10 +733,6 @@ AScalar ads::eval_LL()
     M2t = M20;
     C2t = C20;
 
-    MatrixXA chol_Qt_L = MatrixXA::Identity(N,N);
-    VectorXA chol_Qt_D = VectorXA::Zero(N);
- 
-
     OmegaT = Omega0;
     AScalar log_det_Qt = 0;
     nuT = nu0;
@@ -739,19 +745,13 @@ AScalar ads::eval_LL()
     // run recursion
     
     set_Gt(t);
-    assert(Gt.allFinite());
     a2t = Gt.triangularView<Upper>() * M2t;
     set_Ht(t);
     // assume bottom P rows of Ht  are all zero
     a2t.middleRows(1,Jb).array() +=  Ht.array();
- 
-    assert(Ht.allFinite());
-    assert(a2t.allFinite());
     
     Yft = -F1F2[t] * a2t;
     Yft += Ybar[t];
-
-    assert(Yft.allFinite());
   
     R2t = Gt.triangularView<Upper>() * C2t * Gt.triangularView<Upper>().transpose();
     R2t += W.selfadjointView<Lower>();
@@ -760,8 +760,7 @@ AScalar ads::eval_LL()
     R1t += V2.selfadjointView<Lower>();
     
     Qt = F1[t] * R1t * F1[t].transpose();
-    Qt +=  V1.selfadjointView<Lower>();
-    //Qt += V1;
+    Qt +=  V1.selfadjointView<Lower>();  
 
     LDLT(Qt, chol_Qt_L, chol_Qt_D);  
     log_det_Qt += chol_Qt_D.array().log().sum();    
@@ -774,8 +773,9 @@ AScalar ads::eval_LL()
     M2t = S2t * QYf;
     M2t += a2t;
 
-    MatrixXA tmp1 = chol_Qt_L.triangularView<Lower>().solve(S2t.transpose());
-    MatrixXA tmp2 = chol_Qt_D.asDiagonal().inverse() * tmp1;
+    
+    tmp1 = chol_Qt_L.triangularView<Lower>().solve(S2t.transpose());
+    tmp2 = chol_Qt_D.asDiagonal().inverse() * tmp1;
     C2t = -tmp1.transpose() * tmp2;        
     C2t += R2t;
 
@@ -784,13 +784,9 @@ AScalar ads::eval_LL()
     nuT += N;
   }
 
-
-  MatrixXA chol_DX_L = MatrixXA::Identity(J,J);
-  VectorXA chol_DX_D = VectorXA::Zero(J);
   LDLT(OmegaT, chol_DX_L, chol_DX_D);
   AScalar log_det_DX = chol_DX_D.array().log().sum();
   AScalar log_PY = log_const - J*log_det_Qt/2. - nuT*log_det_DX/2.;     
-  assert(!CppAD::isnan(log_PY));
   return(log_PY);
 }
 
@@ -879,9 +875,6 @@ AScalar ads::eval_hyperprior() {
     }
   }
 
-
-  
-  
   AScalar prior_scale_W1 = 0;
   AScalar prior_corr_W1 = 0;
   AScalar prior_W1 = 0;
@@ -949,16 +942,6 @@ AScalar ads::eval_hyperprior() {
   AScalar prior_logit_delta = dlogitbeta_log(logit_delta, delta_a, delta_b);
   AScalar res =  prior_logit_delta + prior_theta12 +
     prior_phi + prior_mats + prior_cr;
-  /*
-  Rcout << "Priors:\n" << "prior_diag_V1 = " << prior_diag_V1 << "\n";
-  Rcout << "prior_fact_V1 = " << prior_fact_V1 << "\n";
-  Rcout << "prior_diag_V2 = " << prior_diag_V2 << "\n";
-  Rcout << "prior_fact_V2 = " << prior_fact_V2 << "\n";
-  Rcout << "prior_W1 = " << prior_W1 << "\n";
-  Rcout << "prior_W2 = " << prior_W2 << "\n";
-  Rcout << "prior_logit_delta = " << prior_logit_delta << "\n";
-  Rcout << "prior_phi = " << prior_phi << "\n";
-  */
   
   return(res);
 }
