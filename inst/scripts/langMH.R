@@ -9,6 +9,7 @@ library(plyr)
 library(dplyr)
 library(reshape2)
 library(sparseMVN)
+library(ggplot2)
 
 theme_set(theme_bw())
 
@@ -41,7 +42,7 @@ cl$record.tape(post.mode)
 log.c1 <- get.f(post.mode)
 
 nvars <- length(opt$par)
-ndraws <- 5000
+ndraws <- 2000
 restart <- TRUE
 
 if (restart) {
@@ -68,7 +69,7 @@ grx <- get.df(as.vector(x))
 
 
 colnames(track) <- c("f.curr","f.prop","log.r","log.u")
-report <- 10
+report <- 100
 
 sig <- 0.03
 
@@ -82,8 +83,6 @@ dmvn.wrap <- function(d, params) {
 
 prCov <- sig * solve(-hs)
 prChol <- t(chol(prCov))
-
-
 
 
 for (i in start.i:end.i) {
