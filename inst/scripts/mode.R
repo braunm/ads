@@ -12,7 +12,7 @@ library(reshape2)
 set.seed(1234)
 
 
-data.name <- "dpp"
+data.name <- "ptw"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -23,7 +23,7 @@ save.file <- paste0("./nobuild/results/mode_",data.name,".Rdata")
 if (data.is.sim) {
     flags <- mcmod$trueflags
 } else {
-    flags <- list(full.phi=TRUE, # default is a diagonal phi matrix
+    flags <- list(full.phi=FALSE, # default is a diagonal phi matrix
                   phi.re=FALSE,
                   add.prior=TRUE,
                   include.X=TRUE,
@@ -37,7 +37,7 @@ if (data.is.sim) {
                   )
 }
 
-nfact.V1 <- 3
+nfact.V1 <- 0
 nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
@@ -135,6 +135,7 @@ for (j in 1:Jb) {
 
 ##C20 <- 1000*diag(1+P+Jb,1+P+Jb)
 C20 <- diag(c(1000,rep(1,Jb),rep(10,P)))
+diag(C20)[1+1:Jb] <- 1
 
 E.Sigma <-  diag(J) ## expected covariance across brands
 nu0 <- P + 2*J + 6  ## must be greater than theta2 rows+cols

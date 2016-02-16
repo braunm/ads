@@ -23,7 +23,7 @@ flags <- list(include.phi=TRUE,
     fix.V = TRUE,
     fix.W = TRUE,
     W1.LKJ = FALSE,
-full.dense.V1 = TRUE
+full.dense.V1 = FALSE
 )
 
 #############################################################################
@@ -32,8 +32,8 @@ full.dense.V1 = TRUE
 #############################################################################
 # parameter section
 
-N   <- 15                                           ## number of 'sites'
-T   <- 40                                          # number of time periods
+N   <- 42                                           ## number of 'sites'
+T   <- 202                                          # number of time periods
 Tb  <- 0                                            # number of burnin periods (discard first Tb simulated time periods)
 J   <- 3                                            # number of equations
 P   <- J                                            # number of time varying covariates per city (excluding intercept)
@@ -42,7 +42,7 @@ delta <- 0.1                                        # memory decay parameter
 phi <- matrix(runif(J*J,max=0.1), nc = J, nr = J)   # response coefficients for new creatives
 
 # covariance matrixes
-W <- .01 * diag(1 + J + P)                         # time covariance
+W <- .00001 * diag(1 + J + P)                         # time covariance
 # W[1]<-0.01 diag(W)[(2+J):(1+J+P)]<-0.001
 Sigma <- diag(rep(1,J))              # covariance across columns
 
