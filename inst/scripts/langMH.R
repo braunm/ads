@@ -33,8 +33,6 @@ mode.file <- paste0("./nobuild/results/mode_",data.name,".Rdata")
 save.file <- paste0("./nobuild/results/langMH_",data.name,".Rdata")
 
 
-
-
 ##----load post.mode, DL, gr, hs
 load(mode.file)
 post.mode <- opt$par
@@ -43,26 +41,34 @@ cl$record.tape(post.mode)
 log.c1 <- get.f(post.mode)
 
 nvars <- length(opt$par)
-ndraws <- 5000
+n.iter <- 10000
+n.thin <- 10
+n.draws <- floor(n.iter/n.thin)
 restart <- TRUE
+
+
 
 if (restart) {
     cat("restarting\n")
     load(save.file) ## loads x
-    start.i <- NROW(draws)+1
-    end.i <- start.i + ndraws - 1
-    draws <- rbind(draws,matrix(NA,ndraws,nvars))
-    logpost <- c(logpost,rep(NA,ndraws))
-    acc <- c(acc,logical(ndraws))
-    track <- rbind(track,matrix(NA,ndraws,4))
+    start.d <- NROW(draws)
+    start.i <- tail(iter_draw,1) + 1
+    end.i <- start.i + n.iter - 1
+    draws <- rbind(draws,matrix(NA,n.draws,nvars))
+    logpost <- c(logpost,rep(NA,n.draws))
+    acc <- c(acc,logical(n.iter))
+    track <- rbind(track,matrix(NA,n.iter,4))
+    iter_draw <- c(iter_draw,rep(NA,n.draws))
 } else {
     start.i <- 1
-    end.i <- ndraws
+    start.d <- n.thin
+    end.i <- n.iter
     x <- matrix(post.mode,nrow=1)
-    draws <- matrix(NA,ndraws,nvars)
-    logpost <- rep(NA,ndraws)
-    acc <- logical(ndraws)
-    track <- matrix(NA,ndraws,4)
+    draws <- matrix(NA,n.draws,nvars)
+    logpost <- rep(NA,n.draws)
+    acc <- logical(n.iter)
+    track <- matrix(NA,n.iter,4)
+    iter_draw <- rep(NA,n.draws)
 }
 
 log.fx <- get.f(as.vector(x))
@@ -70,9 +76,12 @@ grx <- get.df(as.vector(x))
 
 
 colnames(track) <- c("f.curr","f.prop","log.r","log.u")
-report <- 1
+report <- 10
+save.freq <- 2000 ## save if (i %% save.freq) == 0
 
-sig <- 0.025
+sig <- 0.015
+
+nm <- make_varnames(DL$dimensions)
 
 rmvn.wrap <- function(n.draws, params) {
     rMVN(n.draws, params$mean, params$CH, TRUE)
@@ -85,7 +94,11 @@ dmvn.wrap <- function(d, params) {
 prCov <- sig * solve(-hs)
 prChol <- t(chol(prCov))
 
+sampler_pars <- list(sig=sig, n.thin=n.thin, start.i=start.i,
+                     start.d=start.d, n.draws=n.draws,
+                     n.iter=n.iter)
 
+d <- start.d
 for (i in start.i:end.i) {
     if (i %% report == 0) cat("iter ",i,"\t");
     mx <- t(x) + 0.5 * prCov %*% grx
@@ -111,29 +124,35 @@ for (i in start.i:end.i) {
         if (i %% report == 0)    cat("REJECT\n")
         acc[i] <- FALSE
     }
-    draws[i,] <- x
-    logpost[i] <- log.fx
+
+    if ((i %% n.thin)==0) {
+        d <- d+1
+        iter_draw[d] <- i
+        draws[d,] <- x
+        logpost[d] <- log.fx
+    }
+
+    if ((i %% save.freq)==0) { ## interim save
+        dimnames(draws) <- list(iter=iter_draw, var=nm)
+        save(draws, logpost, acc, track, sig, x,
+             nm, iter_draw, sampler_pars,
+             file=save.file)
+    }
 }
 
 
-
-nm <- make_varnames(DL$dimensions)
-dimnames(draws) <- list(iter=1:NROW(draws),var=nm)
-
-
+## save at end
+dimnames(draws) <- list(iter=iter_draw, var=nm)
 save(draws, logpost, acc, track, sig, x,
-     nm, file=save.file)
+     nm, iter_draw, sampler_pars,
+     file=save.file)
 
 F <- melt(draws) %>%
   tidyr::separate(var, into=c("par","D1","D2"), sep="\\.",
                   remove=FALSE, fill="right")
 
 
-
-
-
-
-Fphi <- dplyr::filter(F,par=="phi" & iter>20000)
+Fphi <- dplyr::filter(F,par=="phi" & iter>=43100)
 trace_phi <- ggplot(Fphi, aes(x=iter,y=value)) %>%
   + geom_line(size=.1) %>%
   + geom_hline(yintercept=0,color="red") %>%
@@ -147,8 +166,8 @@ print(trace_phi)
 ## print(trace_theta12)
 
 
-trace_logpost <- data_frame(iter=1:length(logpost),
-                       value=logpost) %>%
+trace_logpost <- data_frame(iter=iter_draw, value=logpost) %>%
+  filter(iter>=43100) %>%
   ggplot(aes(x=iter, y=value)) %>%
   + geom_line(size=.1)
 print(trace_logpost)
