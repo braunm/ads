@@ -487,6 +487,8 @@ cv <- solve(-hs)
 se <- sqrt(diag(cv))
 se.sol <- relist(se,skeleton=start.list)
 
+varnames <- make_varnames(DL$dimensions)
+
 ## standard errors of products of phi and a
 
 if (flags$use.cr.pars) {
@@ -522,5 +524,6 @@ if (flags$use.cr.pars) {
 
 
 
-save(sol, se.sol, opt, DL, gr, hs, data,file=save.file)
+save(sol, se.sol, opt, DL, varnames,
+     gr, hs, data,file=save.file)
 
