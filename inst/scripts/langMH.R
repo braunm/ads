@@ -10,6 +10,7 @@ library(dplyr)
 library(reshape2)
 library(sparseMVN)
 library(ggplot2)
+library(stringr)
 
 theme_set(theme_bw())
 
@@ -42,7 +43,7 @@ cl$record.tape(post.mode)
 log.c1 <- get.f(post.mode)
 
 nvars <- length(opt$par)
-ndraws <- 2000
+ndraws <- 3000
 restart <- TRUE
 
 if (restart) {

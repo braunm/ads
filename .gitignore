@@ -12,6 +12,7 @@ _region_.*
 *.log
 *.synctex.gz
 nobuild/data-raw/*
+nobuild/results/*
 
 
 
