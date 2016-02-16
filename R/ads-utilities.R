@@ -85,7 +85,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
         XAdv <- dcast.data.table(df1, week ~ brand, value.var = "natdols", subset = .(week >= fweek), fill = 0, fun = mean, na.rm = TRUE)
         XAdv <- XAdv[,brands.to_keep,with=FALSE]			# reorder columns to correspond to list
 
-        # create covariates from list, X being not time varying, and X2 being time varyin
+        # create covariates from list, X being not time varying, and X2 being time varying
 
         X1 <- structure(rep(0,T*N*J*length(covnv)), dim=c(T,N,J*length(covnv)))
         for(mkt in 1:N) {
@@ -349,13 +349,10 @@ getcreativedata <- function(category, brands.to_keep, max.distance = 0.2){
 ##' Returns a matrix of weekly observations including whether new ads were released, or
 ##' some metric of average age.
 ##'
-##' @param category Three letter acronym for category (e.g. "dpp")
-##' @param brands.to_keep Character vector of brands
-##' @param max.distance Levenshtein's distance
+##' @param creatives The creative file itself
 ##' @return A list with a list of metrics for creatives, each element being a T x Jb,
 ##' @return data table, with Jb being the maximum brands on columns
 getcreativemix <- function(creatives){
-
 
     ## Average age per cID, number of new creatives, average number of creatives
     creatives[,cIDavgage:=weighted.mean(weekID-cIDfweek,dols),by=c("brand","weekID")]
@@ -427,4 +424,45 @@ getcreativemix <- function(creatives){
     
     return(list(ownadnnc = ownadnnc, ownadnnc.fracspent = ownadnnc.fracspent, ownadnnc.fracspent.l1 = ownadnnc.fracspent.l1, creativemix = creativemix))
 }
+
+
+
+##' Make summary file for creatives
+##'
+##' Returns a number of weekly metrics for a given creative file
+##' Script not yet complete
+##'
+##' @return Something
+getcreativesummary <- function(category, brands.to_keep){
+    
+    cf <- paste0("~/Documents/ads/nobuild/data-raw/",category,"creatives.txt")
+    
+    ## convert brand names
+    creatives <- fread(cf,col.names= c('brand','program','progtype','tvcreative','property','media','avg30','avg30d','dols','sec','dtime','firstdateshown','weekID','fweek'))
+    creatives <- trim_characters(creatives)
+    creatives[,brand:=toupper(brand)]
+    creatives <- creatives[brand %in% brands.to_keep,]
+    creatives[,dols:=as.numeric(dols)]
+    
+    creatives <- creatives[!like(toupper(tvcreative),"CREATIVE UNKNOWN"),]
+    brands.adv <- creatives[,unique(brand)]
+    
+    Jb = length(brands.adv)
+
+    creatives <- creatives[brand %in% brands.adv,]			# delete any brands not advertised in list
+    
+    ## collapse
+    setcreativeID(creatives)
+    
+    # amount spent by a brand in a given week (this should be separated into what happened over the life of the ad, and what happened in the first week
+    creatives[,brandadspend := sum(dols),by=c("brand","weekID")]
+    csum <- creatives[,list(cIDfweek=weekID, dols.first.week = sum(ifelse(cIDfweek==fweek,dols,0)), fracspent.first.week = sum(ifelse(cIDfweek==fweek,dols/brandadspend,0)), lweek=max(weekID),nbrands=creatives[,uniqueN(brand)],nprogtype=uniqueN(progtype),nprograms=uniqueN(program),
+    nproperty=uniqueN(property),nmedia=creatives[,uniqueN(media)], time.mins = sum(sec/60)),by=c("cID","brand")]
+    csum[,time1:=lweek-fweek]
+    csum[,categoryname:=category]
+    return(csum)
+}
+
+
+
 
