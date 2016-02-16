@@ -23,7 +23,7 @@ save.file <- paste0("./nobuild/results/mode_",data.name,".Rdata")
 if (data.is.sim) {
     flags <- mcmod$trueflags
 } else {
-    flags <- list(full.phi=FALSE, # default is a diagonal phi matrix
+    flags <- list(full.phi=TRUE, # default is a diagonal phi matrix
                   phi.re=FALSE,
                   add.prior=TRUE,
                   include.X=TRUE,
