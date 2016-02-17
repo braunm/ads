@@ -18,8 +18,7 @@ theme_set(theme_bw())
 library(doParallel, quietly=TRUE)
 run.par <- TRUE
 if(run.par) registerDoParallel(cores=3) else registerDoParallel(cores=1)
-seed.id <- 123
-set.seed(seed.id)
+
 
 get.f <- function(P, ...) return(cl$get.f(P))
 get.df <- function(P, ...) return(cl$get.fdf(P)$grad)
@@ -41,12 +40,13 @@ cl$record.tape(post.mode)
 log.c1 <- get.f(post.mode)
 
 nvars <- length(opt$par)
-n.iter <- 10000
+n.iter <- 1000
 n.thin <- 10
 n.draws <- floor(n.iter/n.thin)
 restart <- TRUE
-
-
+report <- 50
+save.freq <- 2000 ## save if (i %% save.freq) == 0
+sig <- 0.015
 
 if (restart) {
     cat("restarting\n")
@@ -76,10 +76,8 @@ grx <- get.df(as.vector(x))
 
 
 colnames(track) <- c("f.curr","f.prop","log.r","log.u")
-report <- 10
-save.freq <- 2000 ## save if (i %% save.freq) == 0
 
-sig <- 0.015
+
 
 nm <- make_varnames(DL$dimensions)
 
@@ -146,31 +144,5 @@ dimnames(draws) <- list(iter=iter_draw, var=nm)
 save(draws, logpost, acc, track, sig, x,
      nm, iter_draw, sampler_pars,
      file=save.file)
-
-F <- melt(draws) %>%
-  tidyr::separate(var, into=c("par","D1","D2"), sep="\\.",
-                  remove=FALSE, fill="right")
-
-
-Fphi <- dplyr::filter(F,par=="phi" & iter>=43100)
-trace_phi <- ggplot(Fphi, aes(x=iter,y=value)) %>%
-  + geom_line(size=.1) %>%
-  + geom_hline(yintercept=0,color="red") %>%
-  + facet_grid(D1~D2, scales="free")
-print(trace_phi)
-
-## Ftheta12 <- dplyr::filter(F,str_detect(var,"theta12"))
-## trace_theta12 <- ggplot(Ftheta12, aes(x=iter,y=value)) %>%
-##   + geom_line(size=.1) %>%
-##   + facet_wrap(~var, scales="free")
-## print(trace_theta12)
-
-
-trace_logpost <- data_frame(iter=iter_draw, value=logpost) %>%
-  filter(iter>=43100) %>%
-  ggplot(aes(x=iter, y=value)) %>%
-  + geom_line(size=.1)
-print(trace_logpost)
-
 
 
