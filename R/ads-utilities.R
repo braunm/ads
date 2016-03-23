@@ -34,12 +34,12 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 #' @examples
 #' mcmod() - Runs default with "dpp"
 #' mcmod(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PL'), covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE)
-mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PRIVATE LABEL'), covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE) {
+mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PRIVATE LABEL'), covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE, summary.only=FALSE) {
 
     J = length(brands.to_keep)
     P <- J * length(covv)          # total number of time varying covariates at city level
     # non time varying componentns
-    K <- J*length(covnv)
+    K <- J * length(covnv)
 
     category <- data.name
 
@@ -48,32 +48,34 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     dfname <- sprintf('nobuild/data-raw/%siritns.txt',cf)
 
     ## Trim characters, just in case
-    df1 <- fread(dfname)
-    df1 <- trim_characters(df1)
+    DT <- fread(dfname)
+    DT <- trim_characters(DT)
     
-    market_list <- unique(df1$market_name)
+    market_list <- unique(DT$market_name)
 
     ## not sure if this next feature is working.
         if(any(brands.to_keep == "OTHER"))
-    df1 <- rbind(df1, df1[!brand %in% brands.to_keep[-which(brands.to_keep == "OTHER")] ,list(brand="OTHER",volume=sum(volume),units=sum(units),dollars=sum(dollars),lavgprc = mean(lavgprc), sumfeature=mean(sumfeature),sumdisplay=mean(sumdisplay),sumfnp=mean(sumfnp),sumdnp=mean(sumdnp),numproducts=mean(numproducts),numoutlets=mean(numoutlets),totalnumstores=min(totalnumstores),est_acv=mean(est_acv),tot_acv=min(tot_acv),fvol=sum(fvol),dvol=sum(dvol),pvol=sum(pvol),spotadsecs=sum(spotadsecs,na.rm=TRUE),spotaddols=sum(spotaddols,na.rm=TRUE),spotadunits=sum(spotadunits,na.rm=TRUE),natsecs=sum(natsecs,na.rm=TRUE),natdols=sum(natdols,na.rm=TRUE),natunits=sum(natunits,na.rm=TRUE),networkadsecs=sum(networkadsecs,na.rm=TRUE),networkaddols=sum(networkaddols,na.rm=TRUE),networkadunits=sum(networkadunits,na.rm=TRUE),syndicationadsecs=sum(syndicationadsecs,na.rm=TRUE),syndicationaddols=sum(syndicationaddols,na.rm=TRUE),syndicationadunits=sum(syndicationadunits,na.rm=TRUE),cableadsecs=sum(cableadsecs,na.rm=TRUE),cableaddols=sum(cableaddols,na.rm=TRUE),cableadunits=sum(cableadunits,na.rm=TRUE),SLNadsecs=sum(SLNadsecs,na.rm=TRUE),SLNaddols=sum(SLNaddols,na.rm=TRUE), SLNadunits=sum(SLNadunits,na.rm=TRUE),avprc=mean(avprc),fracdnp=mean(fracdnp),fracfnp=mean(fracfnp),fracdist=mean(fracdist)),by=c("market_name","week")])
+    DT <- rbind(DT, DT[!brand %in% brands.to_keep[-which(brands.to_keep == "OTHER")] ,list(brand="OTHER",volume=sum(volume),units=sum(units),dollars=sum(dollars),lavgprc = mean(lavgprc), sumfeature=mean(sumfeature),sumdisplay=mean(sumdisplay),sumfnp=mean(sumfnp),sumdnp=mean(sumdnp),numproducts=mean(numproducts),numoutlets=mean(numoutlets),totalnumstores=min(totalnumstores),est_acv=mean(est_acv),tot_acv=min(tot_acv),fvol=sum(fvol),dvol=sum(dvol),pvol=sum(pvol),spotadsecs=sum(spotadsecs,na.rm=TRUE),spotaddols=sum(spotaddols,na.rm=TRUE),spotadunits=sum(spotadunits,na.rm=TRUE),natsecs=sum(natsecs,na.rm=TRUE),natdols=sum(natdols,na.rm=TRUE),natunits=sum(natunits,na.rm=TRUE),networkadsecs=sum(networkadsecs,na.rm=TRUE),networkaddols=sum(networkaddols,na.rm=TRUE),networkadunits=sum(networkadunits,na.rm=TRUE),syndicationadsecs=sum(syndicationadsecs,na.rm=TRUE),syndicationaddols=sum(syndicationaddols,na.rm=TRUE),syndicationadunits=sum(syndicationadunits,na.rm=TRUE),cableadsecs=sum(cableadsecs,na.rm=TRUE),cableaddols=sum(cableaddols,na.rm=TRUE),cableadunits=sum(cableadunits,na.rm=TRUE),SLNadsecs=sum(SLNadsecs,na.rm=TRUE),SLNaddols=sum(SLNaddols,na.rm=TRUE), SLNadunits=sum(SLNadunits,na.rm=TRUE),avprc=mean(avprc),fracdnp=mean(fracdnp),fracfnp=mean(fracfnp),fracdist=mean(fracdist)),by=c("market_name","week")])
 
 
     # keep only brands focused on here, and subset of weeks and markets
-    df1 <- df1[brand %in% brands.to_keep & week < fweek + T & week >= fweek & market_name %in% market_list[1:N]]
+    DT <- DT[brand %in% brands.to_keep & week < fweek + T & week >= fweek & market_name %in% market_list[1:N]]
 
+    if(summary.only) return(DT)
+    
     # only do the rest if balanced
-    if(any(dcast.data.table(df1, week ~ market_name, value.var="volume", subset = .(week < fweek+T & week >= fweek & market_name %in% market_list[1:N]), fun = length) < J)) {
-        warning("Warning: Cannot do analysis on brands with unbalanced data: reduce brands in brands.to_keep, or choose a subset of markets. Step unable to complete for analysis, but ok for summary data (use df1)")
+    if(any(dcast.data.table(DT, week ~ market_name, value.var="volume", subset = .(week < fweek+T & week >= fweek & market_name %in% market_list[1:N]), fun = length) < J)) {
+        warning("Warning: Cannot do analysis on brands with unbalanced data: reduce brands in brands.to_keep, or choose a subset of markets. Step unable to complete for analysis, but ok for summary data (use DT)")
     } else {
         # create new or transformed variables here, if required
-        #df1[,sumdnp := log(1+df1$sumdnp)]
-        #df1$sumdnp<-log(1+df1$sumdnp)
-        #df1$sumfnp<-log(1+df1$sumfnp)
+        #DT[,sumdnp := log(1+DT$sumdnp)]
+        #DT$sumdnp<-log(1+DT$sumdnp)
+        #DT$sumfnp<-log(1+DT$sumfnp)
 
         # create outcome variable (Y)
         Y <- structure(rep(0,T*N*J), dim=c(T,N,J))
         for(j in 1:J) {
-            .a <- dcast.data.table(df1, week ~ market_name, value.var = "volume", subset = .(week >= fweek & brand %in% brands.to_keep[j]), fill=0, fun = min)
+            .a <- dcast.data.table(DT, week ~ market_name, value.var = "volume", subset = .(week >= fweek & brand %in% brands.to_keep[j]), fill=0, fun = min)
             .a[,week := NULL]
             Y[,,j] <- simplify2array(.a)
         }
@@ -81,8 +83,8 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
 
 
         # create advertising variable (XAdv), national only here (using mean, therefore)
-        df1[is.na(natdols),natdols:=0]
-        XAdv <- dcast.data.table(df1, week ~ brand, value.var = "natdols", subset = .(week >= fweek), fill = 0, fun = mean, na.rm = TRUE)
+        DT[is.na(natdols),natdols:=0]
+        XAdv <- dcast.data.table(DT, week ~ brand, value.var = "natdols", subset = .(week >= fweek), fill = 0, fun = mean, na.rm = TRUE)
         XAdv <- XAdv[,brands.to_keep,with=FALSE]			# reorder columns to correspond to list
 
         # create covariates from list, X being not time varying, and X2 being time varying
@@ -90,7 +92,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
         X1 <- structure(rep(0,T*N*J*length(covnv)), dim=c(T,N,J*length(covnv)))
         for(mkt in 1:N) {
             for(j in 1:J) {
-                .a <- dcast.data.table(df1, week ~ market_name, value.var = covnv, subset = .(week >= fweek & market_name == market_list[mkt] & brand == brands.to_keep[j]), fun = mean, na.rm = TRUE)
+                .a <- dcast.data.table(DT, week ~ market_name, value.var = covnv, subset = .(week >= fweek & market_name == market_list[mkt] & brand == brands.to_keep[j]), fun = mean, na.rm = TRUE)
                 .a[,week := NULL]
                 if(j ==1) .xcov <- simplify2array(.a) else .xcov <- cbind(.xcov, simplify2array(.a))
             }
@@ -101,7 +103,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
         X2 <- structure(rep(0,T*N*J*length(covv)), dim=c(T,N,J*length(covv)))
         for(mkt in 1:N) {
             for(j in 1:J) {
-                .a <- dcast.data.table(df1, week ~ market_name, value.var = covv, subset = .(week >= fweek & market_name == market_list[mkt] & brand == brands.to_keep[j]), fun = mean, na.rm = TRUE)
+                .a <- dcast.data.table(DT, week ~ market_name, value.var = covv, subset = .(week >= fweek & market_name == market_list[mkt] & brand == brands.to_keep[j]), fun = mean, na.rm = TRUE)
                 .a[,week := NULL]
                 if(j ==1) .xcov <- simplify2array(.a) else .xcov <- cbind(.xcov, simplify2array(.a))
             }
@@ -122,7 +124,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
 
     ## for this subset, which brands launched new creatives in that time frame?
     # call creatives function for Jb brands
-    .a <- getcreatives(category, brands.adv, fweek, T)
+    .a <- getcreatives(category, brands.adv, T)
     ownadnnc <- .a$ownadnnc
     ownadnnc.fracspent <- .a$ownadnnc.fracspent
     ownadnnc.fracspent.l1 <- .a$ownadnnc.fracspent.l1
@@ -144,7 +146,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
 
     ## Data for creatives - note if any adv = 0 then columns removed
     ## 2/2/2015 - now E is same dimension as ads (Jb) but JbE measures the number of brands with observed changes so JbE could be less than Jb
-    ##    E <- s.nnc[1:T,.brands_changed]
+    ## E <- s.nnc[1:T,.brands_changed]
     E <- s.nnc[1:T,]
     Ef <- s.nnc.fracspent[1:T,]
     Efl1 <- s.nnc.fracspent.l1[1:T,]
@@ -216,13 +218,13 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
 ##' @return T x Jb matrix with integer corresponding to number of new creatives added that week. (Note, removed make.binary flag so nnc is always integer for number of creatives introduced.)
 ##' @examples
 ##' getcreatives(category, brands.adv, Jb, fweek, T, make.binary=F) - called from within function mcmod()
-getcreatives <- function(category, brands.adv, fweek, T, max.distance=0.2) {
+getcreatives <- function(category, brands.adv, T, max.distance=0.2) {
 
     Jb = length(brands.adv)
     cf <- paste0("nobuild/data-raw/",category,"creatives.txt")
     ## convert brand names
 
-    creatives <- fread(cf,col.names= c('brand','program','progtype','tvcreative','property','media','avg30','avg30d','dols','sec','dtime','firstdateshown','weekID','fweek'))
+    creatives <- fread(cf,col.names= c('brand','program','progtype','tvcreative','property','media','avg30','avg30d','dols','sec','dtime','firstdateshown','weekID','firstweekshown'))
 
     ## Trim fields here just in case
     creatives <- trim_characters(creatives)
@@ -292,6 +294,7 @@ trim_characters = function(DT) {
 ##' @param Jb Number of brands advertised
 ##' @param max.distance Levenshtein's distance
 ##' @param brands.adv Which brands are advertised
+##' @return data table with same number of rows as original, but with cID included (and first week)
 setcreativeID <- function(DT,Jb=DT[,uniqueN(brand)], max.distance=0.2, brands.adv=DT[,unique(brand)]) {
     DT[,cID := (Jb+1)*1000]
     for(j in 1:Jb){
@@ -308,7 +311,7 @@ setcreativeID <- function(DT,Jb=DT[,uniqueN(brand)], max.distance=0.2, brands.ad
     }
     
     ##
-    DT[,cIDfweek:=min(fweek),by=cID]
+    DT[,cIDfweek:=min(firstweekshown),by=cID]
 }
 
 
@@ -433,32 +436,35 @@ getcreativemix <- function(creatives){
 ##' Script not yet complete
 ##'
 ##' @return Something
-getcreativesummary <- function(category, brands.to_keep){
+getcreativesummary <- function(category, brands, fweek = 1200){
     
-    cf <- paste0("~/Documents/ads/nobuild/data-raw/",category,"creatives.txt")
+    cf <- paste0("./nobuild/data-raw/",category,"creatives.txt")
     
     ## convert brand names
-    creatives <- fread(cf,col.names= c('brand','program','progtype','tvcreative','property','media','avg30','avg30d','dols','sec','dtime','firstdateshown','weekID','fweek'))
+    creatives <- fread(cf,col.names= c('brand','program','progtype','tvcreative','property','media','avg30','avg30d','dols','sec','dtime','firstdateshown','weekID','firstweekshown'))
     creatives <- trim_characters(creatives)
     creatives[,brand:=toupper(brand)]
-    creatives <- creatives[brand %in% brands.to_keep,]
+    creatives <- creatives[brand %in% brands,]
     creatives[,dols:=as.numeric(dols)]
     
+    ## remove any unknown brands
     creatives <- creatives[!like(toupper(tvcreative),"CREATIVE UNKNOWN"),]
+    ## collect brands that advertised being a subset of brands
     brands.adv <- creatives[,unique(brand)]
     
     Jb = length(brands.adv)
-
-    creatives <- creatives[brand %in% brands.adv,]			# delete any brands not advertised in list
+    ## delete any brands not advertised in list - just in case..
+    creatives <- creatives[brand %in% brands.adv,]
     
-    ## collapse
+    ## pattern match creatives that are similar and assign cID to them
     setcreativeID(creatives)
     
-    # amount spent by a brand in a given week (this should be separated into what happened over the life of the ad, and what happened in the first week
+    ## amount spent by a brand in a given week (this should be separated into what happened over the life of the ad, and what happened in the first week
     creatives[,brandadspend := sum(dols),by=c("brand","weekID")]
-    csum <- creatives[,list(cIDfweek=weekID, dols.first.week = sum(ifelse(cIDfweek==fweek,dols,0)), fracspent.first.week = sum(ifelse(cIDfweek==fweek,dols/brandadspend,0)), lweek=max(weekID),nbrands=creatives[,uniqueN(brand)],nprogtype=uniqueN(progtype),nprograms=uniqueN(program),
+    csum <- creatives[,list(cIDfweek=min(cIDfweek), dols.first.week = sum(ifelse(cIDfweek==firstweekshown,dols,0)), fracspent.first.week = sum(ifelse(cIDfweek==weekID,dols/brandadspend,0)), lweek=max(weekID),nbrands=creatives[,uniqueN(brand)],nprogtype=uniqueN(progtype),nprograms=uniqueN(program),
     nproperty=uniqueN(property),nmedia=creatives[,uniqueN(media)], time.mins = sum(sec/60)),by=c("cID","brand")]
-    csum[,time1:=lweek-fweek]
+    ## duration of each ad, rounded to next week
+    csum[,time1:=1+lweek-cIDfweek]
     csum[,categoryname:=category]
     return(csum)
 }

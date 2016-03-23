@@ -12,7 +12,7 @@ library(reshape2)
 set.seed(1234)
 
 
-data.name <- "tti"
+data.name <- "dpp"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -73,7 +73,8 @@ if (flags$use.cr.pars) {
     CM <- list()
 ##    CMcol <- 2
 ##    CM <- llply(mcmod$CM[1:T], function(x) return(x[,CMcol,drop=FALSE]))
-    for(t in 1:T) CM[[t]] <- mcmod$Ef[[t]] + mcmod$Efl1[[t]]
+##    for(t in 1:T) CM[[t]] <- mcmod$Ef[[t]] + mcmod$Efl1[[t]]
+    for(t in 1:T) CM[[t]] <- mcmod$E[[t]]
 }
 
 
