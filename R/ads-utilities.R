@@ -391,12 +391,12 @@ getcreativemix <- function(creatives){
     setkey(.a, weekID)
     creativemix[[2]] <- .a[.(min(weekID):max(weekID)), roll=TRUE]
     
-    ## 4. Creative mix element 3: Concentration (Lerner index) being total spent on advertising for
+    ## 4. Creative mix element 3: Concentration (similar to Herfindahl index) being total spent on advertising for
     ##    each brand, and share by each creative for that week
     .c <- creatives[,list(fracspent = sum(ifelse(totalspent>0, dols/totalspent, 0))), by=c("cID","brand","weekID")]
-    .c[,mean_fracspent_squared := mean(fracspent^2),by=c("brand","weekID")]
+    .c[,sum_fracspent_squared := sum(fracspent^2),by=c("brand","weekID")]
     
-    .a <- dcast(.c, weekID ~ brand, value.var = "mean_fracspent_squared", fun=max, fill = 0)
+    .a <- dcast(.c, weekID ~ brand, value.var = "sum_fracspent_squared", fun=max, fill = 0)
     setkey(.a, weekID)
     creativemix[[3]] <- .a[.(min(weekID):max(weekID)), roll=TRUE]
     
@@ -433,14 +433,15 @@ getcreativemix <- function(creatives){
 ##' Make summary file for creatives
 ##'
 ##' Returns a number of weekly metrics for a given creative file
-##' Script not yet complete
+##' Script not yet complete. Ignores fweek.
 ##'
 ##' @return Something
-getcreativesummary <- function(category, brands, fweek = 1200){
+getcreativesummary <- function(category, brands){
     
     cf <- paste0("./nobuild/data-raw/",category,"creatives.txt")
     
     ## convert brand names
+    ## Note that firstdateshown/firstweekshown refers to original ad, which are later collapsed
     creatives <- fread(cf,col.names= c('brand','program','progtype','tvcreative','property','media','avg30','avg30d','dols','sec','dtime','firstdateshown','weekID','firstweekshown'))
     creatives <- trim_characters(creatives)
     creatives[,brand:=toupper(brand)]
@@ -459,13 +460,19 @@ getcreativesummary <- function(category, brands, fweek = 1200){
     ## pattern match creatives that are similar and assign cID to them
     setcreativeID(creatives)
     
-    ## amount spent by a brand in a given week (this should be separated into what happened over the life of the ad, and what happened in the first week
+    ## amount spent by a brand in a given week (this should be separated into what happened over the life of the ad,
+    ## and what happened in the first week.
+    ## cIDfweek and cIDlweek are introduced to refer to individual collapsed creatives (identified by cID)
     creatives[,brandadspend := sum(dols),by=c("brand","weekID")]
-    csum <- creatives[,list(cIDfweek=min(cIDfweek), dols.first.week = sum(ifelse(cIDfweek==firstweekshown,dols,0)), fracspent.first.week = sum(ifelse(cIDfweek==weekID,dols/brandadspend,0)), lweek=max(weekID),nbrands=creatives[,uniqueN(brand)],nprogtype=uniqueN(progtype),nprograms=uniqueN(program),
+    csum <- creatives[,list(cIDfweek = min(cIDfweek), totalspent = sum(dols), dols.first.week = sum(ifelse(cIDfweek==firstweekshown,dols,0)), fracspent.first.week = sum(ifelse(cIDfweek==weekID,dols/brandadspend,0)), cIDlweek = max(weekID), nbrands=creatives[,uniqueN(brand)],nprogtype=uniqueN(progtype),nprograms=uniqueN(program),
     nproperty=uniqueN(property),nmedia=creatives[,uniqueN(media)], time.mins = sum(sec/60)),by=c("cID","brand")]
-    ## duration of each ad, rounded to next week
-    csum[,time1:=1+lweek-cIDfweek]
-    csum[,categoryname:=category]
+    
+    csum[is.na(fracspent.first.week), fracspent.first.week:=0]
+    ## duration of each cID creative, rounded down
+    csum[,time1 := cIDlweek - cIDfweek]
+    csum[,categoryname := category]
+    
+    ## calculate
     return(csum)
 }
 
