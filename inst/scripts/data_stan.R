@@ -1,7 +1,7 @@
 library(rstan)
 
-data.name <- "sim"      # choose from ptw, tti, lld, dpp for now
-stan.code <-"stan4"     # this file located in the inst/script directory and must have .stan suffix
+data.name <- "dpp"      # choose from ptw, tti, lld, dpp for now
+stan.code <-"stan3"     # this file located in the inst/script directory and must have .stan suffix
 numiter <- 1.0e5            # with diagonal V, this should converge in around 500, comfortably
 numcores <- 2           # parallel processing will be done automatically if this is more than one
 
@@ -9,9 +9,9 @@ dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
 data(list=dn)  ## load data
 mcmod <- eval(parse(text=dn)) ## rename to mcmod
 
-save.file <- paste0("inst/results/",stan.code,"_", data.name,"_stan.Rdata")
+sampler <- "vb"
 
-sampler <- "MLE"
+save.file <- paste0("inst/results/",stan.code,"_", data.name,"_stan_,",sampler,".Rdata")
 
 N <- mcmod$dimensions$N
 T <- as.integer(mcmod$dimensions$T)
@@ -24,7 +24,7 @@ Yr <- mcmod$Y[1:T]
 F1r <- mcmod$F1[1:T]
 F2r <- mcmod$F2[1:T]
 Ar <- mcmod$A[1:T]
-Er <- mcmod$Efl1[1:T]     # choose from E, Ef, and Efl1 for dummy, frac of budget, and frac of budget of lagged dummy
+Er <- mcmod$E[1:T]     # choose from E, Ef, and Efl1 for dummy, frac of budget, and frac of budget of lagged dummy
 Xr <- mcmod$X[1:T]
 
 Y <- array(dim=c(T, N, J))
@@ -72,7 +72,7 @@ st <- stan_model(paste0("inst/scripts/",stan.code,".stan"))
 if(sampler=="NUTS") fit <- sampling(st,
                 data=DL,
                 iter=numiter, cores=numcores)
-if(sampler=="vb") fit <- vb(st, data=DL, iter=numiter, verbose=TRUE)
+if(sampler=="vb") fit <- vb(st, data=DL, iter=numiter)
 if(sampler=="MLE") fit <- optimizing(st, data=DL, iter=numiter, verbose=TRUE)
 
 save.image(save.file)

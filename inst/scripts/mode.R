@@ -12,7 +12,7 @@ library(reshape2)
 set.seed(1234)
 
 
-data.name <- "dpp"
+data.name <- "ptw"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -37,7 +37,7 @@ if (data.is.sim) {
                   )
 }
 
-nfact.V1 <- 0
+nfact.V1 <- 5
 nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
