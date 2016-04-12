@@ -1,6 +1,6 @@
 library(rstan)
 
-data.name <- "dpp"      # choose from ptw, tti, lld, dpp for now
+data.name <- "ptw"      # choose from ptw, tti, lld, dpp for now
 stan.code <-"stan3"     # this file located in the inst/script directory and must have .stan suffix
 numiter <- 1.0e5            # with diagonal V, this should converge in around 500, comfortably
 numcores <- 2           # parallel processing will be done automatically if this is more than one
@@ -11,8 +11,9 @@ mcmod <- eval(parse(text=dn)) ## rename to mcmod
 
 sampler <- "vb"
 
-save.file <- paste0("inst/results/",stan.code,"_", data.name,"_stan_,",sampler,".Rdata")
+save.file <- paste0("inst/results/",stan.code,"_", data.name,"_stan_",sampler,".Rdata")
 
+Escale <- 100
 N <- mcmod$dimensions$N
 T <- as.integer(mcmod$dimensions$T)
 J <- mcmod$dimensions$J
@@ -38,7 +39,7 @@ E <- array(dim=c(T, JbE))
 
 ## priors
 nu0 <- J + 5;
-Omega0 <- 0.1*diag(J);			# This directly/proportionally impacts the estimated covariance values
+Omega0 <- diag(J);			# This directly/proportionally impacts the estimated covariance values
 M20 <- matrix(0,1+P+Jb,J)
 M20[1,] <- 15
 M20[2:(Jb+1),] <- -.005
@@ -55,7 +56,7 @@ for (i in 1:T) {
     Y[i,,] <- Yr[[i]]
     X[i,,] <- Xr[[i]]
     A[i,] <- Ar[[i]]
-    E[i,] <- Er[[i]]
+    E[i,] <- (Er[[i]][1:JbE])/Escale
     F1[i,,] <- t(as(F1r[[i]],"matrix"))
     F2[i,,] <- t(as(F2r[[i]],"matrix"))
     F1F2[i,,] <- F1[i,,]%*%F2[i,,]

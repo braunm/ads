@@ -1,5 +1,5 @@
-rm(list=ls())
-gc()
+## rm(list=ls())
+## gc()
 
 library(Matrix)
 library(Rcpp)
@@ -12,7 +12,7 @@ library(reshape2)
 set.seed(1234)
 
 
-data.name <- "ptw"
+data.name <- "dpp"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -29,6 +29,7 @@ if (data.is.sim) {
                   include.X=TRUE,
                   standardize=FALSE,
                   A.scale = 1,
+		  E.scale = 1.0e2,
                   fix.V1 = FALSE,
                   fix.V2 = FALSE,
                   fix.W = FALSE,
@@ -74,7 +75,7 @@ if (flags$use.cr.pars) {
 ##    CMcol <- 2
 ##    CM <- llply(mcmod$CM[1:T], function(x) return(x[,CMcol,drop=FALSE]))
 ##    for(t in 1:T) CM[[t]] <- mcmod$Ef[[t]] + mcmod$Efl1[[t]]
-    for(t in 1:T) CM[[t]] <- mcmod$E[[t]]
+    for(t in 1:T) CM[[t]] <- mcmod$E[[t]]/flags$E.scale
 }
 
 
@@ -150,8 +151,8 @@ if (flags$add.prior) {
 
         ## prior on phi:  matrix normal with sparse covariances
         mean.phi <- matrix(0,Jb,J)
-        cov.row.phi <- 1000*diag(Jb)
-        cov.col.phi <- 1000*diag(J)
+        cov.row.phi <- 10*diag(Jb)
+        cov.col.phi <- 10*diag(J)
         chol.cov.row.phi <- t(chol(cov.row.phi))
         chol.cov.col.phi <- t(chol(cov.col.phi))
 

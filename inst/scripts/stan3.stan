@@ -90,7 +90,7 @@ model {
 	Wd ~ normal(0, 10); 				// prior on diagonal for W
 	V1d ~ normal(0, 100);
 	V2d ~ normal(0, 100);
-    for(j in 1:JbE) phi[j] ~ normal(0,100);
+    for(j in 1:JbE) phi[j] ~ normal(0,10);
 
 for(t in 1:T) {
     for (j in 1:Jb) Gt[1,j+1] <- log1p(A[t,j]);				// the first 1:Jb have advertising
