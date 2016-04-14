@@ -37,11 +37,11 @@ mode.file <- paste0("./nobuild/results/mode_",data.name,".Rdata")
 
 ##----pre parallel constants
 
-n.iter <- 200000
+n.iter <- 200
 n.thin <- 100
 n.draws <- floor(n.iter/n.thin)
 n.chains <- 3
-restart <- FALSE
+restart <- TRUE
 report <- 1000
 save.freq <- 1000 ## save if (i %% save.freq) == 0
 sig <- 0.015
@@ -157,9 +157,10 @@ sample.MH <- function(DL, restart, mode.file, save.file, n.draws, report, n.iter
     nm, iter_draw, sampler_pars,
     file=save.file)
 
+    return(draws)
 }   ## end of sampling for a single chain
 
-j <- 1
+# j <- 1
 
 # test
 ##sample.MH(DL = DL, restart = restart, mode.file = mode.file, save.file = save.file, n.draws = n.draws, report = report, n.iter = n.iter, n.thin = n.thin, save.freq = save.freq, sig = sig, thread.id = j)
@@ -186,6 +187,7 @@ if(run.par) {
     )
 }
 
+save(draws.list, file = paste0("./nobuild/results/langMH_",data.name,".RData"))
 
 
 

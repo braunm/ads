@@ -12,7 +12,7 @@ library(reshape2)
 set.seed(1234)
 
 
-data.name <- "dpp"
+data.name <- "lld"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -389,7 +389,7 @@ opt2 <- trust.optim(opt1$par,
                     control=list(
                         report.level=5L,
                         report.precision=4L,
-                        maxit=2000L,
+                        maxit=5000L,
                         function.scale.factor=-1,
                         preconditioner=0,
                         start.trust.radius=.01,
