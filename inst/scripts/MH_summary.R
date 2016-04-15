@@ -1,6 +1,9 @@
 library(dplyr)
 library(tidyr)
 library(coda)
+library(reshape)
+library(ggplot2)
+library(stringr)
 
 
 geweke <- function(x,...) {
@@ -10,14 +13,14 @@ geweke <- function(x,...) {
 
 data.name <- "dpp"
 
-
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
 data(list=dn)  ## load data
 mcmod <- eval(parse(text=dn)) ## rename to mcmod
 mh.file <- paste0("./nobuild/results/langMH_",data.name,".Rdata")
 save.file <- paste0("./nobuild/results/sumMH_",data.name,".Rdata")
 
-start.iter <- 150000
+start.iter <- 100000
+iter_draw <- 200000
 
 cat("Loading\n")
 load(mh.file)
@@ -45,14 +48,14 @@ Q <- filter(F, iter > start.iter & !is.na(value)) %>%
   ungroup()
 
 
-gew.logpost <- data_frame(iter=iter_draw, value=logpost) %>%
-  filter(iter > start.iter & !is.na(value)) %>%
-  select(value) %>%
-  geweke()
+#gew.logpost <- data_frame(iter=iter_draw, value=logpost) %>%
+#  filter(iter > start.iter & !is.na(value)) %>%
+#  select(value) %>%
+  geweke(mcmc(logpost))
 
-## gew <- dplyr::filter(F, iter>start.iter & !is.na(value)) %>%
-##   group_by(var, par, D1, D2) %>%
-##   summarize(geweke.z=geweke(value))
+ gew <- dplyr::filter(F, iter>start.iter & !is.na(value)) %>%
+   group_by(var, par, D1, D2) %>%
+   summarize(geweke.z=geweke(value))
 
 cat("Building plots\n")
 
@@ -68,10 +71,10 @@ trace_theta12 <- dplyr::filter(F,str_detect(var,"theta12")) %>%
   + geom_line(size=.1) %>%
   + facet_wrap(~var, scales="free")
 
-trace_logpost <- data_frame(iter=iter_draw, value=logpost) %>%
-  dplyr::filter(iter>=start.iter) %>%
-  ggplot(aes(x=iter, y=value)) %>%
-  + geom_line(size=.1)
+#trace_logpost <- data_frame(iter=iter_draw, value=logpost) %>%
+#  dplyr::filter(iter>=start.iter) %>%
+#  ggplot(aes(x=iter, y=value)) %>%
+#  + geom_line(size=.1)
 
 
 

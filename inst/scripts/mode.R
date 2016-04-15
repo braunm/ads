@@ -12,7 +12,7 @@ library(reshape2)
 set.seed(1234)
 
 
-data.name <- "lld"
+data.name <- "fti"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -29,7 +29,7 @@ if (data.is.sim) {
                   include.X=TRUE,
                   standardize=FALSE,
                   A.scale = 1,
-		  E.scale = 1.0e2,
+		  E.scale = 1,
                   fix.V1 = FALSE,
                   fix.V2 = FALSE,
                   fix.W = FALSE,

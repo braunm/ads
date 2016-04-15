@@ -1,15 +1,16 @@
 library(rstan)
 
-data.name <- "ptw"      # choose from ptw, tti, lld, dpp for now
-stan.code <-"stan3"     # this file located in the inst/script directory and must have .stan suffix
-numiter <- 1.0e5            # with diagonal V, this should converge in around 500, comfortably
-numcores <- 2           # parallel processing will be done automatically if this is more than one
+data.name   <- "dpp"      # choose from ptw, tti, lld, dpp for now
+stan.code   <-"stan3"     # this file located in the inst/script directory and must have .stan suffix
+numiter     <- 1.0e5        # with diagonal V, this should converge in around 500, comfortably
+numchains   <- 2          # number of chains for NUTS
+numcores    <- numchains  # parallel processing will be done automatically if this is more than one
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
 data(list=dn)  ## load data
 mcmod <- eval(parse(text=dn)) ## rename to mcmod
 
-sampler <- "vb"
+sampler <- "MLE"
 
 save.file <- paste0("inst/results/",stan.code,"_", data.name,"_stan_",sampler,".Rdata")
 
@@ -56,7 +57,7 @@ for (i in 1:T) {
     Y[i,,] <- Yr[[i]]
     X[i,,] <- Xr[[i]]
     A[i,] <- Ar[[i]]
-    E[i,] <- (Er[[i]][1:JbE])/Escale
+    E[i,] <- (Er[[i]][1:JbE])/Escale            ## scales E
     F1[i,,] <- t(as(F1r[[i]],"matrix"))
     F2[i,,] <- t(as(F2r[[i]],"matrix"))
     F1F2[i,,] <- F1[i,,]%*%F2[i,,]
@@ -72,7 +73,7 @@ DL <- list(N=N, T=T, J=J, Jb = Jb, JbE = JbE, K=K, P=P,
 st <- stan_model(paste0("inst/scripts/",stan.code,".stan"))
 if(sampler=="NUTS") fit <- sampling(st,
                 data=DL,
-                iter=numiter, cores=numcores)
+                iter=numiter, chains = numcores, cores=numcores)
 if(sampler=="vb") fit <- vb(st, data=DL, iter=numiter)
 if(sampler=="MLE") fit <- optimizing(st, data=DL, iter=numiter, verbose=TRUE)
 

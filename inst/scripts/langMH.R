@@ -14,8 +14,8 @@ library(stringr)
 
 theme_set(theme_bw())
 
-##----should we run the mode.R script?
-runmode <- TRUE
+##----should we run the mode.R script? Otherwise pull results from another run
+runmode <- FALSE
 
 ##----parallelSetup
 library(doParallel, quietly=TRUE)
@@ -30,19 +30,19 @@ get.f.direct <- function(P, ...) return(cl$get.f.direct(P))
 get.LL <- function(P, ...) return(cl$get.f.direct(P))
 get.hyperprior <- function(P, ...) return(cl$get.hyperprior(P))
 
-data.name <- "dpp"
+data.name <- "ptw"
 
 if(runmode) source("./inst/scripts/mode.R")
 mode.file <- paste0("./nobuild/results/mode_",data.name,".Rdata")
 
 ##----pre parallel constants
 
-n.iter <- 200
-n.thin <- 100
+n.iter <- 500
+n.thin <- 50
 n.draws <- floor(n.iter/n.thin)
 n.chains <- 3
 restart <- TRUE
-report <- 1000
+report <- 100
 save.freq <- 1000 ## save if (i %% save.freq) == 0
 sig <- 0.015
 
@@ -157,7 +157,7 @@ sample.MH <- function(DL, restart, mode.file, save.file, n.draws, report, n.iter
     nm, iter_draw, sampler_pars,
     file=save.file)
 
-    return(draws)
+    return(list(draws=draws, logpost=logpost, track=track))
 }   ## end of sampling for a single chain
 
 # j <- 1
@@ -187,7 +187,16 @@ if(run.par) {
     )
 }
 
-save(draws.list, file = paste0("./nobuild/results/langMH_",data.name,".RData"))
+## separate elements in the list
+draws <- list()
+logpost <- NULL
+for(i in 1:n.chains) {
+        draws[[i]] <- draws.list[[i]]$draws
+        logpost <- cbind(logpost, draws.list[[i]]$logpost)
+}
+
+## save final output
+save(draws, logpost, mcmod, file = paste0("./nobuild/results/langMH_",data.name,".RData"))
 
 
 

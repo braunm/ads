@@ -191,7 +191,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
         }
         
         CMl[[t]] <- t(CMl[[t]])
-        CMdl[[t]] <- CMl[[t]] - t(.cd)
+        CMdl[[t]] <- CMl[[t]] - t(.cd) ## differenced version
         
    ##     names(El[[t]]) <- colnames(E)
         Al[[t]] <- A[t, ]
@@ -201,7 +201,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     }
 
     dimensions <- list(N = N, T= T, J=J, R = R, Jb = Jb, JbE = JbE, K = ncol(Xl[[1]]), P = P)
-    mcmod <- list(dimensions=dimensions,Y = Yl, CM = CMdl, E = El, Ef = Efl, Efl1 = Efl1l, A = Al, X = Xl, F1 = F1l, F2 = F2)
+    mcmod <- list(dimensions=dimensions,Y = Yl, CM = CMl, E = El, Ef = Efl, Efl1 = Efl1l, A = Al, X = Xl, F1 = F1l, F2 = F2)
     return(mcmod)
 }
 
