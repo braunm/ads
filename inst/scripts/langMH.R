@@ -15,13 +15,12 @@ library(stringr)
 theme_set(theme_bw())
 
 ##----should we run the mode.R script? Otherwise pull results from another run
-runmode <- FALSE
+runmode <- TRUE
 
 ##----parallelSetup
 library(doParallel, quietly=TRUE)
 run.par <- TRUE
-if(run.par) registerDoParallel(cores=3) else registerDoParallel(cores=1)
-
+if(run.par) registerDoParallel(cores=4) else registerDoParallel(cores=1)
 
 get.f <- function(P, ...) return(cl$get.f(P))
 get.df <- function(P, ...) return(cl$get.fdf(P)$grad)
@@ -30,19 +29,19 @@ get.f.direct <- function(P, ...) return(cl$get.f.direct(P))
 get.LL <- function(P, ...) return(cl$get.f.direct(P))
 get.hyperprior <- function(P, ...) return(cl$get.hyperprior(P))
 
-data.name <- "ptw"
+data.name <- "dpp"
 
 if(runmode) source("./inst/scripts/mode.R")
 mode.file <- paste0("./nobuild/results/mode_",data.name,".Rdata")
 
 ##----pre parallel constants
 
-n.iter <- 500
+n.iter <- 200000
 n.thin <- 50
 n.draws <- floor(n.iter/n.thin)
-n.chains <- 3
-restart <- TRUE
-report <- 100
+n.chains <- 4
+restart <- FALSE         ## if true, it will continue where the process left off
+report <- 1000
 save.freq <- 1000 ## save if (i %% save.freq) == 0
 sig <- 0.015
 
