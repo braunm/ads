@@ -58,6 +58,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     DT <- rbind(DT, DT[!brand %in% brands.to_keep[-which(brands.to_keep == "OTHER")] ,list(brand="OTHER",volume=sum(volume),units=sum(units),dollars=sum(dollars),lavgprc = mean(lavgprc), sumfeature=mean(sumfeature),sumdisplay=mean(sumdisplay),sumfnp=mean(sumfnp),sumdnp=mean(sumdnp),numproducts=mean(numproducts),numoutlets=mean(numoutlets),totalnumstores=min(totalnumstores),est_acv=mean(est_acv),tot_acv=min(tot_acv),fvol=sum(fvol),dvol=sum(dvol),pvol=sum(pvol),spotadsecs=sum(spotadsecs,na.rm=TRUE),spotaddols=sum(spotaddols,na.rm=TRUE),spotadunits=sum(spotadunits,na.rm=TRUE),natsecs=sum(natsecs,na.rm=TRUE),natdols=sum(natdols,na.rm=TRUE),natunits=sum(natunits,na.rm=TRUE),networkadsecs=sum(networkadsecs,na.rm=TRUE),networkaddols=sum(networkaddols,na.rm=TRUE),networkadunits=sum(networkadunits,na.rm=TRUE),syndicationadsecs=sum(syndicationadsecs,na.rm=TRUE),syndicationaddols=sum(syndicationaddols,na.rm=TRUE),syndicationadunits=sum(syndicationadunits,na.rm=TRUE),cableadsecs=sum(cableadsecs,na.rm=TRUE),cableaddols=sum(cableaddols,na.rm=TRUE),cableadunits=sum(cableadunits,na.rm=TRUE),SLNadsecs=sum(SLNadsecs,na.rm=TRUE),SLNaddols=sum(SLNaddols,na.rm=TRUE), SLNadunits=sum(SLNadunits,na.rm=TRUE),avprc=mean(avprc),fracdnp=mean(fracdnp),fracfnp=mean(fracfnp),fracdist=mean(fracdist)),by=c("market_name","week")])
 
 
+
     # keep only brands focused on here, and subset of weeks and markets
     DT <- DT[brand %in% brands.to_keep & week < fweek + T & week >= fweek & market_name %in% market_list[1:N]]
 
@@ -112,6 +113,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
         rm(.a,.xcov)
     }
     
+
     ####### work on advertising data
     # first get brands advertising over this period
     A <- simplify2array(XAdv)[1:T,]
@@ -191,7 +193,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
         }
         
         CMl[[t]] <- t(CMl[[t]])
-        CMdl[[t]] <- CMl[[t]] - t(.cd)
+        CMdl[[t]] <- CMl[[t]] - t(.cd) ## differenced version
         
    ##     names(El[[t]]) <- colnames(E)
         Al[[t]] <- A[t, ]
@@ -201,7 +203,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     }
 
     dimensions <- list(N = N, T= T, J=J, R = R, Jb = Jb, JbE = JbE, K = ncol(Xl[[1]]), P = P)
-    mcmod <- list(dimensions=dimensions,Y = Yl, CM = CMdl, E = El, Ef = Efl, Efl1 = Efl1l, A = Al, X = Xl, F1 = F1l, F2 = F2)
+    mcmod <- list(dimensions=dimensions,Y = Yl, CM = CMl, E = El, Ef = Efl, Efl1 = Efl1l, A = Al, X = Xl, F1 = F1l, F2 = F2)
     return(mcmod)
 }
 

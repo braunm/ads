@@ -1,4 +1,4 @@
-## stan3.stan - DLM 1: matrix normals (specific to advertising paper)
+## stan5.stan - DLM 1: matrix normals (specific to advertising paper)
 ## fits model
 ## Yt = F1_t \Theta_{11t} + \Beta X + v_{1t}, V1 ~ N(0,V1,Sigma)
 ## \Theta_{11t} = F2_t \Theta_{2t} + v_{2t}, V2 ~ N(0,V2,Sigma)
@@ -28,7 +28,7 @@ data {
     
     matrix[N, 1+Jb+P] F1F2[T]; 
     matrix[T,Jb] A;
-    vector[JbE] E[T];
+    int E[T,JbE];
     real<lower=J> nu0;
     cov_matrix[J] Omega0;
     matrix[1+Jb+P,J] M20;
@@ -59,6 +59,8 @@ parameters {
  vector<lower=0>[W_dim] Wd;
  vector<lower=0>[V1_dim] V1d;
   vector<lower=0>[V2_dim] V2d;
+vector[JbE] gl0;
+vector[J] gl1[JbE];
 }
 
 model {
@@ -76,6 +78,7 @@ model {
     matrix[N,J] Ybar;
     real log_det_Qt;
     matrix[J,J] OmegaT;
+    vector[JbE] ldE;
 
     C2t <- C20;
     M2t <- M20;
@@ -93,6 +96,11 @@ model {
     for(j in 1:JbE) phi[j] ~ normal(0,10);
 
 for(t in 1:T) {
+
+    for(j in 1:JbE) ldE[j] <- exp(gl0[j] + row(M2t,1+j) * gl1[j]);
+
+    for(j in 1:JbE) E[t,j] ~ poisson(ldE[j]);
+
     for (j in 1:Jb) Gt[1,j+1] <- log1p(A[t,j]);				// the first 1:Jb have advertising
     for(j in 1:JbE) for(k in 1:J) Ht[1+j, k] <- phi[j, k] * E[t, j]; 	// the first 1:JbE have creatives
     
@@ -110,7 +118,8 @@ for(t in 1:T) {
     S2t <- R2t * F1F2[t]';
     M2t <- a2t + S2t/Qt * Yft;
     C2t <- R2t - S2t/Qt * S2t';
-    }
+
+}
 
     increment_log_prob(-0.5*(nu0 + T * N) * log_determinant(OmegaT));
 

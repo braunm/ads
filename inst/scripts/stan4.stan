@@ -1,4 +1,4 @@
-## stan3.stan - DLM 1: matrix normals (specific to advertising paper)
+## stan4.stan - DLM 1: matrix normals (specific to advertising paper)
 ## fits model
 ## Yt = F1_t \Theta_{11t} + \Beta X + v_{1t}, V1 ~ N(0,V1,Sigma)
 ## \Theta_{11t} = F2_t \Theta_{2t} + v_{2t}, V2 ~ N(0,V2,Sigma)
@@ -9,8 +9,7 @@
 ## Sigma is given a prior IW(nu0, Omega0) and the state variables are integrated out
 ## forming a matrix T from the above system.
 
-## This version allow for J brands sales, with 1:Jb of those brands to be advertised
-## and 1:JbE to have positive creative (E>0 for all weeks). They must be organized in that way.
+## Allowing for non-diagonal V1 using LKJ priors
 
 data {
 
@@ -56,9 +55,11 @@ parameters {
     matrix[K,J] theta12;
     matrix[JbE,J] phi;
     real<lower=0, upper=1> delta;
- vector<lower=0>[W_dim] Wd;
- vector<lower=0>[V1_dim] V1d;
-  vector<lower=0>[V2_dim] V2d;
+    vector<lower=0>[W_dim] Wd;
+    vector<lower=0>[V2_dim] V2d;
+
+    corr_matrix[N] Omega_V1;
+    vector<lower=0>[N] tau_V1;
 }
 
 model {
@@ -73,7 +74,6 @@ model {
     matrix[N, J] Yft;
     matrix[1+Jb+P, J] Ht;
     matrix[1+Jb+P, J] a2t;
-    matrix[N,J] Ybar;
     real log_det_Qt;
     matrix[J,J] OmegaT;
 
@@ -87,9 +87,12 @@ model {
 
     Gt[1,1] <- 1-delta;
 
-	Wd ~ normal(0, 10); 				// prior on diagonal for W
-	V1d ~ normal(0, 100);
-	V2d ~ normal(0, 100);
+    // priors on covariance
+    Wd ~ normal(0, 10); 				// prior on diagonal for W
+    V2d ~ normal(0, 10);
+    tau_V1 ~ cauchy(0,2.5);
+    Omega_V1 ~ lkj_corr(2);
+
     for(j in 1:JbE) phi[j] ~ normal(0,10);
 
 for(t in 1:T) {
@@ -97,11 +100,10 @@ for(t in 1:T) {
     for(j in 1:JbE) for(k in 1:J) Ht[1+j, k] <- phi[j, k] * E[t, j]; 	// the first 1:JbE have creatives
     
     a2t <- Gt * M2t + Ht;
-    Ybar <- Y[t] - X[t] * theta12;
-    Yft <- Ybar - F1F2[t] * a2t;
+    Yft <- Y[t] - X[t] * theta12  - F1F2[t] * a2t;
     R2t <- diag_matrix(Wd) + quad_form_sym(C2t, Gt');
     R1t <- diag_matrix(V2d) + quad_form_sym(R2t,F2[t]');
-    Qt <- diag_matrix(V1d) + quad_form_sym(R1t, F1[t]');
+    Qt <- quad_form_diag(Omega_V1,tau_V1) + quad_form_sym(R1t, F1[t]');
 
     increment_log_prob(-0.5*J*log_determinant(Qt));
 
@@ -113,5 +115,4 @@ for(t in 1:T) {
     }
 
     increment_log_prob(-0.5*(nu0 + T * N) * log_determinant(OmegaT));
-
 }
