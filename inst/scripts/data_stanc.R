@@ -1,8 +1,8 @@
 library(rstan)
 
-data.name   <- "ptw"      # choose from ptw, tti, lld, dpp for now
-stan.code   <-"stan5"     # this file located in the inst/script directory and must have .stan suffix
-numiter     <- 800        # with diagonal V, this should converge in around 500, comfortably
+data.name   <- "dpp"      # choose from ptw, tti, lld, dpp for now
+stan.code   <-"stanc1"     # this file located in the inst/script directory and must have .stan suffix
+numiter     <- 1500        # with diagonal V, this should converge in around 500, comfortably
 numchains   <- 4          # number of chains for NUTS
 numcores    <- numchains  # parallel processing will be done automatically if this is more than one
 
