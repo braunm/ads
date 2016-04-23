@@ -117,7 +117,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     ####### work on advertising data
     # first get brands advertising over this period
     A <- simplify2array(XAdv)[1:T,]
-browser()
+
     .brands_advertised <- as.numeric(which(colSums(A)>0))
     if(any(diff(which(colSums(A)>0))>1)) stop("Reorder columns for advertised brands, unless you make sure all 1:Jb brands advertise, the estimation will likely be incorrect.")
     Jb <- length(.brands_advertised)
