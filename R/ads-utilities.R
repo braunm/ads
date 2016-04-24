@@ -480,4 +480,8 @@ getcreativesummary <- function(category, brands){
 
 
 
+## converts data back from week to %d/%m/%Y
+getmonth <- function(week) {
+    return(month(as.Date("1979-08-27")+week*7))
+}
 
