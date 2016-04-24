@@ -68,7 +68,7 @@ vector[J] gl1[JbE];
 // advertising allocation;
 vector[Jb] ga0;
 vector[J] ga1[Jb];
-    real<lower=0> sa;
+    real<lower=0> sa[Jb];
 }
 
 model {
@@ -108,7 +108,7 @@ model {
 for(t in 1:T) {
 
 	// advertising
-    for(j in 1:Jb) lA[t,j] <- normal(ga0[j] + row(M2t,1) * ga1[j], sa);
+    for(j in 1:Jb) lA[t,j] ~ normal(ga0[j] + row(M2t,1) * ga1[j], sa[j]);
 	// creative additions
     for(j in 1:JbE) ldE[j] <- exp(gl0[j] + row(M2t,1+j) * gl1[j]);
 
