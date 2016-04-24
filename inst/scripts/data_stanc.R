@@ -10,7 +10,7 @@ dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
 data(list=dn)  ## load data
 mcmod <- eval(parse(text=dn)) ## rename to mcmod
 
-sampler <- "NUTS"
+sampler <- "vb"
 
 save.file <- paste0("inst/results/",stan.code,"_", data.name,"_stan_",sampler,".Rdata")
 
