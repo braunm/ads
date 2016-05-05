@@ -1,6 +1,7 @@
 library(dplyr)
 library(tidyr)
 library(coda)
+library(reshape2)
 
 
 geweke <- function(x,...) {
@@ -17,14 +18,17 @@ mcmod <- eval(parse(text=dn)) ## rename to mcmod
 mh.file <- paste0("./nobuild/results/langMH_",data.name,".Rdata")
 save.file <- paste0("./nobuild/results/sumMH_",data.name,".Rdata")
 
-start.iter <- 150000
+start.iter <- 1
 
 cat("Loading\n")
 load(mh.file)
+
 cat("Processing draws\n")
-F <- melt(draws) %>%
+F <- melt(draws.list) %>%
   tidyr::separate(var, into=c("par","D1","D2"), sep="\\.",
-                  remove=FALSE, fill="right")
+                  remove=FALSE, fill="right") %>%
+  rename(chain=L1)
+
 cat("Summarizing draws\n")
 Q <- filter(F, iter > start.iter & !is.na(value)) %>%
   group_by(var, par, D1, D2) %>%
