@@ -1,8 +1,8 @@
 library(rstan)
 
-data.name   <- "ptw"      # choose from ptw, tti, lld, dpp for now
-stan.code   <-"stan7"     # this file located in the inst/script directory and must have .stan suffix
-numiter     <- 2000        # with diagonal V, this should converge in around 500, comfortably
+data.name   <- "dpp"      # choose from ptw, tti, lld, dpp for now
+stan.code   <-"stanc1"     # this file located in the inst/script directory and must have .stan suffix
+numiter     <- 1500        # with diagonal V, this should converge in around 500, comfortably
 numchains   <- 4          # number of chains for NUTS
 numcores    <- numchains  # parallel processing will be done automatically if this is more than one
 
@@ -22,13 +22,16 @@ Jb <- mcmod$dimensions$Jb
 JbE <- mcmod$dimensions$JbE
 K <- mcmod$dimensions$K
 P <- mcmod$dimensions$P
-Yr <- mcmod$Y[1:T]
-F1r <- mcmod$F1[1:T]
-F2r <- mcmod$F2[1:T]
-Ar <- mcmod$A[1:T]
-Er <- mcmod$E[1:T]     # choose from E, Ef, and Efl1 for dummy, frac of budget, and frac of budget of lagged dummy
-Xr <- mcmod$X[1:T]
+R <- 3
+Yr <- mcmod$Y[2:T]
+F1r <- mcmod$F1[2:T]
+F2r <- mcmod$F2[2:T]
+Ar <- mcmod$A[2:T]
+Er <- mcmod$E[2:T]     # choose from E, Ef, and Efl1 for dummy, frac of budget, and frac of budget of lagged dummy
+Xr <- mcmod$X[2:T]
+CMlr <- mcmod$CM[1:T]
 
+T <- T-1            # to allow for lags
 Y <- array(dim=c(T, N, J))
 X <- array(dim=c(T, N, K))
 F1F2 <- array(dim=c(T, N, 1+Jb+P))
@@ -36,7 +39,7 @@ F1 <- array(dim=c(T, N, N*(1+P)))
 F2 <- array(dim=c(T, N*(1+P), (1+Jb+P)))
 A <- array(dim=c(T, Jb))
 E <- array(dim=c(T, JbE))
-
+CMl <- array(dim=c(T,Jb*R))
 
 ## priors
 nu0 <- J + 5;
@@ -51,6 +54,9 @@ for (j in 1:J) {
 }
 C20 <- 10*diag(1+P+Jb,1+P+Jb)
 
+## obtain creative context details
+# brands <- brands.to_keep[[category]]
+#a <- getcreativesummary(category, brands)
 
 for (i in 1:T) {
 
@@ -61,19 +67,24 @@ for (i in 1:T) {
     F1[i,,] <- t(as(F1r[[i]],"matrix"))
     F2[i,,] <- t(as(F2r[[i]],"matrix"))
     F1F2[i,,] <- F1[i,,]%*%F2[i,,]
+    CMl[i,] <- as.vector(CMlr[[i]][,1:R])
 }
 
-DL <- list(N=N, T=T, J=J, Jb = Jb, JbE = JbE, K=K, P=P,
-           Y=Y, X=X, F1=F1, F2=F2, F1F2 = F1F2,
-           A=A, E=E,
-           nu0=nu0, Omega0=Omega0,
-           M20=M20,C20=C20)
+
+##DL <- list(N=N, T=T, R= R, J=J, Jb = Jb, JbE = JbE, K=K, P=P,
+##           Y=Y, X=X, F1=F1, F2=F2, F1F2 = F1F2,
+##           A=A, E=E, CMl = CMl,
+##           nu0=nu0, Omega0=Omega0,
+##           M20=M20,C20=C20)
+
+CMl[,(1:3)*JbE-1] <- CMl[,(1:3)*JbE-2]/52
+DL <- list(T=T, R= R, J=J, Jb = Jb, JbE = JbE, A=A, E=E, CMl = CMl)
 
 
 st <- stan_model(paste0("inst/scripts/",stan.code,".stan"))
 if(sampler=="NUTS") fit <- sampling(st,
                 data=DL,
-                chains = numcores, cores=numcores)
+                iter=numiter, chains = numcores, cores=numcores)
 if(sampler=="vb") fit <- vb(st, data=DL, iter=numiter)
 if(sampler=="MLE") fit <- optimizing(st, data=DL, hessian = TRUE, iter=numiter, verbose=TRUE)
 # if forgotten hessian, do: fit2 <- optimizing(st, init=as.list(fit$par), data=DL, hessian=TRUE, iter=numiter, verbose=TRUE)

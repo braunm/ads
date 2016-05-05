@@ -8,15 +8,15 @@ covv <- c("avprc")
 covnv <- c("fracfnp","fracdnp","fracdist","numproducts")
 
 brands.to_keep <- list()
-brands.to_keep[["lld"]] 	<- c('TIDE','ALL','PUREX','GAIN',
-'CHEER','WISK','ARM & HAMMER','PRIVATE LABEL')  # 91.7% share
+brands.to_keep[["lld"]] 	<- c('TIDE','ALL','GAIN',
+'CHEER','PUREX','WISK','ARM & HAMMER','PRIVATE LABEL')  # 91.7% share
 brands.to_keep[["tti"]] 	<- c('CHARMIN','QUILTED NORTHERN',
 'SCOTT','PRIVATE LABEL') # (including Kleenex) 93.0% of share
 brands.to_keep[["fti"]] 	<- c('KLEENEX','PUFFS','PRIVATE LABEL') # 93.0% of share
 
 brands.to_keep[["dpp"]]		<- c('HUGGIES','PAMPERS','LUVS','PRIVATE LABEL')  # 98.2% of share
-brands.to_keep[['ptw']] 	<- c('BOUNTY','BRAWNY','SCOTT','VIVA','SPARKLE','PRIVATE LABEL') # 94.2% of share
-
+#brands.to_keep[['ptw']] 	<- c('BOUNTY','BRAWNY','SCOTT','SPARKLE','VIVA','PRIVATE LABEL') # 94.2% of share
+brands.to_keep[['ptw']] 	<- c('BOUNTY','BRAWNY','SCOTT','PRIVATE LABEL') # xx% of share but more stable
 
 for(category in categories) {
     cat("category: ",category,"\n")

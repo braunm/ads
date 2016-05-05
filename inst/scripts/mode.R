@@ -11,8 +11,8 @@ library(reshape2)
 
 set.seed(1234)
 
-
-data.name <- "lld"
+## this is sometimes called from another script
+if(!exists("data.name")) data.name <- "ptw"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -29,7 +29,7 @@ if (data.is.sim) {
                   include.X=TRUE,
                   standardize=FALSE,
                   A.scale = 1,
-		  E.scale = 1.0e2,
+		  E.scale = 1,
                   fix.V1 = FALSE,
                   fix.V2 = FALSE,
                   fix.W = FALSE,
@@ -75,7 +75,7 @@ if (flags$use.cr.pars) {
 ##    CMcol <- 2
 ##    CM <- llply(mcmod$CM[1:T], function(x) return(x[,CMcol,drop=FALSE]))
 ##    for(t in 1:T) CM[[t]] <- mcmod$Ef[[t]] + mcmod$Efl1[[t]]
-    for(t in 1:T) CM[[t]] <- mcmod$E[[t]]/flags$E.scale
+    for(t in 1:T) CM[[t]] <- mcmod$Ef[[t]]/flags$E.scale
 }
 
 
@@ -366,6 +366,7 @@ cat("Objective function - taped\n")
 f <- get.f(start)
 cat("f = ",f,"\n")
 
+stop()
 
 ## Need to bound variables to avoid overflow
 
@@ -479,7 +480,7 @@ if (!flags$fix.W) {
     }
 }
 
-##parcheck <- cl$par.check(opt$par)
+parcheck <- cl$par.check(opt$par)
 
 cat("Computing gradient\n")
 gr <- get.df(opt$par)
@@ -528,5 +529,5 @@ if (flags$use.cr.pars) {
 
 
 save(sol, se.sol, opt, DL, varnames,
-     gr, hs, data,file=save.file)
+     gr, hs, data, parcheck, file=save.file)
 
