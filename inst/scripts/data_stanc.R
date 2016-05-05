@@ -1,6 +1,6 @@
 library(rstan)
 
-data.name   <- "ptw"      # choose from ptw, tti, lld, dpp for now
+data.name   <- "dpp"      # choose from ptw, tti, lld, dpp for now
 stan.code   <-"stanc1"     # this file located in the inst/script directory and must have .stan suffix
 numiter     <- 1500        # with diagonal V, this should converge in around 500, comfortably
 numchains   <- 4          # number of chains for NUTS
@@ -10,7 +10,7 @@ dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
 data(list=dn)  ## load data
 mcmod <- eval(parse(text=dn)) ## rename to mcmod
 
-sampler <- "vb"
+sampler <- "NUTS"
 
 save.file <- paste0("inst/results/",stan.code,"_", data.name,"_stan_",sampler,".Rdata")
 
@@ -22,7 +22,7 @@ Jb <- mcmod$dimensions$Jb
 JbE <- mcmod$dimensions$JbE
 K <- mcmod$dimensions$K
 P <- mcmod$dimensions$P
-R <- mcmod$dimensions$R-1
+R <- 3
 Yr <- mcmod$Y[2:T]
 F1r <- mcmod$F1[2:T]
 F2r <- mcmod$F2[2:T]
@@ -71,12 +71,14 @@ for (i in 1:T) {
 }
 
 
-DL <- list(N=N, T=T, R= R, J=J, Jb = Jb, JbE = JbE, K=K, P=P,
-           Y=Y, X=X, F1=F1, F2=F2, F1F2 = F1F2,
-           A=A, E=E, CMl = CMl,
-           nu0=nu0, Omega0=Omega0,
-           M20=M20,C20=C20)
+##DL <- list(N=N, T=T, R= R, J=J, Jb = Jb, JbE = JbE, K=K, P=P,
+##           Y=Y, X=X, F1=F1, F2=F2, F1F2 = F1F2,
+##           A=A, E=E, CMl = CMl,
+##           nu0=nu0, Omega0=Omega0,
+##           M20=M20,C20=C20)
 
+CMl[,(1:3)*JbE-1] <- CMl[,(1:3)*JbE-2]/52
+DL <- list(T=T, R= R, J=J, Jb = Jb, JbE = JbE, A=A, E=E, CMl = CMl)
 
 
 st <- stan_model(paste0("inst/scripts/",stan.code,".stan"))

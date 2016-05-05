@@ -12,7 +12,7 @@ library(reshape2)
 set.seed(1234)
 
 ## this is sometimes called from another script
-if(!exists("data.name")) data.name <- "dpp"
+if(!exists("data.name")) data.name <- "ptw"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -366,6 +366,7 @@ cat("Objective function - taped\n")
 f <- get.f(start)
 cat("f = ",f,"\n")
 
+stop()
 
 ## Need to bound variables to avoid overflow
 
@@ -479,7 +480,7 @@ if (!flags$fix.W) {
     }
 }
 
-##parcheck <- cl$par.check(opt$par)
+parcheck <- cl$par.check(opt$par)
 
 cat("Computing gradient\n")
 gr <- get.df(opt$par)
@@ -528,5 +529,5 @@ if (flags$use.cr.pars) {
 
 
 save(sol, se.sol, opt, DL, varnames,
-     gr, hs, data,file=save.file)
+     gr, hs, data, parcheck, file=save.file)
 

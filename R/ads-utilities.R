@@ -185,10 +185,10 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
         Efl[[t]] <- matrix(as.numeric(Ef[t,]),nr=Jb, nc=1)
         Efl1l[[t]] <- matrix(as.numeric(Efl1[t,]),nr=Jb, nc=1)
 
-        CMl[[t]] <- .a$creativemix[[1]][weekID == fweek+(t-1),brands.adv,with=FALSE]
+        CMl[[t]] <- .a$creativemix[[1]][weekID == fweek+(t-1),brands.adv,with=FALSE]/52
         .cd <- .a$creativemix[[1]][weekID == fweek+(t-2),brands.adv,with=FALSE]
         for(r in 2:R) {
-            CMl[[t]] <- rbind(CMl[[t]], .a$creativemix[[r]][weekID == fweek+(t-1),brands.adv, with=FALSE])
+            CMl[[t]] <- rbind(CMl[[t]], .a$creativemix[[r]][weekID == fweek+(t-1),brands.adv, with=FALSE]/10)
             .cd <- rbind(.cd, .a$creativemix[[r]][weekID == fweek+(t-2),brands.adv, with=FALSE])
         }
         

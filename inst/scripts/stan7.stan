@@ -69,6 +69,9 @@ vector[J] gl1[JbE];
 vector[Jb] ga0;
 vector[J] ga1[Jb];
     real<lower=0> sa[Jb];
+matrix[1+Jb+P,J] M2t[T+1];
+matrix[1+Jb+P,1+Jb+P] C2t[T+1];
+
 }
 
 model {
@@ -77,8 +80,6 @@ model {
     matrix[N,N] Qt;
     matrix[1+Jb+P,1+Jb+P] R2t;
     matrix[N*(1+P),N*(1+P)] R1t;
-    matrix[1+Jb+P,J] M2t;
-    matrix[1+Jb+P,1+Jb+P] C2t;
     matrix[1+Jb+P, N] S2t;
     matrix[N, J] Yft;
     matrix[1+Jb+P, J] Ht;
@@ -86,10 +87,10 @@ model {
     matrix[N,J] Ybar;
     real log_det_Qt;
     matrix[J,J] OmegaT;
-    vector[JbE] ldE;
+    //vector[JbE] ldE;
 
-    C2t <- C20;
-    M2t <- M20;
+    C2t[1] <- C20;
+    M2t[1] <- M20;
     OmegaT <- Omega0;
 
     Gt <- diag_matrix(rep_vector(1,1+Jb+P));
@@ -101,23 +102,23 @@ model {
 	Wd ~ normal(0, 10); 				// prior on diagonal for W
 	V1d ~ normal(0, 100);
 	V2d ~ normal(0, 100);
-        for(j in 1:JbE) phi[j] ~ normal(0,10);
+   //     for(j in 1:JbE) phi[j] ~ normal(0,10);
 
-	sa ~ normal(0,100);
+	// sa ~ normal(0,100);
 
 for(t in 1:T) {
 
 	// advertising
-    for(j in 1:Jb) lA[t,j] ~ normal(ga0[j] + row(M2t,1) * ga1[j], sa[j]);
+    // for(j in 1:Jb) lA[t,j] ~ normal(ga0[j] + row(M2t[t],1) * ga1[j], sa[j]);
 	// creative additions
-    for(j in 1:JbE) ldE[j] <- exp(gl0[j] + row(M2t,1+j) * gl1[j]);
+    // for(j in 1:JbE) ldE[j] <- exp(gl0[j] + row(M2t[t],1+j) * gl1[j]);
 
-    for(j in 1:JbE) E[t,j] ~ poisson(ldE[j]);
+    // for(j in 1:JbE) E[t,j] ~ poisson(ldE[j]);
 
     for (j in 1:Jb) Gt[1,j+1] <- lA[t,j];				// the first 1:Jb have advertising
     for(j in 1:JbE) for(k in 1:J) Ht[1+j, k] <- phi[j, k] * E[t, j]; 	// the first 1:JbE have creatives
     
-    a2t <- Gt * M2t + Ht;
+    a2t <- Gt * M2t[t] + Ht;
     Ybar <- Y[t] - X[t] * theta12;
     Yft <- Ybar - F1F2[t] * a2t;
     R2t <- diag_matrix(Wd) + quad_form_sym(C2t, Gt');
@@ -129,11 +130,20 @@ for(t in 1:T) {
     OmegaT <- OmegaT + quad_form_sym(inverse_spd(Qt), Yft);
 
     S2t <- R2t * F1F2[t]';
-    M2t <- a2t + S2t/Qt * Yft;
-    C2t <- R2t - S2t/Qt * S2t';
+    M2t[t+1] <- a2t + S2t/Qt * Yft;
+    C2t[t+1] <- R2t - S2t/Qt * S2t';
 
 }
 
     increment_log_prob(-0.5*(nu0 + T * N) * log_determinant(OmegaT));
+
+}
+
+generated quantities {
+    matrix[1+Jb+P, 1+Jb+P] Gt; 
+    matrix[1+Jb+P,J] M2t[T+1];
+
+    for (j in 1:Jb) Gt[1,j+1] <- lA[t,j];				// the first 1:Jb have advertising
+    for(j in 1:JbE) for(k in 1:J) Ht[1+j, k] <- phi[j, k] * E[t, j]; 	// the first 1:JbE have creatives
 
 }

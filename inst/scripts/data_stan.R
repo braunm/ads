@@ -2,7 +2,7 @@ library(rstan)
 
 data.name   <- "ptw"      # choose from ptw, tti, lld, dpp for now
 stan.code   <-"stan7"     # this file located in the inst/script directory and must have .stan suffix
-numiter     <- 1.0e6        # with diagonal V, this should converge in around 500, comfortably
+numiter     <- 2000        # with diagonal V, this should converge in around 500, comfortably
 numchains   <- 4          # number of chains for NUTS
 numcores    <- numchains  # parallel processing will be done automatically if this is more than one
 
@@ -10,7 +10,7 @@ dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
 data(list=dn)  ## load data
 mcmod <- eval(parse(text=dn)) ## rename to mcmod
 
-sampler <- "vb"
+sampler <- "NUTS"
 
 save.file <- paste0("inst/results/",stan.code,"_", data.name,"_stan_",sampler,".Rdata")
 
