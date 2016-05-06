@@ -58,10 +58,12 @@ private:
   void set_Gt(const int&);
   void set_Ht(const int&);
   AScalar Afunc(const AScalar&, const AScalar&);
-
+  AScalar get_log_PA(const int&);
+  
   template<typename TC, typename TX>
     void get_cr_mix(const MatrixBase<TC>&,
 		    const MatrixBase<TX>&);
+
  
   // data
   std::vector<MatrixXA> Y; // each is  N x J
@@ -108,7 +110,6 @@ private:
   AScalar fact_scale_V2;
   AScalar fact_mode_V2;
 
-  
   AScalar mode_scale_W1;
   AScalar s_scale_W1;
   AScalar W1_eta;
@@ -119,7 +120,6 @@ private:
   AScalar fact_scale_W1;
   AScalar fact_mode_W1;
 
-
   AScalar diag_scale_W2;
   AScalar diag_mode_W2;
   AScalar fact_scale_W2;
@@ -127,6 +127,8 @@ private:
 
   VectorXA mean_cr; // R-1 elements
   MatrixXA chol_cov_cr; // R-1 x R-1
+
+
 
   int J; // number of brands
   int Jb; // number of brands that advertise
@@ -173,6 +175,11 @@ private:
   AScalar phi_log_sd;
   AScalar phi_sd;
 
+  // For endogeneity of ad spend
+  MatrixXA G1; // for logit pi
+  MatrixXA G2; // for mean conditional ad spend
+  VectorXA G3; // for scale conditional ad spend
+
   VectorXA cr;
   VectorXA cr0;
 
@@ -192,6 +199,15 @@ private:
   MatrixXA S2t; 
   MatrixXA OmegaT;
   AScalar nuT;
+
+
+  VectorXA logit_PrA0; // prob A==0
+  VectorXA mean_A;
+  VectorXA scale_A;
+  VectorXA m2t1;
+  AScalar log_PA;
+  VectorXA PA_r;
+  VectorXA PA_a;
 
   VectorXA crMet; // creative metrics
 
@@ -219,7 +235,8 @@ private:
   bool fix_W;
   bool W1_LKJ;
   bool use_cr_pars;
-
+  bool endog_A;
+  
   AScalar A_scale;
     
 }; // end class definition
@@ -250,6 +267,7 @@ ads::ads(const List& params)
 
   include_X = as<bool>(flags["include.X"]);
   use_cr_pars = as<bool>(flags["use.cr.pars"]);
+  endog_A = as<bool>(flags["endog.A"]);
   A_scale = as<double>(flags["A.scale"]);
   fix_V1 = as<bool>(flags["fix.V1"]);
   fix_V2 = as<bool>(flags["fix.V2"]);
@@ -419,6 +437,19 @@ ads::ads(const List& params)
   tmp1.resize(N, 1+Jb+P);
   tmp2.resize(N, 1+Jb+P);
 
+  // endogeneity
+  G1.resize(Jb,J+1);
+  G2.resize(Jb,J+1);
+  G3.resize(Jb);
+  logit_PrA0.resize(Jb);
+  mean_A.resize(Jb);
+  scale_A.resize(Jb);
+  m2t1.resize(J+1);
+  m2t1[0] = 1; // intercept
+  PA_r.resize(Jb);
+  PA_a.resize(Jb);
+
+  
   Rcout << "Required prior parameters\n";
   
   // These priors are required
@@ -718,6 +749,21 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     }
   }
 
+  // unwrap endogeneity parameters
+
+  if (endog_A) {
+    G1 = MatrixXA::Map(par.derived().data() + ind, Jb, J+1);
+    ind += Jb*J;
+    G2 = MatrixXA::Map(par.derived().data() + ind, Jb, J+1);    
+    ind += Jb*J;
+    G3 = VectorXA::Map(par.derived().data() + ind, Jb);
+    ind += Jb;
+  }
+
+
+
+  
+
   // parameters for creatives
   if (use_cr_pars) {
     cr0 = par.segment(ind, R-1);
@@ -736,6 +782,7 @@ AScalar ads::eval_LL()
     OmegaT = Omega0;
     AScalar log_det_Qt = 0;
     nuT = nu0;
+    log_PA = 0;
 
     // start modeling at week 2
     // to use lags for A and CM    
@@ -766,9 +813,17 @@ AScalar ads::eval_LL()
     log_det_Qt += chol_Qt_D.array().log().sum();    
 
     S2t = R2t * F1F2[t].transpose();
-
     QYf = chol_Qt_L.triangularView<Lower>().solve(Yft);
     tmpNJ = chol_Qt_D.asDiagonal().inverse() * QYf;
+
+    if (endog_A) {
+      m2t1.tail(J) = M2t.row(0).transpose(); // col vector with intercept
+      logit_PrA0 = G1 * m2t1;
+      mean_A = G2 * m2t1;
+      log_PA += get_log_PA(t);
+    }
+    
+    
     QYf = chol_Qt_L.transpose().triangularView<Upper>().solve(tmpNJ);    
     M2t = S2t * QYf;
     M2t += a2t;
@@ -781,14 +836,32 @@ AScalar ads::eval_LL()
 
     // accumulate terms for Matrix T
     OmegaT += Yft.transpose() * QYf;
-    nuT += N;
+    nuT += N;    
   }
 
   LDLT(OmegaT, chol_DX_L, chol_DX_D);
   AScalar log_det_DX = chol_DX_D.array().log().sum();
   AScalar log_PY = log_const - J*log_det_Qt/2. - nuT*log_det_DX/2.;     
-  return(log_PY);
+  AScalar res = log_PY + log_PA;
+  return(res);
 }
+
+AScalar ads::get_log_PA(const int& tt) {
+
+  PA_a.array() = mean_A.array()/scale_A.array();
+  PA_r.array() = PA_a.array() * mean_A.array();
+  VectorXA logres(Jb);
+  AScalar log_PrA0, log_fA;
+
+  for (int i=0; i<Jb; i++) {
+    log_PrA0 = logit_PrA0(i) - log1pexp(logit_PrA0(i));
+    log_fA = dgamma_log(A[tt](i),PA_r(i),PA_a(i));    
+    logres(i) = log_PrA0 + log1pexp(log_fA - logit_PrA0(i));
+  }
+  AScalar res = logres.sum();
+  return(res);
+}
+    
 
 AScalar ads::eval_hyperprior() {
   
