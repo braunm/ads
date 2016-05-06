@@ -125,6 +125,19 @@ private:
   AScalar fact_scale_W2;
   AScalar fact_mode_W2;
 
+
+  MatrixXA mean_G1;
+  MatrixXA chol_row_G1;
+  MatrixXA chol_col_G1;
+  MatrixXA mean_G2;
+  MatrixXA chol_row_G2;
+  MatrixXA chol_col_G2;
+  VectorXA mean_G3;
+  MatrixXA chol_cov_G3;
+
+  
+
+  
   VectorXA mean_cr; // R-1 elements
   MatrixXA chol_cov_cr; // R-1 x R-1
 
@@ -201,13 +214,14 @@ private:
   AScalar nuT;
 
 
-  VectorXA logit_PrA0; // prob A==0
+  VectorXA logit_PrA0; // logit prob A==0
   VectorXA mean_A;
   VectorXA scale_A;
   VectorXA m2t1;
-  AScalar log_PA;
+  VectorXA log_PA;
   VectorXA PA_r;
   VectorXA PA_a;
+  MatrixXA prior_G3;
 
   VectorXA crMet; // creative metrics
 
@@ -448,6 +462,8 @@ ads::ads(const List& params)
   m2t1[0] = 1; // intercept
   PA_r.resize(Jb);
   PA_a.resize(Jb);
+  prior_G3.resize(1,1);
+  log_PA.resize(T);
 
   
   Rcout << "Required prior parameters\n";
@@ -585,6 +601,35 @@ ads::ads(const List& params)
 	fact_mode_W2 = as<double>(priors_W2["fact.mode"]);
       }
     }
+
+
+    
+    if (endog_A) {
+
+      Rcout << "priors for endogenous A\n";
+      
+      const List priors_endog_A = as<List>(priors["endog.A"]);
+      const Map<MatrixXd> mean_G1_d(as<Map<MatrixXd> >(priors_endog_A["mean.G1"]));
+      mean_G1 = mean_G1_d.cast<AScalar>();
+      const Map<MatrixXd> chol_row_G1_d(as<Map<MatrixXd> >(priors_endog_A["chol.row.G1"]));
+      chol_row_G1 = chol_row_G1_d.cast<AScalar>();      
+      const Map<MatrixXd> chol_col_G1_d(as<Map<MatrixXd> >(priors_endog_A["chol.col.G1"]));
+      chol_col_G1 = chol_col_G1_d.cast<AScalar>();
+   
+      const Map<MatrixXd> mean_G2_d(as<Map<MatrixXd> >(priors_endog_A["mean.G2"]));
+      mean_G2 = mean_G2_d.cast<AScalar>();
+      const Map<MatrixXd> chol_row_G2_d(as<Map<MatrixXd> >(priors_endog_A["chol.row.G2"]));
+      chol_row_G2 = chol_row_G2_d.cast<AScalar>();      
+      const Map<MatrixXd> chol_col_G2_d(as<Map<MatrixXd> >(priors_endog_A["chol.col.G2"]));
+      chol_col_G2 = chol_col_G2_d.cast<AScalar>();
+   
+      const Map<VectorXd> mean_G3_d(as<Map<VectorXd> >(priors_endog_A["mean.G3"]));
+      mean_G3 = mean_G3_d.cast<AScalar>();
+      const Map<MatrixXd> chol_cov_G3_d(as<Map<MatrixXd> >(priors_endog_A["chol.cov.G3"]));
+      chol_cov_G3 = chol_cov_G3_d.cast<AScalar>();
+      
+    }
+    
 
     if (use_cr_pars) {
       Rcout << "Creative priors\n";
@@ -782,7 +827,7 @@ AScalar ads::eval_LL()
     OmegaT = Omega0;
     AScalar log_det_Qt = 0;
     nuT = nu0;
-    log_PA = 0;
+    log_PA.setZero();
 
     // start modeling at week 2
     // to use lags for A and CM    
@@ -819,8 +864,9 @@ AScalar ads::eval_LL()
     if (endog_A) {
       m2t1.tail(J) = M2t.row(0).transpose(); // col vector with intercept
       logit_PrA0 = G1 * m2t1;
-      mean_A = G2 * m2t1;
-      log_PA += get_log_PA(t);
+      mean_A = (G2 * m2t1).array().exp().matrix();
+      scale_A = G3.array().exp().matrix();
+      log_PA(t) = get_log_PA(t);
     }
     
     
@@ -842,7 +888,7 @@ AScalar ads::eval_LL()
   LDLT(OmegaT, chol_DX_L, chol_DX_D);
   AScalar log_det_DX = chol_DX_D.array().log().sum();
   AScalar log_PY = log_const - J*log_det_Qt/2. - nuT*log_det_DX/2.;     
-  AScalar res = log_PY + log_PA;
+  AScalar res = log_PY + log_PA.sum();
   return(res);
 }
 
@@ -851,12 +897,13 @@ AScalar ads::get_log_PA(const int& tt) {
   PA_a.array() = mean_A.array()/scale_A.array();
   PA_r.array() = PA_a.array() * mean_A.array();
   VectorXA logres(Jb);
-  AScalar log_PrA0, log_fA;
+  AScalar PrA0, log_fA;
 
-  for (int i=0; i<Jb; i++) {
-    log_PrA0 = logit_PrA0(i) - log1pexp(logit_PrA0(i));
-    log_fA = dgamma_log(A[tt](i),PA_r(i),PA_a(i));    
-    logres(i) = log_PrA0 + log1pexp(log_fA - logit_PrA0(i));
+
+  for (int j=0; j<Jb; j++) {
+    PrA0 = invlogit(logit_PrA0(j));
+    log_fA = dgamma_log(A[tt](j),PA_r(j),PA_a(j));    
+    logres(j) = log(PrA0*AjIsZero[tt](j) + (1-PrA0)*exp(log_fA));
   }
   AScalar res = logres.sum();
   return(res);
@@ -1000,7 +1047,14 @@ AScalar ads::eval_hyperprior() {
     }
   }
 
-
+  AScalar prior_endog_A = 0;
+  if (endog_A) {    
+    AScalar prior_G1 = MatNorm_logpdf(G1, mean_G1, chol_row_G1, chol_col_G1, false);
+    AScalar prior_G2 = MatNorm_logpdf(G2, mean_G2, chol_row_G2, chol_col_G2, false);
+    MVN_logpdf(G3, mean_G3.col(0), chol_cov_G3, prior_G3, false);
+    prior_endog_A = prior_G1 + prior_G2 + prior_G3(0,0);
+  }
+  
  
   AScalar prior_cr = 0.0;
   if (use_cr_pars) {
@@ -1014,7 +1068,7 @@ AScalar ads::eval_hyperprior() {
   AScalar prior_mats = prior_V + prior_W1 + prior_W2;
   AScalar prior_logit_delta = dlogitbeta_log(logit_delta, delta_a, delta_b);
   AScalar res =  prior_logit_delta + prior_theta12 +
-    prior_phi + prior_mats + prior_cr;
+    prior_phi + prior_mats + prior_cr + prior_endog_A;
   
   return(res);
 }

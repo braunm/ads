@@ -1,5 +1,5 @@
-## rm(list=ls())
-## gc()
+rm(list=ls())
+gc()
 
 library(Matrix)
 library(Rcpp)
@@ -12,7 +12,10 @@ library(reshape2)
 set.seed(1234)
 
 ## this is sometimes called from another script
-if(!exists("data.name")) data.name <- "ptw"
+## THEN WE SHOULD MAKE IS A FUNCTION
+#if(!exists("data.name")) data.name <- "dpp"
+
+data.name <- "dpp"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -34,11 +37,12 @@ if (data.is.sim) {
                   fix.V2 = FALSE,
                   fix.W = FALSE,
                   W1.LKJ = FALSE,
-                  use.cr.pars = FALSE
+                  use.cr.pars = FALSE,
+                  endog.A = TRUE
                   )
 }
 
-nfact.V1 <- 5
+nfact.V1 <- 0
 nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
@@ -192,6 +196,40 @@ if (flags$add.prior) {
         prior.theta12 <- NULL
     }
 
+    if (flags$endog.A) {
+        ## G1: coefficients for logit(A==0)
+        mean.G1 <- matrix(0,Jb, J)
+        cov.row.G1 <- 5*diag(Jb)
+        cov.col.G1 <- 5*diag(J)
+        chol.row.G1 <- t(chol(cov.row.G1))
+        chol.col.G1 <- t(chol(cov.col.G1))
+
+        ## G2: coefficients for mean(A|A>0)
+        mean.G2 <- matrix(0,Jb, J)
+        cov.row.G2 <- 5*diag(Jb)
+        cov.col.G2 <- 5*diag(J)
+        chol.row.G2 <- t(chol(cov.row.G2))
+        chol.col.G2 <- t(chol(cov.col.G2))
+
+        ## G2: scale for mean(A|A>0)
+        mean.G3 <- rep(0,Jb)
+        cov.G3 <- 5*diag(Jb)
+        chol.cov.G3 <- t(chol(cov.G3))
+
+        prior.endog.A <- list(mean.G1=mean.G1,
+                              chol.row.G1 = chol.row.G1,
+                              chol.col.G1 = chol.col.G1,
+                              mean.G2=mean.G2,
+                              chol.row.G2 = chol.row.G2,
+                              chol.col.G2 = chol.col.G2,
+                              mean.G3=mean.G3,
+                              chol.cov.G3 = chol.cov.G3
+                              )
+    } else {
+        prior.endog.A <- NULL
+    }
+
+
 
     ## prior on logit.delta.  transformed beta with 2 parameters
     prior.delta <- list(a=1, b=3)
@@ -243,6 +281,7 @@ if (flags$add.prior) {
     prior.W2 <- NULL
     prior.delta <- NULL
     prior.theta12 <- NULL
+    prior.endog.A <- NULL
     prior.creatives <- NULL
 }
 
@@ -257,7 +296,8 @@ tmp <- list(M20=M20,
             V2=prior.V2,
             W1=prior.W1,
             W2=prior.W2,
-            creatives=prior.creatives
+            creatives=prior.creatives,
+            endog.A=prior.endog.A
             )
 
 priors <- Filter(function(x) !is.null(x), tmp)
@@ -330,6 +370,18 @@ if (flags$fix.W) {
     W2.start <- rep(0,W2.length)
 }
 
+
+if (flags$endog.A) {
+    G1.start <- matrix(0,Jb,J)
+    G2.start <- matrix(0,Jb,J)
+    G3.start <- rep(0,Jb)
+} else {
+    G1.start <- NULL
+    G2.start <- NULL
+    G3.start <- NULL
+}
+
+
 if (flags$use.cr.pars) {
     creatives.start <- rep(0,R-1)
 } else {
@@ -344,6 +396,9 @@ tmp <- list(
     V2=V2.start,
     W1=W1.start,
     W2=W2.start,
+    G1=G1.start,
+    G2=G2.start,
+    G3=G3.start,
     creatives=creatives.start
     )
 
