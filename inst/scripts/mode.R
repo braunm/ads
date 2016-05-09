@@ -31,7 +31,7 @@ if (data.is.sim) {
                   add.prior=TRUE,
                   include.X=TRUE,
                   standardize=FALSE,
-                  A.scale = 1,
+                  A.scale = 10000000,
 		  E.scale = 1,
                   fix.V1 = FALSE,
                   fix.V2 = FALSE,
@@ -198,16 +198,16 @@ if (flags$add.prior) {
 
     if (flags$endog.A) {
         ## G1: coefficients for logit(A==0)
-        mean.G1 <- matrix(0,Jb, J)
+        mean.G1 <- matrix(0,Jb, J+1)
         cov.row.G1 <- 5*diag(Jb)
-        cov.col.G1 <- 5*diag(J)
+        cov.col.G1 <- 5*diag(J+1)
         chol.row.G1 <- t(chol(cov.row.G1))
         chol.col.G1 <- t(chol(cov.col.G1))
 
         ## G2: coefficients for mean(A|A>0)
-        mean.G2 <- matrix(0,Jb, J)
+        mean.G2 <- matrix(0,Jb, J+1)
         cov.row.G2 <- 5*diag(Jb)
-        cov.col.G2 <- 5*diag(J)
+        cov.col.G2 <- 5*diag(J+1)
         chol.row.G2 <- t(chol(cov.row.G2))
         chol.col.G2 <- t(chol(cov.col.G2))
 
@@ -421,7 +421,6 @@ cat("Objective function - taped\n")
 f <- get.f(start)
 cat("f = ",f,"\n")
 
-stop()
 
 ## Need to bound variables to avoid overflow
 
@@ -447,7 +446,7 @@ opt2 <- trust.optim(opt1$par,
                         report.precision=4L,
                         maxit=5000L,
                         function.scale.factor=-1,
-                        preconditioner=0,
+                        preconditioner=1,
                         start.trust.radius=.01,
                         stop.trust.radius=1e-18,
                         cg.tol=1e-8,

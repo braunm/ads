@@ -654,7 +654,7 @@ template<typename Tpars>
 void ads::unwrap_params(const MatrixBase<Tpars>& par)
 {
   int ind = 0;
-  int nvars = par.size();
+
 
   // unwrap theta12 and construct Ybar
 
@@ -889,6 +889,7 @@ AScalar ads::eval_LL()
   AScalar log_det_DX = chol_DX_D.array().log().sum();
   AScalar log_PY = log_const - J*log_det_Qt/2. - nuT*log_det_DX/2.;     
   AScalar res = log_PY + log_PA.sum();
+
   return(res);
 }
 
@@ -897,17 +898,23 @@ AScalar ads::get_log_PA(const int& tt) {
   PA_a.array() = mean_A.array()/scale_A.array();
   PA_r.array() = PA_a.array() * mean_A.array();
   VectorXA logres(Jb);
-  AScalar PrA0, log_fA;
+  AScalar PrA0, log_fA, Att, res;
 
 
   for (int j=0; j<Jb; j++) {
     PrA0 = invlogit(logit_PrA0(j));
-    log_fA = dgamma_log(A[tt](j),PA_r(j),PA_a(j));    
-    logres(j) = log(PrA0*AjIsZero[tt](j) + (1-PrA0)*exp(log_fA));
-  }
-  AScalar res = logres.sum();
+    Att = A[tt](j)/A_scale;
+    if (Att==0) {
+      logres(j) = log(PrA0);
+    } else {
+      log_fA = dgamma_log(Att,PA_r(j),PA_a(j));    
+      logres(j) = log(1-PrA0) + log_fA;
+    }
+  }  
+  res = logres.sum();
+  assert(my_finite(res));
   return(res);
-}
+  }
     
 
 AScalar ads::eval_hyperprior() {
