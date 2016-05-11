@@ -39,4 +39,11 @@ Rcpp::List par_check_(const NumericVector& P_) {
     return(res);
 }
 
+Rcpp::List get_recursion_(const NumericVector& P_) {
+
+    VectorXA P = VectorXd::Map(P_.begin(), nvars()).template cast<AScalar>();
+    Rcpp::List res = model->get_recursion(P);
+    return(res);
+}
+
 

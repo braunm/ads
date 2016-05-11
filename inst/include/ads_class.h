@@ -46,14 +46,15 @@ class ads {
   AScalar eval_LL(const Eigen::Ref<VectorXA>&);
   AScalar eval_hyperprior(const Eigen::Ref<VectorXA>&);
   List par_check(const Eigen::Ref<VectorXA>&);
-
+  
+  List get_recursion(const Eigen::Ref<VectorXA>&);
+  AScalar eval_LL(const bool); // for storing recursion only
   
 private:
 
   template<typename Tpars>
     void unwrap_params(const MatrixBase<Tpars>&);
 
-  AScalar eval_LL();
   AScalar eval_hyperprior();
   void set_Gt(const int&);
   void set_Ht(const int&);
@@ -76,6 +77,11 @@ private:
   std::vector<VectorXA> AjIsZero; // 1 if A_j == 0, 0 otherwise
   std::vector<MatrixXA> CM; // Jb x R creative measures
 
+  // for storing recursion matrices
+  std::vector<MatrixXA> M2all; // each is  1+P+Jb x J
+  std::vector<MatrixXA> C2all; // each is  1+P+Jb x 1+P+Jb 
+
+  
   // priors
 
   MatrixXA M20; // 1+P+J x J either prior or parameter
@@ -288,7 +294,6 @@ ads::ads(const List& params)
   fix_W = as<bool>(flags["fix.W"]);
   W1_LKJ = as<bool>(flags["W1.LKJ"]);
 
-
   Rcout << "Constructing data\n";
 
   
@@ -315,6 +320,9 @@ ads::ads(const List& params)
 
   const List CMlist = as<List>(data["CM"]);
   CM.resize(T);
+
+  M2all.resize(T);
+  C2all.resize(T);
 
   V1_dim = N;
   V2_dim = N*(1+P);
@@ -385,7 +393,10 @@ ads::ads(const List& params)
     F2[i].makeCompressed();
     F1F2[i] = F1[i] * F2[i];
 
-    Ybar[i].resize(N,J);    
+    Ybar[i].resize(N,J);
+
+    M2all[i].resize(1+P+Jb,J);
+    C2all[i].resize(1+P+Jb,1+P+Jb);
   }
 
   // Reserve space for parameters
@@ -817,9 +828,11 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
   }
 }
 
-AScalar ads::eval_LL()
+AScalar ads::eval_LL(const bool store=false)
   { 
     // Compute P(Y), including full recursion
+
+    //    Rcout << "store = " << store << "\n";
     
     M2t = M20;
     C2t = C20;
@@ -879,6 +892,12 @@ AScalar ads::eval_LL()
     tmp2 = chol_Qt_D.asDiagonal().inverse() * tmp1;
     C2t = -tmp1.transpose() * tmp2;        
     C2t += R2t;
+
+    if (store) {
+      M2all[t] = M2t;
+      C2all[t] = C2t;
+    }
+    
 
     // accumulate terms for Matrix T
     OmegaT += Yft.transpose() * QYf;
@@ -1157,6 +1176,41 @@ AScalar ads::eval_f(const Eigen::Ref<VectorXA>& P) {
     f += eval_hyperprior();
   }
   return f;
+}
+
+List ads::get_recursion(const Eigen::Ref<VectorXA>& P) {
+
+  using Rcpp::Named;
+  using Rcpp::wrap;
+  using Rcpp::as;
+  
+  unwrap_params(P);
+  eval_LL(true); // sets store recursion flag
+
+  Rcpp::List M2return(T);
+  Rcpp::List C2return(T);
+  for (size_t tt=0; tt<T; tt++) {
+    Rcpp::NumericMatrix MM(M2t.rows(), M2t.cols());
+    for (size_t col=0; col < M2t.cols(); col++) {
+      for (size_t row=0; row < M2t.rows(); row++) {
+  	MM(row, col) = Value(M2all[tt](row, col));
+      }
+    }
+    M2return(tt) = wrap(MM);
+    
+    Rcpp::NumericMatrix CC(C2t.rows(), C2t.cols());
+    for (size_t col=0; col < C2t.cols(); col++) {
+      for (size_t row=0; row < C2t.rows(); row++) {
+  	CC(row, col) = Value(C2all[tt](row, col));
+      }
+    }
+    C2return(tt) = wrap(CC);
+  }
+
+  List res = List::create(Named("M2t") = wrap(M2return),
+			  Named("C2t") = wrap(C2return)
+			  );
+  return(res);
 }
 
 

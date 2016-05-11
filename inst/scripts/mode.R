@@ -53,6 +53,7 @@ get.hessian <- function(P, ...) return(cl$get.hessian(P))
 get.f.direct <- function(P, ...) return(cl$get.f.direct(P))
 get.LL <- function(P, ...) return(cl$get.f.direct(P))
 get.hyperprior <- function(P, ...) return(cl$get.hyperprior(P))
+get.recursion <- function(P,...) return(cl$get.recursion(P))
 
 N <- mcmod$dimensions$N
 T <- mcmod$dimensions$T
@@ -420,6 +421,8 @@ cl$record.tape(start)
 cat("Objective function - taped\n")
 f <- get.f(start)
 cat("f = ",f,"\n")
+
+stop()
 
 
 ## Need to bound variables to avoid overflow

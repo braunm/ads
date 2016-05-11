@@ -30,6 +30,7 @@ RCPP_MODULE(ads){
     .method( "get.hyperprior", & MB_Base<ads>::get_hyperprior)
     .method( "get.hessian.test", & MB_Base<ads>::get_hessian_test)
     .method( "par.check", & MB_Base<ads>::par_check_)
+    .method( "get.recursion", & MB_Base<ads>::get_recursion_)
     ;
 }
 
