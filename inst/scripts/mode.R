@@ -15,7 +15,7 @@ set.seed(1234)
 ## THEN WE SHOULD MAKE IS A FUNCTION
 #if(!exists("data.name")) data.name <- "dpp"
 
-data.name <- "dpp"
+data.name <- "lld"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -80,7 +80,7 @@ if (flags$use.cr.pars) {
 ##    CMcol <- 2
 ##    CM <- llply(mcmod$CM[1:T], function(x) return(x[,CMcol,drop=FALSE]))
 ##    for(t in 1:T) CM[[t]] <- mcmod$Ef[[t]] + mcmod$Efl1[[t]]
-    for(t in 1:T) CM[[t]] <- mcmod$Ef[[t]]/flags$E.scale
+    for(t in 1:T) CM[[t]] <- mcmod$E[[t]]/flags$E.scale
 }
 
 
@@ -422,7 +422,7 @@ cat("Objective function - taped\n")
 f <- get.f(start)
 cat("f = ",f,"\n")
 
-stop()
+## stop()
 
 
 ## Need to bound variables to avoid overflow
@@ -583,8 +583,44 @@ if (flags$use.cr.pars) {
 ##     sep <- GD %*% cv.phi %*% t(GD)
 ## }
 
+T2a <- T2 <- list()
 
+## access functions
+## source("/Volumes/3TB/Users/andrebonfrer/Dropbox/Research/Competitive Clutter/Analysis/Code/Hierarchical/dlmHFunctions.R")
+
+
+## backward recursion to get \Theta_2t
+## first, expected value of \theta_T is N(M2t,C2t,Sigma)
+
+ba <- get.recursion(opt$par)
+M2a <- array(unlist(ba$M2),dim=c(1+Jb+P,J,T))       ## filtered states, conditional on data up to time t only
+
+## Only do this step if there's no endogeneity:
+if(!flags$endog.A) {
+    T2a[[T]] <- ba$M2[[T]]
+
+    adv <- matrix(unlist(mcmod$A),nc=Jb,byrow=TRUE)
+    GG <- list()
+    W <- as.matrix(bdiag(sol$W1,sol$W2))
+
+    for(t in 1:T) {
+        GG[[t]] <- diag(1+Jb+P)
+        GG[[t]][1,1:(1+Jb)] <- c(sol$delta,log(1+adv[t,]))
+    }
+
+    for(t in (T-1):1) {
+        Htstar <- solve(solve(ba$C2t[[t]]) + t(GG[[t]])%*%solve(W)%*%GG[[t]])
+        htstar <- Htstar %*% ( solve(ba$C2[[t]]) %*% ba$M2t[[t]] + t(GG[[t+1]]) %*% solve(W) %*% T2a[[t+1]])
+        T2a[[t]] <- htstar
+    }
+
+    T2array <- array(unlist(T2a),dim=c(1+Jb+P,J,T))
+
+    matplot(T2array[2,1,],type='l')
+}
+
+## stop()
 
 save(sol, se.sol, opt, DL, varnames,
-     gr, hs, data, parcheck, file=save.file)
+     gr, hs, data, parcheck, ba, M2a, file=save.file)
 
