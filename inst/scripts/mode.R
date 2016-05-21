@@ -38,7 +38,8 @@ if (data.is.sim) {
                   fix.W = FALSE,
                   W1.LKJ = FALSE,
                   use.cr.pars = FALSE,
-                  endog.A = TRUE
+                  endog.A = TRUE,
+                  endog.E = TRUE
                   )
 }
 
@@ -231,7 +232,23 @@ if (flags$add.prior) {
     }
 
 
-
+    if (flags$endog.E) {
+        ## H1: coefficients for logit(E==0)
+        mean.H1 <- matrix(0,Jb, J+1)
+        cov.row.H1 <- 5*diag(Jb)
+        cov.col.H1 <- 5*diag(J+1)
+        chol.row.H1 <- t(chol(cov.row.H1))
+        chol.col.H1 <- t(chol(cov.col.H1))
+        
+        prior.endog.E <- list(mean.H1=mean.H1,
+                                chol.row.H1 = chol.row.H1,
+                                chol.col.H1 = chol.col.H1
+                                )
+    } else {
+        prior.endog.E <- NULL
+    }
+    
+    
     ## prior on logit.delta.  transformed beta with 2 parameters
     prior.delta <- list(a=1, b=3)
 
@@ -283,6 +300,7 @@ if (flags$add.prior) {
     prior.delta <- NULL
     prior.theta12 <- NULL
     prior.endog.A <- NULL
+    prior.endog.E <- NULL
     prior.creatives <- NULL
 }
 
@@ -298,7 +316,8 @@ tmp <- list(M20=M20,
             W1=prior.W1,
             W2=prior.W2,
             creatives=prior.creatives,
-            endog.A=prior.endog.A
+            endog.A=prior.endog.A,
+            endog.E=prior.endog.E
             )
 
 priors <- Filter(function(x) !is.null(x), tmp)
@@ -373,13 +392,19 @@ if (flags$fix.W) {
 
 
 if (flags$endog.A) {
-    G1.start <- matrix(0,Jb,J)
-    G2.start <- matrix(0,Jb,J)
+    G1.start <- matrix(0,Jb,J+1)
+    G2.start <- matrix(0,Jb,J+1)
     G3.start <- rep(0,Jb)
 } else {
     G1.start <- NULL
     G2.start <- NULL
     G3.start <- NULL
+}
+
+if (flags$endog.E) {
+    H1.start <- matrix(0,Jb,J+1)
+} else {
+    H1.start <- NULL
 }
 
 
@@ -400,6 +425,7 @@ tmp <- list(
     G1=G1.start,
     G2=G2.start,
     G3=G3.start,
+    H1=H1.start,
     creatives=creatives.start
     )
 

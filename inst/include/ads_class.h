@@ -141,6 +141,10 @@ private:
   VectorXA mean_G3;
   MatrixXA chol_cov_G3;
 
+  MatrixXA mean_H1;
+  MatrixXA chol_row_H1;
+  MatrixXA chol_col_H1;
+
   
 
   
@@ -199,6 +203,9 @@ private:
   MatrixXA G2; // for mean conditional ad spend
   VectorXA G3; // for scale conditional ad spend
 
+  // For endogeneity of ad spend
+  MatrixXA H1; // for logit pi
+
   VectorXA cr;
   VectorXA cr0;
 
@@ -229,6 +236,10 @@ private:
   VectorXA PA_a;
   MatrixXA prior_G3;
 
+  VectorXA logit_PrE0; // logit prob E==0
+  MatrixXA m2tq;    // q component of M2t
+    VectorXA log_PE;
+    
   VectorXA crMet; // creative metrics
 
   
@@ -256,6 +267,7 @@ private:
   bool W1_LKJ;
   bool use_cr_pars;
   bool endog_A;
+  bool endog_E;
   
   AScalar A_scale;
     
@@ -288,6 +300,7 @@ ads::ads(const List& params)
   include_X = as<bool>(flags["include.X"]);
   use_cr_pars = as<bool>(flags["use.cr.pars"]);
   endog_A = as<bool>(flags["endog.A"]);
+  endog_E = as<bool>(flags["endog.E"]);
   A_scale = as<double>(flags["A.scale"]);
   fix_V1 = as<bool>(flags["fix.V1"]);
   fix_V2 = as<bool>(flags["fix.V2"]);
@@ -463,6 +476,7 @@ ads::ads(const List& params)
   tmp2.resize(N, 1+Jb+P);
 
   // endogeneity
+  // for A
   G1.resize(Jb,J+1);
   G2.resize(Jb,J+1);
   G3.resize(Jb);
@@ -475,6 +489,11 @@ ads::ads(const List& params)
   PA_a.resize(Jb);
   prior_G3.resize(1,1);
   log_PA.resize(T);
+  // for E
+  m2tq.resize(Jb,1+J);
+  for (int j=0; j<Jb; j++) m2tq(j,1) = 1; // intercept
+  logit_PrE0.resize(Jb);
+  log_PE.resize(T);
 
   
   Rcout << "Required prior parameters\n";
@@ -640,6 +659,18 @@ ads::ads(const List& params)
       chol_cov_G3 = chol_cov_G3_d.cast<AScalar>();
       
     }
+      
+      if(endog_E) {
+          
+          const List priors_endog_E = as<List>(priors["endog.E"]);
+          const Map<MatrixXd> mean_H1_d(as<Map<MatrixXd> >(priors_endog_E["mean.H1"]));
+          mean_H1 = mean_H1_d.cast<AScalar>();
+          const Map<MatrixXd> chol_row_H1_d(as<Map<MatrixXd> >(priors_endog_E["chol.row.H1"]));
+          chol_row_H1 = chol_row_H1_d.cast<AScalar>();
+          const Map<MatrixXd> chol_col_H1_d(as<Map<MatrixXd> >(priors_endog_E["chol.col.H1"]));
+          chol_col_H1 = chol_col_H1_d.cast<AScalar>();
+
+      }
     
 
     if (use_cr_pars) {
@@ -816,6 +847,10 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     ind += Jb;
   }
 
+    if (endog_E) {
+        H1 = MatrixXA::Map(par.derived().data() + ind, Jb, J+1);
+        ind += Jb*J;
+    }
 
 
   
@@ -841,6 +876,7 @@ AScalar ads::eval_LL(const bool store=false)
     AScalar log_det_Qt = 0;
     nuT = nu0;
     log_PA.setZero();
+    log_PE.setZero();
 
     // start modeling at week 2
     // to use lags for A and CM    
@@ -881,6 +917,14 @@ AScalar ads::eval_LL(const bool store=false)
       scale_A = G3.array().exp().matrix();
       log_PA(t) = get_log_PA(t);
     }
+      
+    if (endog_E) {
+        for(int j=0; j < Jb; j++) {
+              m2tq.row(j).tail(J) = M2t.row(1+j); // col vector for each of the Jb rows
+              logit_PrE0 = H1.col(j) * m2tq;
+            if( CM[t](j) == 0 ) log_PE(t) += log(invlogit(logit_PrE0(j))); else log_PE(t) += log(1-invlogit(logit_PrE0(j)));
+          }
+    }
     
     
     QYf = chol_Qt_L.transpose().triangularView<Upper>().solve(tmpNJ);    
@@ -907,7 +951,7 @@ AScalar ads::eval_LL(const bool store=false)
   LDLT(OmegaT, chol_DX_L, chol_DX_D);
   AScalar log_det_DX = chol_DX_D.array().log().sum();
   AScalar log_PY = log_const - J*log_det_Qt/2. - nuT*log_det_DX/2.;     
-  AScalar res = log_PY + log_PA.sum();
+  AScalar res = log_PY + log_PA.sum() + log_PE.sum();
 
   return(res);
 }
@@ -1080,6 +1124,11 @@ AScalar ads::eval_hyperprior() {
     MVN_logpdf(G3, mean_G3.col(0), chol_cov_G3, prior_G3, false);
     prior_endog_A = prior_G1 + prior_G2 + prior_G3(0,0);
   }
+    
+    AScalar prior_endog_E = 0;
+    if(endog_E) {
+        prior_endog_E = MatNorm_logpdf(H1, mean_H1, chol_row_H1, chol_col_H1, false);
+    }
   
  
   AScalar prior_cr = 0.0;
@@ -1094,7 +1143,7 @@ AScalar ads::eval_hyperprior() {
   AScalar prior_mats = prior_V + prior_W1 + prior_W2;
   AScalar prior_logit_delta = dlogitbeta_log(logit_delta, delta_a, delta_b);
   AScalar res =  prior_logit_delta + prior_theta12 +
-    prior_phi + prior_mats + prior_cr + prior_endog_A;
+    prior_phi + prior_mats + prior_cr + prior_endog_A + prior_endog_E;
   
   return(res);
 }
