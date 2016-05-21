@@ -110,6 +110,7 @@ for(t in 1:T) {
 
 	// advertising
     // for(j in 1:Jb) lA[t,j] ~ normal(ga0[j] + row(M2t[t],1) * ga1[j], sa[j]);
+
 	// creative additions
     // for(j in 1:JbE) ldE[j] <- exp(gl0[j] + row(M2t[t],1+j) * gl1[j]);
 
