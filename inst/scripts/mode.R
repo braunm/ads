@@ -15,7 +15,7 @@ set.seed(1234)
 ## THEN WE SHOULD MAKE IS A FUNCTION
 #if(!exists("data.name")) data.name <- "dpp"
 
-data.name <- "dpp"
+data.name <- "lld"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -392,8 +392,8 @@ if (flags$fix.W) {
 
 
 if (flags$endog.A) {
-    G1.start <- matrix(0,Jb,J+1)
-    G2.start <- matrix(0,Jb,J+1)
+    G1.start <- matrix(0.0124,Jb,J)
+    G2.start <- matrix(0,Jb,J)
     G3.start <- rep(0,Jb)
 } else {
     G1.start <- NULL
@@ -402,7 +402,7 @@ if (flags$endog.A) {
 }
 
 if (flags$endog.E) {
-    H1.start <- matrix(0,Jb,J+1)
+    H1.start <- matrix(0.0123,Jb,J)
 } else {
     H1.start <- NULL
 }
@@ -448,7 +448,7 @@ cat("Objective function - taped\n")
 f <- get.f(start)
 cat("f = ",f,"\n")
 
-## stop()
+##stop()
 
 
 ## Need to bound variables to avoid overflow

@@ -60,6 +60,7 @@ private:
   void set_Ht(const int&);
   AScalar Afunc(const AScalar&, const AScalar&);
   AScalar get_log_PA(const int&);
+  AScalar get_log_PE(const int&);
   
   template<typename TC, typename TX>
     void get_cr_mix(const MatrixBase<TC>&,
@@ -237,8 +238,8 @@ private:
   MatrixXA prior_G3;
 
   VectorXA logit_PrE0; // logit prob E==0
-  MatrixXA m2tq;    // q component of M2t
-    VectorXA log_PE;
+  VectorXA m2tq;    // q component of M2t
+  VectorXA log_PE;
     
   VectorXA crMet; // creative metrics
 
@@ -489,10 +490,13 @@ ads::ads(const List& params)
   PA_a.resize(Jb);
   prior_G3.resize(1,1);
   log_PA.resize(T);
+
   // for E
-  m2tq.resize(Jb,1+J);
-  for (int j=0; j<Jb; j++) m2tq(j,1) = 1; // intercept
+  H1.resize(Jb,J+1);
   logit_PrE0.resize(Jb);
+
+  m2tq.resize(1+J);
+  m2tq(0) = 1; // intercept
   log_PE.resize(T);
 
   
@@ -853,8 +857,6 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     }
 
 
-  
-
   // parameters for creatives
   if (use_cr_pars) {
     cr0 = par.segment(ind, R-1);
@@ -913,17 +915,21 @@ AScalar ads::eval_LL(const bool store=false)
     if (endog_A) {
       m2t1.tail(J) = M2t.row(0).transpose(); // col vector with intercept
       logit_PrA0 = G1 * m2t1;
+
       mean_A = (G2 * m2t1).array().exp().matrix();
       scale_A = G3.array().exp().matrix();
       log_PA(t) = get_log_PA(t);
     }
       
     if (endog_E) {
-        for(int j=0; j < Jb; j++) {
-              m2tq.row(j).tail(J) = M2t.row(1+j); // col vector for each of the Jb rows
-              logit_PrE0 = H1.col(j) * m2tq;
-            if( CM[t](j) == 0 ) log_PE(t) += log(invlogit(logit_PrE0(j))); else log_PE(t) += log(1-invlogit(logit_PrE0(j)));
-          }
+        for(int j = 0; j < Jb; j++) {
+            m2tq.tail(J) = M2t.row(1+j).transpose();
+            logit_PrE0 = H1 * m2tq;
+            log_PE(t) = get_log_PE(t);
+        }
+        
+//            if( CM[t](j) == 0 ) log_PE(t) += log(invlogit(logit_PrE0(j))); else log_PE(t) += log(1-invlogit(logit_PrE0(j)));
+ //           }
     }
     
     
@@ -941,12 +947,15 @@ AScalar ads::eval_LL(const bool store=false)
       M2all[t] = M2t;
       C2all[t] = C2t;
     }
-    
+
 
     // accumulate terms for Matrix T
     OmegaT += Yft.transpose() * QYf;
     nuT += N;    
+
   }
+
+
 
   LDLT(OmegaT, chol_DX_L, chol_DX_D);
   AScalar log_det_DX = chol_DX_D.array().log().sum();
@@ -978,7 +987,25 @@ AScalar ads::get_log_PA(const int& tt) {
   assert(my_finite(res));
   return(res);
   }
+
+AScalar ads::get_log_PE(const int& tt) {
     
+    VectorXA logres(Jb);
+    AScalar PrE0, log_fE, res;
+    
+    for (int j=0; j<Jb; j++) {
+        PrE0 = invlogit(logit_PrE0(j));
+        if (CM[tt](j)==0) {
+            logres(j) = log(PrE0);
+        } else {
+            logres(j) = log(1-PrE0);
+        }
+    }
+    res = logres.sum();
+    assert(my_finite(res));
+    return(res);
+}
+
 
 AScalar ads::eval_hyperprior() {
   
