@@ -448,7 +448,7 @@ cat("Objective function - taped\n")
 f <- get.f(start)
 cat("f = ",f,"\n")
 
-##stop()
+stop()
 
 
 ## Need to bound variables to avoid overflow

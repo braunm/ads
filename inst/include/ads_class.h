@@ -876,9 +876,11 @@ AScalar ads::eval_LL(const bool store=false)
 
     OmegaT = Omega0;
     AScalar log_det_Qt = 0;
+    AScalar lE = 0;
     nuT = nu0;
     log_PA.setZero();
     log_PE.setZero();
+      logit_PrE0.setZero();
 
     // start modeling at week 2
     // to use lags for A and CM    
@@ -924,14 +926,10 @@ AScalar ads::eval_LL(const bool store=false)
     if (endog_E) {
         for(int j = 0; j < Jb; j++) {
             m2tq.tail(J) = M2t.row(1+j).transpose();
-            logit_PrE0 = H1 * m2tq;
-            log_PE(t) = get_log_PE(t);
+            logit_PrE0(j) = H1.row(j) * m2tq;
+            }
+           log_PE(t) = get_log_PE(t);
         }
-        
-//            if( CM[t](j) == 0 ) log_PE(t) += log(invlogit(logit_PrE0(j))); else log_PE(t) += log(1-invlogit(logit_PrE0(j)));
- //           }
-    }
-    
     
     QYf = chol_Qt_L.transpose().triangularView<Upper>().solve(tmpNJ);    
     M2t = S2t * QYf;
