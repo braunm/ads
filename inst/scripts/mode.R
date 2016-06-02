@@ -15,7 +15,7 @@ set.seed(1234)
 ## THEN WE SHOULD MAKE IS A FUNCTION
 #if(!exists("data.name")) data.name <- "dpp"
 
-data.name <- "lld"
+data.name <- "ptw"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -43,7 +43,7 @@ if (data.is.sim) {
                   )
 }
 
-nfact.V1 <- 0
+nfact.V1 <- 3
 nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
@@ -448,7 +448,7 @@ cat("Objective function - taped\n")
 f <- get.f(start)
 cat("f = ",f,"\n")
 
-stop()
+## stop()
 
 
 ## Need to bound variables to avoid overflow
