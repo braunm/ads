@@ -844,16 +844,16 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
 
   if (endog_A) {
     G1 = MatrixXA::Map(par.derived().data() + ind, Jb, J+1);
-    ind += Jb*J;
+    ind += Jb*(J+1);
     G2 = MatrixXA::Map(par.derived().data() + ind, Jb, J+1);    
-    ind += Jb*J;
+    ind += Jb*(J+1);
     G3 = VectorXA::Map(par.derived().data() + ind, Jb);
     ind += Jb;
   }
 
     if (endog_E) {
         H1 = MatrixXA::Map(par.derived().data() + ind, Jb, J+1);
-        ind += Jb*J;
+        ind += Jb*(J+1);
     }
 
 
