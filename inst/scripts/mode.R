@@ -15,7 +15,7 @@ set.seed(1234)
 ## THEN WE SHOULD MAKE IS A FUNCTION
 #if(!exists("data.name")) data.name <- "dpp"
 
-data.name <- "lld"
+data.name <- "dpp"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -43,7 +43,7 @@ if (data.is.sim) {
                   )
 }
 
-nfact.V1 <- 0
+nfact.V1 <- 3
 nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
@@ -392,8 +392,8 @@ if (flags$fix.W) {
 
 
 if (flags$endog.A) {
-    G1.start <- matrix(0.0124,Jb,J)
-    G2.start <- matrix(0,Jb,J)
+    G1.start <- matrix(0.0124,Jb,J+1)
+    G2.start <- matrix(0,Jb,J+1)
     G3.start <- rep(0,Jb)
 } else {
     G1.start <- NULL
@@ -402,7 +402,7 @@ if (flags$endog.A) {
 }
 
 if (flags$endog.E) {
-    H1.start <- matrix(0.0123,Jb,J)
+    H1.start <- matrix(0.0123,Jb,J+1)
 } else {
     H1.start <- NULL
 }
@@ -448,7 +448,7 @@ cat("Objective function - taped\n")
 f <- get.f(start)
 cat("f = ",f,"\n")
 
-stop()
+## stop()
 
 
 ## Need to bound variables to avoid overflow
@@ -462,7 +462,7 @@ opt1 <- optim(start,
                   fnscale=-1,
                   REPORT=1,
                   trace=3,
-                  maxit=300
+                  maxit=2000L
                   )
               )
 
@@ -474,6 +474,7 @@ opt2 <- trust.optim(opt1$par,
                         report.level=5L,
                         report.precision=4L,
                         maxit=5000L,
+                        trust.iter=10000L,
                         function.scale.factor=-1,
                         preconditioner=1,
                         start.trust.radius=.01,
@@ -495,6 +496,7 @@ opt <- trust.optim(opt2$solution,
                         report.level=5L,
                         report.precision=4L,
                         maxit=5000L,
+                        trust.iter=10000L,
                         function.scale.factor=-1,
                         preconditioner=1,
                         start.trust.radius=.5,
