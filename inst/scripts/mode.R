@@ -15,13 +15,13 @@ set.seed(1234)
 ## THEN WE SHOULD MAKE IS A FUNCTION
 #if(!exists("data.name")) data.name <- "dpp"
 
-data.name <- "dpp"
+data.name <- "ptw"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
 data(list=dn)  ## load data
 mcmod <- eval(parse(text=dn)) ## rename to mcmod
-save.file <- paste0("./nobuild/results/mode_",data.name,".Rdata")
+save.file <- paste0("./nobuild/results/mode_V1_endogAE_",data.name,".Rdata")
 
 if (data.is.sim) {
     flags <- mcmod$trueflags
@@ -440,7 +440,7 @@ DL <- list(data=data, priors=priors,
            flags=flags,
            fixed.cov=fixed.cov)
 
-cat("Setting up\n")
+cat(sprintf("Setting up data for category: %s\n", data.name))
 cl <- new("ads", DL)
 cat("Recording tape\n")
 cl$record.tape(start)
@@ -462,7 +462,7 @@ opt1 <- optim(start,
                   fnscale=-1,
                   REPORT=1,
                   trace=3,
-                  maxit=2000L
+                  maxit=300L
                   )
               )
 
