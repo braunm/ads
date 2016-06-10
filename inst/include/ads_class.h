@@ -1176,8 +1176,8 @@ AScalar ads::eval_hyperprior() {
 
 // Afunc
 AScalar ads::Afunc(const AScalar& aT, const AScalar& s) {
-//  AScalar res = log1p(aT/s);
-      AScalar res = sqrt(aT/s);
+  AScalar res = log1p(aT/s);
+//      AScalar res = sqrt(aT/s);
   return(res);
 }
 
