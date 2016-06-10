@@ -15,7 +15,7 @@ set.seed(1234)
 ## THEN WE SHOULD MAKE IS A FUNCTION
 #if(!exists("data.name")) data.name <- "dpp"
 
-data.name <- "ptw"
+data.name <- "dpp"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -43,7 +43,7 @@ if (data.is.sim) {
                   )
 }
 
-nfact.V1 <- 3
+nfact.V1 <- 0
 nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
@@ -239,7 +239,7 @@ if (flags$add.prior) {
         cov.col.H1 <- 5*diag(J+1)
         chol.row.H1 <- t(chol(cov.row.H1))
         chol.col.H1 <- t(chol(cov.col.H1))
-        
+
         prior.endog.E <- list(mean.H1=mean.H1,
                                 chol.row.H1 = chol.row.H1,
                                 chol.col.H1 = chol.col.H1
@@ -247,8 +247,8 @@ if (flags$add.prior) {
     } else {
         prior.endog.E <- NULL
     }
-    
-    
+
+
     ## prior on logit.delta.  transformed beta with 2 parameters
     prior.delta <- list(a=1, b=3)
 
@@ -462,7 +462,7 @@ opt1 <- optim(start,
                   fnscale=-1,
                   REPORT=1,
                   trace=3,
-                  maxit=300L
+                  maxit=400L
                   )
               )
 
@@ -647,7 +647,7 @@ if(!flags$endog.A) {
     matplot(T2array[2,1,],type='l')
 }
 
-## stop()
+ stop()
 
 save(sol, se.sol, opt, DL, varnames,
      gr, hs, data, parcheck, ba, M2a, file=save.file)

@@ -851,10 +851,10 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
     ind += Jb;
   }
 
-    if (endog_E) {
-        H1 = MatrixXA::Map(par.derived().data() + ind, Jb, J+1);
-        ind += Jb*(J+1);
-    }
+  if (endog_E) {
+    H1 = MatrixXA::Map(par.derived().data() + ind, Jb, J+1);
+    ind += Jb*(J+1);
+  }
 
 
   // parameters for creatives
@@ -1150,10 +1150,10 @@ AScalar ads::eval_hyperprior() {
     prior_endog_A = prior_G1 + prior_G2 + prior_G3(0,0);
   }
     
-    AScalar prior_endog_E = 0;
-    if(endog_E) {
-        prior_endog_E = MatNorm_logpdf(H1, mean_H1, chol_row_H1, chol_col_H1, false);
-    }
+  AScalar prior_endog_E = 0;
+  if(endog_E) {
+    prior_endog_E = MatNorm_logpdf(H1, mean_H1, chol_row_H1, chol_col_H1, false);
+  }
   
  
   AScalar prior_cr = 0.0;
