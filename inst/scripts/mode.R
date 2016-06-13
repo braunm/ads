@@ -21,7 +21,6 @@ data.is.sim <- FALSE
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
 data(list=dn)  ## load data
 mcmod <- eval(parse(text=dn)) ## rename to mcmod
-save.file <- paste0("./nobuild/results/mode_V1_endogAE_",data.name,".Rdata")
 
 if (data.is.sim) {
     flags <- mcmod$trueflags
@@ -45,10 +44,12 @@ if (data.is.sim) {
                   )
 }
 
-nfact.V1 <- 0
+nfact.V1 <- 4
 nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
+
+save.file <- paste0("./nobuild/results/mode_V1_",nfact.V1,"endogAE_",data.name,".Rdata")
 
 get.f <- function(P, ...) return(cl$get.f(P))
 get.df <- function(P, ...) return(cl$get.fdf(P)$grad)
@@ -677,8 +678,6 @@ if(!flags$endog.A) {
 
     matplot(T2array[2,1,],type='l')
 }
-
- stop()
 
 save(sol, se.sol, opt, DL, varnames,
      gr, hs, data, parcheck, ba, M2a, file=save.file)
