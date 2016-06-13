@@ -15,7 +15,7 @@ set.seed(1234)
 ## THEN WE SHOULD MAKE IS A FUNCTION
 #if(!exists("data.name")) data.name <- "dpp"
 
-data.name <- "dpp"
+data.name <- "ptw"
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -39,7 +39,8 @@ if (data.is.sim) {
                   W1.LKJ = FALSE,
                   use.cr.pars = FALSE,
                   endog.A = TRUE,
-                  endog.E = TRUE
+                  endog.E = TRUE,
+                  estimate.M20 = TRUE
                   )
 }
 
@@ -139,6 +140,19 @@ for (j in 1:J) {
 }
 for (j in 1:Jb) {
     M20[j+1,j] <-  0
+}
+
+if (flags$estimate.M20) {
+    M20.mean <- M20
+    M20.cov.row <- diag(c(1,rep(0.5,Jb),rep(100,P)))
+    M20.cov.col <- 100*diag(J)
+    prior.M20 <- list(mean=M20,
+    chol.row = t(chol(M20.cov.row)),
+    chol.col = t(chol(M20.cov.col))
+    )
+    
+} else {
+    prior.M20 <- list(M20=M20)
 }
 
 
@@ -304,7 +318,7 @@ if (flags$add.prior) {
     prior.creatives <- NULL
 }
 
-tmp <- list(M20=M20,
+tmp <- list(M20=prior.M20,
             C20=C20,
             Omega0=Omega0,
             nu0=nu0,
@@ -333,6 +347,13 @@ if (flags$include.X) {
 }
 
 logit.delta.start <- 0.2
+
+if (flags$estimate.M20) {
+    M20.start <- M20
+} else {
+    M20.start <- NULL
+}
+
 
 if (flags$full.phi) {
     phi.start <- matrix(0,Jb,J)
@@ -417,6 +438,7 @@ if (flags$use.cr.pars) {
 tmp <- list(
     theta12=theta12.start,
     phi=phi.start,
+    M20 = M20.start,
     logit.delta=logit.delta.start,
     V1=V1.start,
     V2=V2.start,

@@ -103,6 +103,10 @@ private:
   AScalar sd_mean_phi;
   AScalar mode_var_phi;
   AScalar scale_var_phi;
+    
+  MatrixXA mean_M20;
+  MatrixXA chol_cov_row_M20;
+  MatrixXA chol_cov_col_M20;
 
   AScalar delta_a;
   AScalar delta_b;
@@ -269,6 +273,7 @@ private:
   bool use_cr_pars;
   bool endog_A;
   bool endog_E;
+  bool estimate_M20;
   
   AScalar A_scale;
     
@@ -307,6 +312,7 @@ ads::ads(const List& params)
   fix_V2 = as<bool>(flags["fix.V2"]);
   fix_W = as<bool>(flags["fix.W"]);
   W1_LKJ = as<bool>(flags["W1.LKJ"]);
+  estimate_M20 = as<bool>(flags["estimate.M20"]);
 
   Rcout << "Constructing data\n";
 
@@ -503,9 +509,20 @@ ads::ads(const List& params)
   Rcout << "Required prior parameters\n";
   
   // These priors are required
-
-  const Map<MatrixXd> M20_d(as<Map<MatrixXd> >(priors["M20"]));
-  M20 = M20_d.cast<AScalar>();
+ const List priors_M20 = as<List>(priors["M20"]);
+    if (estimate_M20) {
+         Rcout << "M20 is estimated\n";
+        const Map<MatrixXd> mean_M20_d(as<Map<MatrixXd> >(priors_M20["mean"]));
+        mean_M20 = mean_M20_d.cast<AScalar>();
+        const Map<MatrixXd> chol_cov_row_M20_d(as<Map<MatrixXd> >(priors_M20["chol.row"]));
+        chol_cov_row_M20 = chol_cov_row_M20_d.cast<AScalar>();
+        const Map<MatrixXd> chol_cov_col_M20_d(as<Map<MatrixXd> >(priors_M20["chol.col"]));
+        chol_cov_col_M20 = chol_cov_col_M20_d.cast<AScalar>();
+    } else {
+        const Map<MatrixXd> M20_d(as<Map<MatrixXd> >(priors["M20"]));
+        M20 = M20_d.cast<AScalar>();
+    }
+    
   const Map<MatrixXd> C20_d(as<Map<MatrixXd> >(priors["C20"]));
   C20 = C20_d.cast<AScalar>();
   const Map<MatrixXd> Omega_d(as<Map<MatrixXd> >(priors["Omega0"]));
@@ -701,7 +718,6 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
 {
   int ind = 0;
 
-
   // unwrap theta12 and construct Ybar
 
   if (include_X) {
@@ -734,6 +750,13 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
       phi.leftCols(Jb) = phi_z.asDiagonal();
     }
   }
+
+  // unwrap M20, if needed
+    
+    if (estimate_M20) {
+        M20 = MatrixXA::Map(par.derived().data()+ind,1+P+Jb,J);
+        ind += (1+P+Jb)*J;
+    }
 
   logit_delta = par(ind++);
   delta = invlogit(logit_delta); 
@@ -880,7 +903,7 @@ AScalar ads::eval_LL(const bool store=false)
     nuT = nu0;
     log_PA.setZero();
     log_PE.setZero();
-      logit_PrE0.setZero();
+    logit_PrE0.setZero();
 
     // start modeling at week 2
     // to use lags for A and CM    
@@ -1018,6 +1041,14 @@ AScalar ads::eval_hyperprior() {
 				   false);
   }
 
+    AScalar prior_M20 = 0;
+    if (estimate_M20) {
+        prior_M20 = MatNorm_logpdf(M20, mean_M20,
+                                   chol_cov_row_M20,
+                                   chol_cov_col_M20,
+                                   false);
+    }
+    
 
   // Prior on phi
   // J x J matrix normal, diagonal (sparse) covariance matrices
@@ -1168,7 +1199,7 @@ AScalar ads::eval_hyperprior() {
   AScalar prior_mats = prior_V + prior_W1 + prior_W2;
   AScalar prior_logit_delta = dlogitbeta_log(logit_delta, delta_a, delta_b);
   AScalar res =  prior_logit_delta + prior_theta12 +
-    prior_phi + prior_mats + prior_cr + prior_endog_A + prior_endog_E;
+    prior_phi + prior_mats + prior_cr + prior_endog_A + prior_endog_E + prior_M20;
   
   return(res);
 }
