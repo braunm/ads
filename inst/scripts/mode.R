@@ -40,7 +40,8 @@ if (data.is.sim) {
                   use.cr.pars = FALSE,
                   endog.A = TRUE,
                   endog.E = TRUE,
-                  estimate.M20 = TRUE
+                  estimate.M20 = TRUE,
+                  estimate.C20 = TRUE
                   )
 }
 
@@ -155,10 +156,14 @@ if (flags$estimate.M20) {
     prior.M20 <- list(M20=M20)
 }
 
-
-##C20 <- 1000*diag(1+P+Jb,1+P+Jb)
-C20 <- diag(c(1000,rep(1,Jb),rep(10,P)))
-diag(C20)[1+1:Jb] <- 1
+if(flags$estimate.C20) {
+    prior.C20 <- list(diag.scale=1, diag.mode=0,
+    fact.scale=0.1, fact.mode=0)
+} else {
+    ##C20 <- 1000*diag(1+P+Jb,1+P+Jb)
+    C20 <- diag(c(1000,rep(1,Jb),rep(10,P)))
+    diag(C20)[1+1:Jb] <- 1
+}
 
 E.Sigma <-  diag(J) ## expected covariance across brands
 nu0 <- P + 2*J + 6  ## must be greater than theta2 rows+cols
@@ -319,7 +324,7 @@ if (flags$add.prior) {
 }
 
 tmp <- list(M20=prior.M20,
-            C20=C20,
+            C20=prior.C20,
             Omega0=Omega0,
             nu0=nu0,
             phi=prior.phi,
@@ -354,6 +359,9 @@ if (flags$estimate.M20) {
     M20.start <- NULL
 }
 
+if (flags$estimate.C20) {
+    C20.start <- rep(0,1+Jb+P)
+}
 
 if (flags$full.phi) {
     phi.start <- matrix(0,Jb,J)
@@ -439,6 +447,7 @@ tmp <- list(
     theta12=theta12.start,
     phi=phi.start,
     M20 = M20.start,
+    C20 = C20.start,
     logit.delta=logit.delta.start,
     V1=V1.start,
     V2=V2.start,
