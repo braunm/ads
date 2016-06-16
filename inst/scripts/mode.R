@@ -44,8 +44,8 @@ if (data.is.sim) {
                   )
 }
 
-nfact.V1 <- 4
-nfact.V2 <- 0
+nfact.V1 <- 0
+nfact.V2 <- 2
 nfact.W1 <- 0
 nfact.W2 <- 0
 
@@ -152,7 +152,7 @@ if (flags$estimate.M20) {
     chol.row = t(chol(M20.cov.row)),
     chol.col = t(chol(M20.cov.col))
     )
-    
+
 } else {
     prior.M20 <- list(M20=M20)
 }
@@ -399,7 +399,7 @@ if (flags$fix.V2) {
     fixed.cov$V2 <- 0.1*diag(N*(1+P));
     V2.start <- NULL
 } else {
-    V2.length <- N*(1+P) + N*nfact.V2 - nfact.V2*(nfact.V2-1)/2
+    V2.length <- N*(1+P) + N*(1+P)*nfact.V2 - nfact.V2*(nfact.V2-1)/2
     V2.start <- rep(0,V2.length)
 }
 
@@ -465,7 +465,7 @@ start.list <- as.relistable(Filter(function(x) !is.null(x), tmp))
 
 start <- unlist(start.list)
 nvars <- length(start)
-
+print(nvars)
 
 DL <- list(data=data, priors=priors,
            dimensions=dimensions,
@@ -474,13 +474,14 @@ DL <- list(data=data, priors=priors,
 
 cat(sprintf("Setting up data for category: %s\n", data.name))
 cl <- new("ads", DL)
+##stop()
 cat("Recording tape\n")
 cl$record.tape(start)
 cat("Objective function - taped\n")
 f <- get.f(start)
 cat("f = ",f,"\n")
 
-## stop()
+
 
 
 ## Need to bound variables to avoid overflow
@@ -679,6 +680,6 @@ if(!flags$endog.A) {
     matplot(T2array[2,1,],type='l')
 }
 
-save(sol, se.sol, opt, DL, varnames,
-     gr, hs, data, parcheck, ba, M2a, file=save.file)
+##save(sol, se.sol, opt, DL, varnames,
+##     gr, hs, data, parcheck, ba, M2a, file=save.file)
 

@@ -457,13 +457,13 @@ ads::ads(const List& params)
     }    
   }  
   
-    if(estimate_C20) {
-        C20.resize(1+Jb+P, 1+Jb+P);
-        C20_log_diag.resize(1+Jb+P);
+  if (estimate_C20) {
+    C20.resize(1+Jb+P, 1+Jb+P);
+    C20_log_diag.resize(1+Jb+P);
     }
-        
+  
   Ht = MatrixXA::Zero(Jb,J); // ignoring zeros in bottom P rows
-
+  
   phi = MatrixXA::Zero(Jb,J);
   phi_z = VectorXA::Zero(Jb);
 
@@ -514,7 +514,7 @@ ads::ads(const List& params)
   // for E
   H1.resize(Jb,J+1);
   logit_PrE0.resize(Jb);
-
+  
   m2tq.resize(1+J);
   m2tq(0) = 1; // intercept
   log_PE.resize(T);
@@ -524,31 +524,31 @@ ads::ads(const List& params)
   
   // These priors are required
  const List priors_M20 = as<List>(priors["M20"]);
-    if (estimate_M20) {
-         Rcout << "M20 is estimated\n";
-        const Map<MatrixXd> mean_M20_d(as<Map<MatrixXd> >(priors_M20["mean"]));
-        mean_M20 = mean_M20_d.cast<AScalar>();
-        const Map<MatrixXd> chol_cov_row_M20_d(as<Map<MatrixXd> >(priors_M20["chol.row"]));
-        chol_cov_row_M20 = chol_cov_row_M20_d.cast<AScalar>();
-        const Map<MatrixXd> chol_cov_col_M20_d(as<Map<MatrixXd> >(priors_M20["chol.col"]));
-        chol_cov_col_M20 = chol_cov_col_M20_d.cast<AScalar>();
-    } else {
-        const Map<MatrixXd> M20_d(as<Map<MatrixXd> >(priors["M20"]));
-        M20 = M20_d.cast<AScalar>();
-    }
+ if (estimate_M20) {
+   Rcout << "M20 is estimated\n";
+   const Map<MatrixXd> mean_M20_d(as<Map<MatrixXd> >(priors_M20["mean"]));
+   mean_M20 = mean_M20_d.cast<AScalar>();
+   const Map<MatrixXd> chol_cov_row_M20_d(as<Map<MatrixXd> >(priors_M20["chol.row"]));
+   chol_cov_row_M20 = chol_cov_row_M20_d.cast<AScalar>();
+   const Map<MatrixXd> chol_cov_col_M20_d(as<Map<MatrixXd> >(priors_M20["chol.col"]));
+   chol_cov_col_M20 = chol_cov_col_M20_d.cast<AScalar>();
+ } else {
+   const Map<MatrixXd> M20_d(as<Map<MatrixXd> >(priors["M20"]));
+   M20 = M20_d.cast<AScalar>();
+ }
  
-    if(estimate_C20) {
-        Rcout << "C20 is estimated\n";
-        const List priors_C20 = as<List>(priors["C20"]);
-        diag_scale_C20 = as<double>(priors_C20["diag.scale"]);
-        diag_mode_C20 = as<double>(priors_C20["diag.mode"]);
-        fact_scale_C20 = as<double>(priors_C20["fact.scale"]);
-        fact_mode_C20 = as<double>(priors_C20["fact.mode"]);
-    } else {
-        const Map<MatrixXd> C20_d(as<Map<MatrixXd> >(priors["C20"]));
-        C20 = C20_d.cast<AScalar>();
-    }
-  const Map<MatrixXd> Omega_d(as<Map<MatrixXd> >(priors["Omega0"]));
+ if(estimate_C20) {
+   Rcout << "C20 is estimated\n";
+   const List priors_C20 = as<List>(priors["C20"]);
+   diag_scale_C20 = as<double>(priors_C20["diag.scale"]);
+   diag_mode_C20 = as<double>(priors_C20["diag.mode"]);
+   fact_scale_C20 = as<double>(priors_C20["fact.scale"]);
+   fact_mode_C20 = as<double>(priors_C20["fact.mode"]);
+ } else {
+   const Map<MatrixXd> C20_d(as<Map<MatrixXd> >(priors["C20"]));
+   C20 = C20_d.cast<AScalar>();
+ }
+ const Map<MatrixXd> Omega_d(as<Map<MatrixXd> >(priors["Omega0"]));
   Omega0 = Omega_d.cast<AScalar>();
   nu0 = as<double>(priors["nu0"]);
   log_mvgamma_prior = log_MVgamma(nu0 / 2.0, J);
@@ -776,17 +776,17 @@ void ads::unwrap_params(const MatrixBase<Tpars>& par)
 
   // unwrap M20, if needed
     
-    if (estimate_M20) {
-        M20 = MatrixXA::Map(par.derived().data()+ind,1+P+Jb,J);
-        ind += (1+P+Jb)*J;
-    }
+  if (estimate_M20) {
+    M20 = MatrixXA::Map(par.derived().data()+ind, 1+P+Jb, J);
+    ind += (1+P+Jb)*J;
+  }
   // unwrap C20 as a diagonal matrix
-    if(estimate_C20) {
-        C20.setZero();
-        C20_log_diag = par.segment(ind, 1+Jb+P);
-        ind += 1+Jb+P;
-        C20.diagonal() = C20_log_diag.array().exp().matrix();
-    }
+  if (estimate_C20) {
+    C20.setZero();
+    C20_log_diag = par.segment(ind, 1+Jb+P);
+    ind += 1+Jb+P;
+    C20.diagonal() = C20_log_diag.array().exp().matrix();
+  }
 
   logit_delta = par(ind++);
   delta = invlogit(logit_delta); 
@@ -977,12 +977,12 @@ AScalar ads::eval_LL(const bool store=false)
     }
       
     if (endog_E) {
-        for(int j = 0; j < Jb; j++) {
-            m2tq.tail(J) = M2t.row(1+j).transpose();           
-            logit_PrE0(j) = (H1.row(j) * m2tq).eval().coeff(0,0);
-            }
-           log_PE(t) = get_log_PE(t);
-        }
+      for(int j = 0; j < Jb; j++) {
+	m2tq.tail(J) = M2t.row(1+j).transpose();           
+	logit_PrE0(j) = (H1.row(j) * m2tq).eval().coeff(0,0);
+      }
+      log_PE(t) = get_log_PE(t);
+    }
     
     QYf = chol_Qt_L.transpose().triangularView<Upper>().solve(tmpNJ);    
     M2t = S2t * QYf;
@@ -1071,24 +1071,24 @@ AScalar ads::eval_hyperprior() {
 				   false);
   }
 
-    AScalar prior_M20 = 0;
-    if (estimate_M20) {
-        prior_M20 = MatNorm_logpdf(M20, mean_M20,
-                                   chol_cov_row_M20,
-                                   chol_cov_col_M20,
-                                   false);
-    }
+  AScalar prior_M20 = 0;
+  if (estimate_M20) {
+    prior_M20 = MatNorm_logpdf(M20, mean_M20,
+			       chol_cov_row_M20,
+			       chol_cov_col_M20,
+			       false);
+  }
+  
+  AScalar prior_diag_C20 = 0;
+  if (estimate_C20) {
     
-    AScalar prior_diag_C20 = 0;
-    if (estimate_C20) {
-        
-        for (size_t i=0; i<(1+Jb+P); i++) {
-            prior_diag_C20 += dnormTrunc0_log(exp(C20_log_diag(i)),
-                                             diag_mode_C20, diag_scale_C20);
-            prior_diag_C20 += C20_log_diag(i); // Jacobian
-        }
+    for (size_t i=0; i<(1+Jb+P); i++) {
+      prior_diag_C20 += dnormTrunc0_log(exp(C20_log_diag(i)),
+					diag_mode_C20, diag_scale_C20);
+      prior_diag_C20 += C20_log_diag(i); // Jacobian
     }
-    
+  }
+  
   // Prior on phi
   // J x J matrix normal, diagonal (sparse) covariance matrices
   
@@ -1300,20 +1300,20 @@ void ads::set_Ht(const int& tt) {
 
 // Optional functions to return values outside of the tape
 
-AScalar ads::eval_LL(const Eigen::Ref<VectorXA>& P){
-  unwrap_params(P);
+AScalar ads::eval_LL(const Eigen::Ref<VectorXA>& Pvec){
+  unwrap_params(Pvec);
   AScalar LL = eval_LL(); 
   return LL;
 }
 
-AScalar ads::eval_hyperprior(const Eigen::Ref<VectorXA>& P) {
-  unwrap_params(P);
+AScalar ads::eval_hyperprior(const Eigen::Ref<VectorXA>& Pvec) {
+  unwrap_params(Pvec);
   AScalar hyperprior = eval_hyperprior();
   return hyperprior;
 }
 
-AScalar ads::eval_f(const Eigen::Ref<VectorXA>& P) {
-  unwrap_params(P);
+AScalar ads::eval_f(const Eigen::Ref<VectorXA>& Pvec) {
+  unwrap_params(Pvec);
   AScalar  f = eval_LL();
   AScalar hyperprior;
   if (add_prior) {
@@ -1322,13 +1322,13 @@ AScalar ads::eval_f(const Eigen::Ref<VectorXA>& P) {
   return f;
 }
 
-List ads::get_recursion(const Eigen::Ref<VectorXA>& P) {
+List ads::get_recursion(const Eigen::Ref<VectorXA>& Pvec) {
 
   using Rcpp::Named;
   using Rcpp::wrap;
   using Rcpp::as;
   
-  unwrap_params(P);
+  unwrap_params(Pvec);
   eval_LL(true); // sets store recursion flag
 
   Rcpp::List M2return(T);
@@ -1358,13 +1358,13 @@ List ads::get_recursion(const Eigen::Ref<VectorXA>& P) {
 }
 
 
-List ads::par_check(const Eigen::Ref<VectorXA>& P) {
+List ads::par_check(const Eigen::Ref<VectorXA>& Pvec) {
 
   using Rcpp::Named;
   using Rcpp::wrap;
   using Rcpp::as;
 
-  unwrap_params(P);
+  unwrap_params(Pvec);
   eval_LL();
   // Return values for A
 
