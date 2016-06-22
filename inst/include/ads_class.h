@@ -704,17 +704,17 @@ ads::ads(const List& params)
       
     }
       
-      if(endog_E) {
-          
-          const List priors_endog_E = as<List>(priors["endog.E"]);
-          const Map<MatrixXd> mean_H1_d(as<Map<MatrixXd> >(priors_endog_E["mean.H1"]));
-          mean_H1 = mean_H1_d.cast<AScalar>();
-          const Map<MatrixXd> chol_row_H1_d(as<Map<MatrixXd> >(priors_endog_E["chol.row.H1"]));
-          chol_row_H1 = chol_row_H1_d.cast<AScalar>();
-          const Map<MatrixXd> chol_col_H1_d(as<Map<MatrixXd> >(priors_endog_E["chol.col.H1"]));
-          chol_col_H1 = chol_col_H1_d.cast<AScalar>();
-
-      }
+    if (endog_E) {
+      
+      const List priors_endog_E = as<List>(priors["endog.E"]);
+      const Map<MatrixXd> mean_H1_d(as<Map<MatrixXd> >(priors_endog_E["mean.H1"]));
+      mean_H1 = mean_H1_d.cast<AScalar>();
+      const Map<MatrixXd> chol_row_H1_d(as<Map<MatrixXd> >(priors_endog_E["chol.row.H1"]));
+      chol_row_H1 = chol_row_H1_d.cast<AScalar>();
+      const Map<MatrixXd> chol_col_H1_d(as<Map<MatrixXd> >(priors_endog_E["chol.col.H1"]));
+      chol_col_H1 = chol_col_H1_d.cast<AScalar>();
+      
+    }
     
 
     if (use_cr_pars) {
@@ -1013,6 +1013,11 @@ AScalar ads::eval_LL(const bool store=false)
   AScalar log_PY = log_const - J*log_det_Qt/2. - nuT*log_det_DX/2.;     
   AScalar res = log_PY + log_PA.sum() + log_PE.sum();
 
+
+  /* Rcout << "log_PY = " << Value(log_PY); */
+  /* Rcout << "  log_PA = " << Value(log_PA.sum()); */
+  /* Rcout << "  log_PE = " << Value(log_PE.sum()) << "\n\n"; */
+  
   return(res);
 }
 
@@ -1037,7 +1042,7 @@ AScalar ads::get_log_PA(const int& tt) {
   res = logres.sum();
   assert(my_finite(res));
   return(res);
-  }
+}
 
 AScalar ads::get_log_PE(const int& tt) {
     

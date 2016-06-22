@@ -12,23 +12,25 @@ library(sparseMVN)
 ##----parallelSetup
 library(doParallel, quietly=TRUE)
 run.par <- TRUE
-if(run.par) registerDoParallel(cores=3) else registerDoParallel(cores=1)
+if(run.par) registerDoParallel(cores=18) else registerDoParallel(cores=1)
 seed.id <- 123
 set.seed(seed.id)
 
 
-data.name <- "dpp"
-mode.file <- paste0("./nobuild/results/mode_",data.name,".Rdata")
-save.file <- paste0(".nobuild/results/gds_",data.name,".Rdata")
+data.name <- "ptw"
+mode.file <- paste0("./nobuild/results/mode_test_",data.name,".Rdata")
+save.file <- paste0("./nobuild/results/gds_test_",data.name,".Rdata")
+##mode.file <- paste0("./nobuild/results/mode_",data.name,".Rdata")
+##save.file <- paste0(".nobuild/results/gds_",data.name,".Rdata")
 
 
 ##----load post.mode, DL, gr, hs
 load(mode.file)
-scale <- 1.25
-M <- 10000  ## proposal draws
-n.draws <- 10  ## total number of draws needed
-max.tries <- 10000  ## to keep sample.GDS from running forever
-n.batch <- 2
+scale <- 1.1
+M <- 25000  ## proposal draws
+n.draws <- 36  ## total number of draws needed
+max.tries <- 100000  ## to keep sample.GDS from running forever
+n.batch <- 12
 
 
 ##----defPropFuncs
@@ -63,12 +65,23 @@ prop.params <- list(mean = post.mode, CH=CH)
 
 cat("Sampling proposals\n")
 log.c2 <- dmvn.wrap(post.mode, prop.params)
-t1 <- system.time(draws.m <- as(rmvn.wrap(M,prop.params),"matrix"))
-t2 <- system.time(log.post.m <- plyr::aaply(draws.m, 1, get.f, .parallel=run.par))
-t3 <- system.time(log.prop.m <- dmvn.wrap(draws.m, params=prop.params))
+draws.m <- as(rmvn.wrap(M,prop.params),"matrix")
+log.prop.m <- dmvn.wrap(draws.m, params=prop.params)
+cat("Computing posteriors for proposals\n")
+log.post.m <- plyr::aaply(draws.m, 1, get.f, .parallel=run.par)
+
 log.phi <- log.post.m - log.prop.m + log.c2 - log.c1
 valid.scale <- all(log.phi <= 0)
 stopifnot(valid.scale)
+
+
+## ##----additional_proposals_for_testing
+## cat("Additional proposals for testing\n")
+## draws.m2 <- as(rmvn.wrap(10*M,prop.params),"matrix")
+## log.prop.m2 <- dmvn.wrap(draws.m2, params=prop.params)
+## cat("Computing posteriors for proposals\n")
+## log.post.m2 <- plyr::aaply(draws.m2, 1, get.f, .parallel=run.par)
+## log.phi2 <- log.post.m2 - log.prop.m2 + log.c2 - log.c1
 
 
 ##----sampleGDS_parallel

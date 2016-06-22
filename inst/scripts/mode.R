@@ -45,11 +45,12 @@ if (data.is.sim) {
 }
 
 nfact.V1 <- 0
-nfact.V2 <- 2
+nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
 
-save.file <- paste0("./nobuild/results/mode_V1_",nfact.V1,"endogAE_",data.name,".Rdata")
+##save.file <- paste0("./nobuild/results/mode_V1_",nfact.V1,"endogAE_",data.name,".Rdata")
+save.file <- paste0("./nobuild/results/mode_test_",data.name,".Rdata")
 
 get.f <- function(P, ...) return(cl$get.f(P))
 get.df <- function(P, ...) return(cl$get.fdf(P)$grad)
@@ -465,7 +466,7 @@ start.list <- as.relistable(Filter(function(x) !is.null(x), tmp))
 
 start <- unlist(start.list)
 nvars <- length(start)
-print(nvars)
+cat("Number of variables = ",nvars,"\n")
 
 DL <- list(data=data, priors=priors,
            dimensions=dimensions,
@@ -680,6 +681,6 @@ if(!flags$endog.A) {
     matplot(T2array[2,1,],type='l')
 }
 
-##save(sol, se.sol, opt, DL, varnames,
-##     gr, hs, data, parcheck, ba, M2a, file=save.file)
+save(sol, se.sol, opt, DL, varnames,
+     gr, hs, data, parcheck, ba, M2a, file=save.file)
 

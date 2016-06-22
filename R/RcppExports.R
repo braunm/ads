@@ -23,3 +23,27 @@ rMVN <- function(N, mu_, L_, isPrec) {
     .Call('ads_rMVN', PACKAGE = 'ads', N, mu_, L_, isPrec)
 }
 
+#' @title dMVT
+#' @param X_ matrix
+#' @param mu_ vector
+#' @param L_ lower chol of cov or prec matrix
+#' @param v degrees of freedom (must be >=3)
+#' @param isPrec covariance or precision matrix?
+#' @return Numeric vector
+#' @export
+dMVT <- function(X_, mu_, L_, v, isPrec) {
+    .Call('ads_dMVT', PACKAGE = 'ads', X_, mu_, L_, v, isPrec)
+}
+
+#' @title rMVT
+#' @param N integer, number of draws
+#' @param mu_ mean vector
+#' @param L_ lower chol of cov or prec matrix
+#' @param v degrees of freedom (must be >=3)
+#' @param isPrec covariance or precision matrix?
+#' @return Numeric matrix
+#' @export
+rMVT <- function(N, mu_, L_, v, isPrec) {
+    .Call('ads_rMVT', PACKAGE = 'ads', N, mu_, L_, v, isPrec)
+}
+

@@ -20,7 +20,8 @@ Suggests:
     knitr,
     plyr,
     testthat,
-    numDeriv
+    numDeriv,
+    mnormt
 VignetteBuilder: knitr
 SystemRequirements: C++11
 RoxygenNote: 5.0.1
