@@ -35,8 +35,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // dMVT
-NumericVector dMVT(NumericMatrix X_, NumericVector mu_, NumericMatrix L_, double v, bool isPrec);
-RcppExport SEXP ads_dMVT(SEXP X_SEXP, SEXP mu_SEXP, SEXP L_SEXP, SEXP vSEXP, SEXP isPrecSEXP) {
+NumericVector dMVT(NumericMatrix X_, NumericVector mu_, NumericMatrix L_, double v, bool isInv);
+RcppExport SEXP ads_dMVT(SEXP X_SEXP, SEXP mu_SEXP, SEXP L_SEXP, SEXP vSEXP, SEXP isInvSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
@@ -44,14 +44,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericVector >::type mu_(mu_SEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type L_(L_SEXP);
     Rcpp::traits::input_parameter< double >::type v(vSEXP);
-    Rcpp::traits::input_parameter< bool >::type isPrec(isPrecSEXP);
-    __result = Rcpp::wrap(dMVT(X_, mu_, L_, v, isPrec));
+    Rcpp::traits::input_parameter< bool >::type isInv(isInvSEXP);
+    __result = Rcpp::wrap(dMVT(X_, mu_, L_, v, isInv));
     return __result;
 END_RCPP
 }
 // rMVT
-NumericMatrix rMVT(int N, NumericVector mu_, NumericMatrix L_, double v, bool isPrec);
-RcppExport SEXP ads_rMVT(SEXP NSEXP, SEXP mu_SEXP, SEXP L_SEXP, SEXP vSEXP, SEXP isPrecSEXP) {
+NumericMatrix rMVT(int N, NumericVector mu_, NumericMatrix L_, double v, bool isInv);
+RcppExport SEXP ads_rMVT(SEXP NSEXP, SEXP mu_SEXP, SEXP L_SEXP, SEXP vSEXP, SEXP isInvSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
@@ -59,8 +59,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericVector >::type mu_(mu_SEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type L_(L_SEXP);
     Rcpp::traits::input_parameter< double >::type v(vSEXP);
-    Rcpp::traits::input_parameter< bool >::type isPrec(isPrecSEXP);
-    __result = Rcpp::wrap(rMVT(N, mu_, L_, v, isPrec));
+    Rcpp::traits::input_parameter< bool >::type isInv(isInvSEXP);
+    __result = Rcpp::wrap(rMVT(N, mu_, L_, v, isInv));
     return __result;
 END_RCPP
 }

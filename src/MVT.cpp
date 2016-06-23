@@ -21,12 +21,12 @@ using Rcpp::wrap;
 //' @param mu_ vector
 //' @param L_ lower chol of cov or prec matrix
 //' @param v degrees of freedom (must be >=3)
-//' @param isPrec covariance or precision matrix?
+//' @param isInv is scale matrix an inverse covariance?
 //' @return Numeric vector
 //' @export
 //[[Rcpp::export]]
 NumericVector dMVT(NumericMatrix X_, NumericVector mu_,
-		 NumericMatrix L_, double v, bool isPrec){
+		 NumericMatrix L_, double v, bool isInv){
 
 
   size_t k = X_.cols();
@@ -38,7 +38,6 @@ NumericVector dMVT(NumericMatrix X_, NumericVector mu_,
   Map<VectorXd> mu = VectorXd::Map(mu_.begin(), k);
   Map<MatrixXd> L = MatrixXd::Map(L_.begin(), k, k);
   double C = lgamma((v+q)/2) - lgamma(v/2) - q*(log(v)+log(M_PI))/2;
-  //  double C = -0.918938533204672669541 * k; // -k*log(2*pi)/2
   double detL = L.diagonal().array().log().sum();
 
   MatrixXd xmu = X.transpose().colwise() - mu;
@@ -46,7 +45,7 @@ NumericVector dMVT(NumericMatrix X_, NumericVector mu_,
 
   double c2;
   MatrixXd Z;
-  if (isPrec) {
+  if (isInv) {
     Z = L.triangularView<Lower>().transpose() * xmu;
     c2 = C + detL;
   } else {
@@ -64,31 +63,36 @@ NumericVector dMVT(NumericMatrix X_, NumericVector mu_,
 //' @param mu_ mean vector
 //' @param L_ lower chol of cov or prec matrix
 //' @param v degrees of freedom (must be >=3)
-//' @param isPrec covariance or precision matrix?
+//' @param isInv is scale matrix an inverse?
 //' @return Numeric matrix
 //' @export
 //[[Rcpp::export]]
 NumericMatrix rMVT(int N, NumericVector mu_,
-		 NumericMatrix L_, double v, bool isPrec){
+		 NumericMatrix L_, double v, bool isInv){
 
   size_t k = mu_.size();
   NumericVector z_ = Rcpp::rnorm(N*k);
-  NumericVector u = Rcpp::rchisq(1,v);
   Map<MatrixXd> Z = MatrixXd::Map(z_.begin(), k, N);
+  NumericVector u_ = Rcpp::rchisq(N,v);
+  VectorXd U = (v/VectorXd::Map(u_.begin(),N).array()).sqrt();
   Map<VectorXd> mu = VectorXd::Map(mu_.begin(), k);
   Map<MatrixXd> L = MatrixXd::Map(L_.begin(), k, k);
-  MatrixXd X;
-  MatrixXd Y;
+  MatrixXd X(N,k);
+  MatrixXd Y(k,N);
  
   
-  if (isPrec) {
+  if (isInv) {
     Y = L.triangularView<Lower>().transpose().solve(Z);
     
   } else {
     Y = L.triangularView<Lower>() * Z;
   }
   
-  X = ((sqrt(v/u(0))*Y).colwise() + mu).transpose();
+  // X = ((sqrt(v/u(0))*Y).colwise() + mu).transpose();
+  //  Rcout << "U.size() = " << U.size() << "\n";
+  //Rcout << "Y.size() = " << Y.rows() << ", " << Y.cols() << "\n";
+
+  X = ((Y*U.asDiagonal()).colwise() + mu).transpose();
   
   return(wrap(X));
  

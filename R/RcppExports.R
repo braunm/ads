@@ -28,11 +28,11 @@ rMVN <- function(N, mu_, L_, isPrec) {
 #' @param mu_ vector
 #' @param L_ lower chol of cov or prec matrix
 #' @param v degrees of freedom (must be >=3)
-#' @param isPrec covariance or precision matrix?
+#' @param isInv is scale matrix an inverse covariance?
 #' @return Numeric vector
 #' @export
-dMVT <- function(X_, mu_, L_, v, isPrec) {
-    .Call('ads_dMVT', PACKAGE = 'ads', X_, mu_, L_, v, isPrec)
+dMVT <- function(X_, mu_, L_, v, isInv) {
+    .Call('ads_dMVT', PACKAGE = 'ads', X_, mu_, L_, v, isInv)
 }
 
 #' @title rMVT
@@ -40,10 +40,10 @@ dMVT <- function(X_, mu_, L_, v, isPrec) {
 #' @param mu_ mean vector
 #' @param L_ lower chol of cov or prec matrix
 #' @param v degrees of freedom (must be >=3)
-#' @param isPrec covariance or precision matrix?
+#' @param isInv is scale matrix an inverse?
 #' @return Numeric matrix
 #' @export
-rMVT <- function(N, mu_, L_, v, isPrec) {
-    .Call('ads_rMVT', PACKAGE = 'ads', N, mu_, L_, v, isPrec)
+rMVT <- function(N, mu_, L_, v, isInv) {
+    .Call('ads_rMVT', PACKAGE = 'ads', N, mu_, L_, v, isInv)
 }
 
