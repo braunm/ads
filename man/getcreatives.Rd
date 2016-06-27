@@ -4,15 +4,15 @@
 \alias{getcreatives}
 \title{Generate creatives renewal,replacement,addition.}
 \usage{
-getcreatives(category, brands.adv, fweek, T, max.distance = 0.2)
+getcreatives(category, brands.adv, T, max.distance = 0.2)
 }
 \arguments{
   \item{category}{Three letter category acronym (being one
   of dpp, fti, lld, ptw, tti)} \item{brands.adv}{Which brands
-  advertised} \item{fweek}{Integer value for first week to
-  start analysis} \item{T}{Integer value for number of weeks
-  to include from and inclusive of fweek} \item{max.distance}
+  advertised} \item{T}{Integer value for number of weeks to
+  include from and inclusive of fweek} \item{max.distance}
   {A value passed in that uses Levenshtein distance in agrep}
+  \item{fweek}{Integer value for first week to start analysis}
 }
 \value{
 T x Jb matrix with integer corresponding to number of

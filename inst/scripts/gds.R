@@ -35,10 +35,10 @@ n.batch <- 12
 
 ##----defPropFuncs
 
-rmvn.wrap <- function(n.draws, params) {
+rprop.wrap <- function(n.draws, params) {
     rMVN(n.draws, params$mean, params$CH, TRUE)
 }
-dmvn.wrap <- function(d, params) {
+dprop.wrap <- function(d, params) {
     dMVN(matrix(d,ncol=length(params$mean)), params$mean, params$CH, TRUE)
 }
 
@@ -64,9 +64,9 @@ prop.params <- list(mean = post.mode, CH=CH)
 ##----proposals
 
 cat("Sampling proposals\n")
-log.c2 <- dmvn.wrap(post.mode, prop.params)
-draws.m <- as(rmvn.wrap(M,prop.params),"matrix")
-log.prop.m <- dmvn.wrap(draws.m, params=prop.params)
+log.c2 <- dprop.wrap(post.mode, prop.params)
+draws.m <- as(rprop.wrap(M,prop.params),"matrix")
+log.prop.m <- dprop.wrap(draws.m, params=prop.params)
 cat("Computing posteriors for proposals\n")
 log.post.m <- plyr::aaply(draws.m, 1, get.f, .parallel=run.par)
 
@@ -77,8 +77,8 @@ stopifnot(valid.scale)
 
 ## ##----additional_proposals_for_testing
 ## cat("Additional proposals for testing\n")
-## draws.m2 <- as(rmvn.wrap(10*M,prop.params),"matrix")
-## log.prop.m2 <- dmvn.wrap(draws.m2, params=prop.params)
+## draws.m2 <- as(rprop.wrap(10*M,prop.params),"matrix")
+## log.prop.m2 <- dprop.wrap(draws.m2, params=prop.params)
 ## cat("Computing posteriors for proposals\n")
 ## log.post.m2 <- plyr::aaply(draws.m2, 1, get.f, .parallel=run.par)
 ## log.phi2 <- log.post.m2 - log.prop.m2 + log.c2 - log.c1
@@ -95,8 +95,8 @@ if (run.par) {
         log.phi = log.phi,
         post.mode = post.mode,
         fn.dens.post = get.f,
-        fn.dens.prop = dmvn.wrap,
-        fn.draw.prop = rmvn.wrap,
+        fn.dens.prop = dprop.wrap,
+        fn.draw.prop = rprop.wrap,
         prop.params = prop.params,
         report.freq = 100,
         thread.id = i,

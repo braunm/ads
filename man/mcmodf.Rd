@@ -8,7 +8,7 @@ Create data files for analysis from raw IRI and TNS data files.}
 mcmodf(data.name = "dpp", brands.to_keep = c("HUGGIES", "PAMPERS", "LUVS",
   "PRIVATE LABEL"), covv = c("avprc"), covnv = c("fracfnp", "fracdnp",
   "fracdist", "numproducts"), T = 226, N = 42, fweek = 1200,
-  aggregated = FALSE)
+  aggregated = FALSE, summary.only = FALSE)
 }
 \arguments{
   \item{data.name}{Three letter category acronym (being one

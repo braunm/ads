@@ -2,9 +2,11 @@
 
 export(ads)
 export(dMVN)
+export(dMVT)
 export(dmvn)
 export(make_varnames)
 export(rMVN)
+export(rMVT)
 export(rmvn)
 import(CppADutils)
 import(Matrix)

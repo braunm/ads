@@ -88,9 +88,6 @@ NumericMatrix rMVT(int N, NumericVector mu_,
     Y = L.triangularView<Lower>() * Z;
   }
   
-  // X = ((sqrt(v/u(0))*Y).colwise() + mu).transpose();
-  //  Rcout << "U.size() = " << U.size() << "\n";
-  //Rcout << "Y.size() = " << Y.rows() << ", " << Y.cols() << "\n";
 
   X = ((Y*U.asDiagonal()).colwise() + mu).transpose();
   
