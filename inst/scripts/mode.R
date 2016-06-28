@@ -1,5 +1,13 @@
+## This version of mode runs parallel versions of the same code for all categories
+
 rm(list=ls())
 gc()
+
+#set.seed(1234)
+
+## this is sometimes called from another script
+## THEN WE SHOULD MAKE IS A FUNCTION
+## if(!exists("data.name")) data.name <- "dpp"
 
 library(Matrix)
 library(Rcpp)
@@ -9,13 +17,21 @@ library(trustOptim)
 library(plyr)
 library(reshape2)
 
-set.seed(1234)
+library(devtools)
+load_all()
+library(doParallel)
+registerDoParallel(cores=5)
 
-## this is sometimes called from another script
-## THEN WE SHOULD MAKE IS A FUNCTION
-#if(!exists("data.name")) data.name <- "dpp"
+dfv <- c("dpp","tti","ptw","fti","lld")
 
-data.name <- "ptw"
+foreach(i = 1:5) %dopar% {
+
+###### run for each category
+    
+data.name <- dfv[i]
+
+cat("Chain ", i, "\t", data.name, "\n")
+
 data.is.sim <- FALSE
 
 dn <- paste0("mcmod",data.name) ## name of data file, e.g., mcmoddpp
@@ -49,8 +65,8 @@ nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
 
-##save.file <- paste0("./nobuild/results/mode_V1_",nfact.V1,"endogAE_",data.name,".Rdata")
-save.file <- paste0("./nobuild/results/mode_test_",data.name,".Rdata")
+save.file <- paste0("./nobuild/results/mode_V0_endogAE_Ef",data.name,".Rdata")
+##save.file <- paste0("./nobuild/results/mode_test_",data.name,".Rdata")
 
 get.f <- function(P, ...) return(cl$get.f(P))
 get.df <- function(P, ...) return(cl$get.fdf(P)$grad)
@@ -85,7 +101,7 @@ if (flags$use.cr.pars) {
 ##    CMcol <- 2
 ##    CM <- llply(mcmod$CM[1:T], function(x) return(x[,CMcol,drop=FALSE]))
 ##    for(t in 1:T) CM[[t]] <- mcmod$Ef[[t]] + mcmod$Efl1[[t]]
-    for(t in 1:T) CM[[t]] <- mcmod$E[[t]]/flags$E.scale
+    for(t in 1:T) CM[[t]] <- mcmod$Ef[[t]]/flags$E.scale
 }
 
 
@@ -683,4 +699,4 @@ if(!flags$endog.A) {
 
 save(sol, se.sol, opt, DL, varnames,
      gr, hs, data, parcheck, ba, M2a, file=save.file)
-
+}       ## finished foreach

@@ -4,6 +4,8 @@ categories <- c("dpp","ptw","fti","tti","lld")
 T <- 226
 N <- 42
 fweek <- 1200
+max.distance = 0.5
+
 covv <- c("avprc")
 covnv <- c("fracfnp","fracdnp","fracdist","numproducts")
 
@@ -24,7 +26,7 @@ for(category in categories) {
     mcmod <- mcmodf(data.name = category,
                     brands.to_keep = brands.to_keep[[category]],
                     covv = covv, covnv = covnv, T = T,
-                    N = N, fweek = fweek, aggregated = FALSE)
+                    N = N, fweek = fweek, aggregated = FALSE,max.distance=max.distance)
 
     file.name <- paste0("mcmod",category)
     dn1 <- paste0(file.name,"<- mcmod")
