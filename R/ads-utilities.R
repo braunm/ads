@@ -34,7 +34,7 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 #' @examples
 #' mcmod() - Runs default with "dpp"
 #' mcmod(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PL'), covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE)
-mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PRIVATE LABEL'), covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE, summary.only=FALSE) {
+mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PRIVATE LABEL'), covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE, max.distance = 0.2, summary.only=FALSE) {
 
     J = length(brands.to_keep)
     P <- J * length(covv)          # total number of time varying covariates at city level
@@ -126,7 +126,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
 
     ## for this subset, which brands launched new creatives in that time frame?
     # call creatives function for Jb brands
-    .a <- getcreatives(category, brands.adv, T)
+    .a <- getcreatives(category, brands.adv, T, max.distance=max.distance)
     ownadnnc <- .a$ownadnnc
     ownadnnc.fracspent <- .a$ownadnnc.fracspent
     ownadnnc.fracspent.l1 <- .a$ownadnnc.fracspent.l1
@@ -231,7 +231,7 @@ getcreatives <- function(category, brands.adv, T, max.distance=0.2) {
     ## Trim fields here just in case
     creatives <- trim_characters(creatives)
     
-    for(j in 1:Jb) creatives[agrep(brands.adv[j],brand,ignore.case=T), brand:= brands.adv[j]]
+    for(j in 1:Jb) creatives[agrep(brands.adv[j],brand,ignore.case=TRUE), brand:= brands.adv[j]]
     creatives <- creatives[brand %in% brands.adv,]			# delete any brands not advertised in list
 
     creatives[,ENEWS:=0]
