@@ -3,9 +3,9 @@ test_that("MVT", {
 
     require(mnormt)
 
-    N <- 2
-    k <- 250
-    df <- 4
+    N <- 50000
+    k <- 10
+    df <- 400
     mu <- seq(-3,3,length=k)
     S <- rWishart(1,k+5,diag(k))[,,1] ## covariance
     P <- solve(S)
@@ -15,6 +15,8 @@ test_that("MVT", {
     set.seed(123)
     t1 <- system.time(x1 <- rmt(N,mean=mu, df=df, S=S))
     q1 <- system.time(d1 <- dmt(x1,mean=mu, S=S, df=df, log=TRUE))
+
+    a1 <- rmnorm(N,mean=mu,varcov=S*df/(df-2))
 
     q2a <- system.time(d2a <- dMVT(x1, mu, chol.S, df, FALSE))
     q2b <- system.time(d2b <- dMVT(x1, mu, chol.P, df, TRUE))
@@ -27,5 +29,7 @@ test_that("MVT", {
     t2a <- system.time(x2a <- rMVT(N, mu, chol.S, df, FALSE))
     t2b <- system.time(x2b <- rMVT(N, mu, chol.P, df, TRUE))
 
+    browser()
+    print(1)
 
 })

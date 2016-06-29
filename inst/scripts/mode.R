@@ -17,8 +17,7 @@ library(trustOptim)
 library(plyr)
 library(reshape2)
 
-library(devtools)
-load_all()
+
 library(doParallel)
 registerDoParallel(cores=5)
 
@@ -27,7 +26,7 @@ dfv <- c("dpp","tti","ptw","fti","lld")
 foreach(i = 1:5) %dopar% {
 
 ###### run for each category
-    
+
 data.name <- dfv[i]
 
 cat("Chain ", i, "\t", data.name, "\n")

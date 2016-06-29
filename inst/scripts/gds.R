@@ -12,7 +12,7 @@ library(sparseMVN)
 ##----parallelSetup
 library(doParallel, quietly=TRUE)
 run.par <- TRUE
-if(run.par) registerDoParallel(cores=18) else registerDoParallel(cores=1)
+if(run.par) registerDoParallel(cores=12) else registerDoParallel(cores=1)
 seed.id <- 123
 set.seed(seed.id)
 
@@ -26,20 +26,23 @@ save.file <- paste0("./nobuild/results/gds_test_",data.name,".Rdata")
 
 ##----load post.mode, DL, gr, hs
 load(mode.file)
-scale <- 1.1
 M <- 25000  ## proposal draws
 n.draws <- 36  ## total number of draws needed
 max.tries <- 100000  ## to keep sample.GDS from running forever
 n.batch <- 12
-
+##nu <- 15
+##scale <- 0.5*nu/(nu-2)
+scale <- 1.1
 
 ##----defPropFuncs
 
 rprop.wrap <- function(n.draws, params) {
     rMVN(n.draws, params$mean, params$CH, TRUE)
+##    rMVT(n.draws, params$mean, params$CH, params$nu,TRUE)
 }
 dprop.wrap <- function(d, params) {
     dMVN(matrix(d,ncol=length(params$mean)), params$mean, params$CH, TRUE)
+##    dMVT(matrix(d,ncol=length(params$mean)), params$mean, params$CH, params$nu,TRUE)
 }
 
 get.f <- function(P, ...) return(cl$get.f(P))
@@ -56,7 +59,7 @@ log.c1 <- get.f(post.mode)
 
 
 ##----propParams
-cv <- solve(-hs)/scale^2
+##cv <- solve(-hs)/scale^2
 ##CH <- Cholesky(-scale*as(forceSymmetric(hs),"sparseMatrix"))
 CH <- t(chol(-scale*hs))
 prop.params <- list(mean = post.mode, CH=CH)
