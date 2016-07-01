@@ -53,7 +53,7 @@ if (data.is.sim) {
                   W1.LKJ = FALSE,
                   use.cr.pars = FALSE,
                   endog.A = TRUE,
-                  endog.E = TRUE,
+                  endog.E = FALSE,
                   estimate.M20 = TRUE,
                   estimate.C20 = TRUE
                   )
@@ -64,8 +64,8 @@ nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
 
-save.file <- paste0("./nobuild/results/mode_V0_endogAE_Ef",data.name,".Rdata")
-##save.file <- paste0("./nobuild/results/mode_test_",data.name,".Rdata")
+##save.file <- paste0("./nobuild/results/mode_V0_endogAE_Ef",data.name,".Rdata")
+save.file <- paste0("./nobuild/results/mode_test_",data.name,".Rdata")
 
 get.f <- function(P, ...) return(cl$get.f(P))
 get.df <- function(P, ...) return(cl$get.fdf(P)$grad)

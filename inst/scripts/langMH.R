@@ -64,9 +64,9 @@ sample.MH <- function(DL, restart, mode.file, save.file, n.draws, report, n.iter
     cl <- new("ads", DL)
     cl$record.tape(post.mode)
     log.c1 <- cl$get.f(post.mode)
-    
+
     nvars <- length(opt$par)
-    
+
     if (restart) {
         cat("restarting\n")
         load(save.file) ## loads x
@@ -89,21 +89,21 @@ sample.MH <- function(DL, restart, mode.file, save.file, n.draws, report, n.iter
         track <- matrix(NA,n.iter,4)
         iter_draw <- rep(NA,n.draws)
     }
-    
+
     log.fx <- cl$get.f(as.vector(x))
     grx <- cl$get.df(as.vector(x))
-    
+
     colnames(track) <- c("f.curr","f.prop","log.r","log.u")
-    
+
     nm <- make_varnames(DL$dimensions)
-    
+
     prCov <- sig * solve(-hs)
     prChol <- t(chol(prCov))
-    
+
     sampler_pars <- list(sig=sig, n.thin=n.thin, start.i=start.i,
     start.d=start.d, n.draws=n.draws,
     n.iter=n.iter)
-    
+
     d <- start.d
     for (i in start.i:end.i) {
         if (i %% report == 0 & thread.id == 1) cat("iter :",i,"\n================\n");
@@ -111,15 +111,15 @@ sample.MH <- function(DL, restart, mode.file, save.file, n.draws, report, n.iter
         y <- rMVN(1, mx, prChol, FALSE)
         log.py <- dMVN(y, mx, prChol, FALSE)
         log.fy <- cl$get.f(y)
-        
+
         gry <- cl$get.df(y)
         my <- t(y) + 0.5 * prCov %*% gry
         log.px <- dMVN(x, my, prChol, FALSE)
-        
+
         log.r <- min(log.fy-log.fx + log.px-log.py, 0)
         log.u <- log(runif(1))
         track[i,] <- c(log.fx, log.fy,log.r, log.u)
-        
+
         if (log.u <= log.r) { ## accept
             x <- y
             log.fx <- log.fy
@@ -139,7 +139,7 @@ sample.MH <- function(DL, restart, mode.file, save.file, n.draws, report, n.iter
             draws[d,] <- x
             logpost[d] <- log.fx
         }
-        
+
         if ((i %% save.freq)==0) { ## interim save
             dimnames(draws) <- list(iter=iter_draw, var=nm)
             save(draws, logpost, acc, track, sig, x,
@@ -169,7 +169,7 @@ sample.MH <- function(DL, restart, mode.file, save.file, n.draws, report, n.iter
 ##----load post.mode, DL, gr, hs
 if(run.par) {
     print("Parallel")
-    
+
     draws.list <- foreach(j = 1:n.chains, .inorder = FALSE) %dopar% sample.MH(
         DL = DL,
         restart = restart,
