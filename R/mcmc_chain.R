@@ -1,73 +1,108 @@
+#' A single langMH chain
+#'
+#' @docType class
+#' @importFrom R6 R6Class
+#' @export
+#' @field DL data list
+#' @field id identifier of the chain
+#' @field seed a starting seed for the chain
+#' @field nvars number of variables
+#' @field acc_rate cumulative acceptance rate
+#' @field x current state of the sampler
+#' @field log.fx log f(x)
+#' @field grx gradient at x
 chain <- R6Class("chain",
                  public=list(
                      DL = NA,
                      id = 1,
-                     seed = id,
+                     seed = 1,
                      nvars = NA,
-                     iter = 1,
-                     initialize = function(start, DL, id, seed) {
+                     acc_rate = NA,
+                     x = NA,
+                     log.fx = NA,
+                     grx = NA,
+                     initialize = function(start, DL, id, seed, n.thin) {
+                         "Initializing function"
                          self$DL <- DL
                          self$id <- id
                          self$seed <- seed
                          private$cl <- new("ads",DL)
                          cl$initialize(start)
                          self$nvars <- length(start)
+                         self$x <- start
+                         self$log.fx <- cl$get.f(start)
+                         self$grx <- cl$get.df(start)
+                         private$draws <- NULL
+                         private$logpost <- NULL
+                         private$acc <- NULL
+                         private$n.thin <- n.thin
+                         set.seed(self$seed)
+                         private$prCov <- matrix(NA,self$nvars, self$nvars)
+                         private$prChol <- t(chol(private$prCov))
                      },
                      sample = function() {
-                         mx <- t(x) + 0.5 * prCov %*% grx
-                         y <- rMVN(1, mx, prChol, FALSE)
-                         log.py <- dMVN(y, mx, prChol, FALSE)
+                         mx <- t(self$x) + 0.5 * prCov %*% self$grx
+                         y <- rMVN(1, mx, private$prChol, FALSE)
+                         log.py <- dMVN(y, mx, private$prChol, FALSE)
                          log.fy <- cl$get.f(y)
 
                          gry <- cl$get.df(y)
                          my <- t(y) + 0.5 * prCov %*% gry
-                         log.px <- dMVN(x, my, prChol, FALSE)
+                         log.px <- dMVN(self$x, my, private$prChol, FALSE)
 
-                         log.r <- min(log.fy-log.fx + log.px-log.py, 0)
+                         log.r <- min(log.fy-self$log.fx + log.px-log.py, 0)
                          log.u <- log(runif(1))
                          if (log.u <= log.r) { ## accept
-                             x <- y
-                             log.fx <- log.fy
-                             grx <- gry
-                             if (i %% report == 0)   cat(paste0("ACCEPT, chain: ", thread.id,  "\n"))
+                             self$x <- y
+                             self$log.fx <- log.fy
+                             self$grx <- gry
                              acc <- TRUE
                          } else {
-                             if (i %% report == 0)    cat(paste0("REJECT, chain: ", thread.id,"\n"))
                              acc <- FALSE
                          }
                          return(acc)
                      },
-                     iterate_batch = function(n.draws, n.thin) {
-                         d <- 0
-                         nd <- floor(n.draws/n.thin)
-                         dr <- matrix(NA,nd, nvars)
-                         acc <- rep(NA,n.draws)
-                         for (i in 1:ndraws) {
-                             acc[i] <- sample()
-                             if (i %% n.thin == 0) {
-                                 d <- d+1
-                                 dr[d,] <- self$x
-                                 logpost[d] <- self$log.fx
-                             }
-                         }
-                         return(list(dr=dr, logpost=logpost,
-                                     acc=acc))
-                     }
-                     iterate = function(n, x=self$x, start.i=1, n.thin=1) {
-                         L <- iterate_batch(n, n.thin)
-                         nd <- floor(n/n.thin)
+                     iterate = function(n, x=self$x) {
+                         L <- iterate_batch(n)
+                         last_iter <- last_iter + 1
+                         last_draw <- last_draw + n/private$n.thin
+                         private$iter <- c(private$iter, L$iter)
+                         private$draws <- rbind(private$draws,L$dr)
+                         private$logpost <- c(private$logpost, L$logpost)
+                         private$acc <- c(private$acc, L$acc)
+                         self$acc_rate <- mean(private$acc)
                      }
                      ),
                  private=list(
-                     x = rep(NA,nvars),
                      cl = NA,
                      draws = NULL,
-                     log.fx = NA,
-                     grx = rep(NA,nvars),
-                     log.r = NA,
-                     log.u = NA,
-                     prCov = matrix(NA,nvars, nvars),
-                     prChol = t(chol(prCpv))
+                     prCov = NA,
+                     prChol = NA,
+                     iter = NULL,
+                     logpost = NULL,
+                     last_iter = 0,
+                     last_draw = 0,
+                     n.thin = 1,
+                     iterate_batch = function(n.iter) {
+                         d <- 0
+                         nd <- floor(n.iter/private$n.thin)
+                         M <- matrix(NA, nd, self$nvars)
+                         logpost <- rep(NA, nd)
+                         idx <- rep(NA, nd)
+                         a <- rep(NA,n.iter)
+                         for (i in 1:ndraws) {
+                             acc[i] <- sample()
+                             if (i %% private$n.thin == 0) {
+                                 d <- d+1
+                                 M[d,] <- self$x
+                                 logpost[d] <- self$log.fx
+                                 idx[d] <- i
+                             }
+
+                         }
+                         return(list(iter=idx, dr=M, logpost=logpost,
+                                     acc=a))
+                     }
                      )
                  )
 
