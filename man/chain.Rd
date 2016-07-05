@@ -24,11 +24,25 @@ A single langMH chain
 
 \item{\code{acc_rate}}{cumulative acceptance rate}
 
-\item{\code{x}}{current state of the sampler}
+\item{\code{x}}{current state of the sampler (most recent draw)}
 
 \item{\code{log.fx}}{log f(x)}
 
 \item{\code{grx}}{gradient at x}
+
+\item{\code{draws}}{all collected draws}
+
+\item{\code{acc}}{vector of whether an iteration was accepted or not}
+
+\item{\code{iter}}{iteration ids for each draw}
+
+\item{\code{logpost}}{log posterior for each draw}
+
+\item{\code{last_iter}}{iteration id of most recent draw}
+
+\item{\code{last_draw}}{draw id of most recent draw}
+
+\item{\code{varnames}}{vector of variable names for draws}
 }}
 \keyword{datasets}
 

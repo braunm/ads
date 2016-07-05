@@ -299,6 +299,7 @@ ads::ads(const List& params)
   const List dimensions = as<const List>(pars["dimensions"]);
   const List flags = as<const List>(pars["flags"]);
 
+  
   T = as<int>(dimensions["T"]);
   N = as<int>(dimensions["N"]);
   J = as<int>(dimensions["J"]);
@@ -307,13 +308,16 @@ ads::ads(const List& params)
   P = as<int>(dimensions["P"]);
   R = as<int>(dimensions["R"]);
 
+  
   full_phi = as<bool>(flags["full.phi"]);
   phi_re = as<bool>(flags["phi.re"]);
   add_prior = as<bool>(flags["add.prior"]);
 
+  
   include_X = as<bool>(flags["include.X"]);
   use_cr_pars = as<bool>(flags["use.cr.pars"]);
   endog_A = as<bool>(flags["endog.A"]);
+
   endog_E = as<bool>(flags["endog.E"]);
   A_scale = as<double>(flags["A.scale"]);
   fix_V1 = as<bool>(flags["fix.V1"]);

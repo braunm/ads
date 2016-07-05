@@ -625,7 +625,7 @@ cv <- solve(-hs)
 se <- sqrt(diag(cv))
 se.sol <- relist(se,skeleton=start.list)
 
-varnames <- make_varnames(DL$dimensions)
+varnames <- make_varnames(DL$dimensions, DL$flags)
 
 ## standard errors of products of phi and a
 
