@@ -133,7 +133,7 @@ chain <- R6Class("chain",
                      ),
                  private=list(
                      adapt = function(ix) {
-                         b <- min(self$step/ix,1)
+                         b <- min(self$step/ix,0.75)
                          mu.n <- self$mu + b * (self$x-self$mu)
                          mu.1 <- mala_p23(mu.n, self$A1)
                          G.n <- self$G + b * (crossprod(self$x-self$mu)-self$G)

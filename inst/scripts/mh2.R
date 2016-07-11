@@ -36,19 +36,19 @@ mode.file <- paste0("./nobuild/results/mode_test_",data.name,".Rdata")
 
 ##----pre parallel constants
 
-n.iter <- 1000
+n.iter <- 100
 n.thin <- 1
 n.draws <- floor(n.iter/n.thin)
 n.chains <- 1
 restart <- FALSE         ## if true, it will continue where the process left off
-report <- 1
+report <- 50
 save.freq <- 1 ## save if (i %% save.freq) == 0
 
 ##----Adaptation parameters
 adaptList <- list(e1 = 1e-5, e2 = 1e-5, A1=1e6,
                   delta = 1000, sig = 0.015,
-                  step = 1,
-                  opt_acc = 0.5 ## optimal acceptance rate
+                  step = 2,
+                  opt_acc = 0.6 ## optimal acceptance rate
                   )
 
 
@@ -65,7 +65,7 @@ ch <- ads::chain$new(start=post.mode,
                      )
 
 cat("iterating\n")
-ch$iterate(n.iter, report_freq=100)
+ch$iterate(n.iter, report_freq=report)
 
 
 stop()
