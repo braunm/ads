@@ -3,7 +3,7 @@ Title: internal hdlm project
 Version: 0.0.0.9000
 Authors@R: "Michael Braun <braunm@smu.edu> [aut, cre], Andre Bonfrer
     <andre.bonfrer@anu.edu.au> [aut]"
-Description: What the package does (one paragraph)
+Description: This is one paragraph about what the package does.
 Depends:
     R (>= 3.1.2),
     Rcpp (>= 0.11.3),

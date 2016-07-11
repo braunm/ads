@@ -43,6 +43,12 @@ A single langMH chain
 \item{\code{last_draw}}{draw id of most recent draw}
 
 \item{\code{varnames}}{vector of variable names for draws}
+
+\item{\code{e1,e2,A1,delta}}{adaptation parameters}
+
+\item{\code{mu,G,sig,norm.grx}}{internal adaptation parameters}
+
+\item{\code{opt_acc}}{optimal acceptance rate}
 }}
 \keyword{datasets}
 

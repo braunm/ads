@@ -19,6 +19,7 @@ using Rcpp::wrap;
 
 
 //' @title dMVN
+//' @name dMVN
 //' @param X_ matrix
 //' @param mu_ vector
 //' @param L_ lower chol of cov or prec matrix
@@ -58,6 +59,7 @@ NumericVector dMVN(NumericMatrix X_, NumericVector mu_,
 
 
 //' @title rMVN
+//' @name rMVN
 //' @param N integer, number of draws
 //' @param mu_ mean vector
 //' @param L_ lower chol of cov or prec matrix

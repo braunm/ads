@@ -1,5 +1,5 @@
 ## Copyright (C) 2013-2015 Michael Braun
-#' @title Multivariate normal functions with sparse covariance/precision matrix.
+#' @title Sampling_mvn
 #' @aliases dmvn rmvn
 #' @description Efficient sampling and density calculation from a multivariate
 #' normal,
@@ -73,7 +73,7 @@ rmvn <- function(n, mu, L, prec=TRUE) {
 
 }
 
-#' @rdname rmvn.sparse
+#' @rdname rmvn
 #' @export
 dmvn <- function(x, mu, L, prec=TRUE) {
 

@@ -36,14 +36,20 @@ mode.file <- paste0("./nobuild/results/mode_test_",data.name,".Rdata")
 
 ##----pre parallel constants
 
-n.iter <- 20
+n.iter <- 1000
 n.thin <- 1
 n.draws <- floor(n.iter/n.thin)
 n.chains <- 1
 restart <- FALSE         ## if true, it will continue where the process left off
 report <- 1
 save.freq <- 1 ## save if (i %% save.freq) == 0
-sig <- 0.015
+
+##----Adaptation parameters
+adaptList <- list(e1 = 1e-5, e2 = 1e-5, A1=1e6,
+                  delta = 1000, sig = 0.015,
+                  step = 1,
+                  opt_acc = 0.5 ## optimal acceptance rate
+                  )
 
 
 thread.id <- 1
@@ -53,17 +59,13 @@ post.mode <- opt$par
 nvars <- length(post.mode)
 nm <- make_varnames(DL$dimensions, DL$flags)
 
-## MH proposal draws
-prCov <- sig * solve(-hs)
-prChol <- t(chol(prCov))
-
-
-ch <- ads::chain$new(post.mode, DL=DL,id=thread.id,
-                seed=123, hs.mode=hs, sig=sig)
+ch <- ads::chain$new(start=post.mode,
+                     DL=DL,id=thread.id,
+                     seed=12, hs.mode=hs, adaptList=adaptList
+                     )
 
 cat("iterating\n")
-ch$iterate(10)  ## first 10 draws
-ch$iterate(5) ## next 5 draws
+ch$iterate(n.iter, report_freq=100)
 
 
 stop()

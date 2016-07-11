@@ -2,6 +2,7 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 #' @title dMVN
+#' @name dMVN
 #' @param X_ matrix
 #' @param mu_ vector
 #' @param L_ lower chol of cov or prec matrix
@@ -13,6 +14,7 @@ dMVN <- function(X_, mu_, L_, isPrec) {
 }
 
 #' @title rMVN
+#' @name rMVN
 #' @param N integer, number of draws
 #' @param mu_ mean vector
 #' @param L_ lower chol of cov or prec matrix

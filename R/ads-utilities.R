@@ -11,7 +11,7 @@
 rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
     ## set.seed(153)
     L <- chol(S) %x% chol(C)
-    z <- rnorm(length(M))
+    z <- stats::rnorm(length(M))
     if (length(M) == 1) {
         res <- matrix(t(L) %*% z, nrow = nrow(C), ncol = ncol(S))
     }  else {
@@ -50,7 +50,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     ## Trim characters, just in case
     DT <- fread(dfname)
     DT <- trim_characters(DT)
-    
+
     market_list <- unique(DT$market_name)
 
     ## not sure if this next feature is working.
@@ -63,7 +63,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     DT <- DT[brand %in% brands.to_keep & week < fweek + T & week >= fweek & market_name %in% market_list[1:N]]
 
     if(summary.only) return(DT)
-    
+
     # only do the rest if balanced
     if(any(dcast.data.table(DT, week ~ market_name, value.var="volume", subset = .(week < fweek+T & week >= fweek & market_name %in% market_list[1:N]), fun = length) < J)) {
         warning("Warning: Cannot do analysis on brands with unbalanced data: reduce brands in brands.to_keep, or choose a subset of markets. Step unable to complete for analysis, but ok for summary data (use DT)")
@@ -112,7 +112,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
         }
         rm(.a,.xcov)
     }
-    
+
 
     ####### work on advertising data
     # first get brands advertising over this period
@@ -130,7 +130,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     ownadnnc <- .a$ownadnnc
     ownadnnc.fracspent <- .a$ownadnnc.fracspent
     ownadnnc.fracspent.l1 <- .a$ownadnnc.fracspent.l1
-    
+
     #load(paste(codepath,"/",category,"creatives.RData",sep=""))
     s.nnc <- as.data.frame(ownadnnc[weekID >= fweek & weekID < fweek+T,brands.adv,with=FALSE])
     s.nnc$weekID <- NULL
@@ -191,10 +191,10 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
             CMl[[t]] <- rbind(CMl[[t]], .a$creativemix[[r]][weekID == fweek+(t-1),brands.adv, with=FALSE]/10)
             .cd <- rbind(.cd, .a$creativemix[[r]][weekID == fweek+(t-2),brands.adv, with=FALSE])
         }
-        
+
         CMl[[t]] <- t(CMl[[t]])
         CMdl[[t]] <- CMl[[t]] - t(.cd) ## differenced version
-        
+
    ##     names(El[[t]]) <- colnames(E)
         Al[[t]] <- A[t, ]
         Xl[[t]] <- X1[t,,]
@@ -207,7 +207,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     return(mcmod)
 }
 
-##' Generate creatives renewal,replacement,addition. 
+##' Generate creatives renewal,replacement,addition.
 ##'
 ##' Builds a matrix of values for creatives. Currently only supports integer values indicating
 ##' the number of new creatives added.
@@ -230,7 +230,7 @@ getcreatives <- function(category, brands.adv, T, max.distance=0.2) {
 
     ## Trim fields here just in case
     creatives <- trim_characters(creatives)
-    
+
     for(j in 1:Jb) creatives[agrep(brands.adv[j],brand,ignore.case=TRUE), brand:= brands.adv[j]]
     creatives <- creatives[brand %in% brands.adv,]			# delete any brands not advertised in list
 
@@ -239,16 +239,16 @@ getcreatives <- function(category, brands.adv, T, max.distance=0.2) {
 
     ## group creatives together and create a new creativeID (cID) for each
     ## Note that "other" creatives are assigned an ID of 5000 and all grouped together
-    
+
     #### now generic code
     ## collapse
     # this sets creativeID
     setcreativeID(creatives,max.distance=max.distance)
-    
+
     # count new ads (just use different labels, perhaps can improve on this with distance)
     #    creatives[weekID==cIDfweek, nnc := uniqueN(cID),by=c("weekID","brand")]
     #    creatives[is.na(nnc), nnc := 0]
-    
+
     # if(make.binary) creatives[nnc>0,nnc:=1]
 
     # collapse to get total new creatives
@@ -311,7 +311,7 @@ setcreativeID <- function(DT,Jb=DT[,uniqueN(brand)], max.distance=0.2, brands.ad
         }
         for(m in 1:length(li)) DT[tvcreative %in% .c[li[[m]]] & toupper(brand)==brands.adv[j],cID:= j * 1000 + m]
     }
-    
+
     ##
     DT[,cIDfweek:=min(firstweekshown),by=cID]
 }
@@ -326,25 +326,25 @@ setcreativeID <- function(DT,Jb=DT[,uniqueN(brand)], max.distance=0.2, brands.ad
 ##' @param max.distance Levenshtein's distance
 ##' @return A list with a data table for creatives, Jb being the maximum brands, and a brand list for brands advertised
 getcreativedata <- function(category, brands.to_keep, max.distance = 0.2){
-    
+
     cf <- paste0("~/Documents/ads/nobuild/data-raw/",category,"creatives.txt")
-    
+
     ## convert brand names
     creatives <- fread(cf,col.names= c('brand','program','progtype','tvcreative','property','media','avg30','avg30d','dols','sec','dtime','firstdateshown','weekID','fweek'))
     creatives <- trim_characters(creatives)
     creatives[,brand:=toupper(brand)]
     creatives <- creatives[brand %in% brands.to_keep,]
-    
+
     creatives <- creatives[!like(toupper(tvcreative),"CREATIVE UNKNOWN"),]
     brands.adv <- creatives[,unique(brand)]
-    
+
     Jb = length(brands.adv)
-    
+
     creatives <- creatives[brand %in% brands.adv,]			# delete any brands not advertised in list
-    
+
     ## collapse
     setcreativeID(creatives)
-    
+
     return(list(creatives = creatives,Jb = Jb,brands.adv = brands.adv))
 }
 
@@ -360,11 +360,11 @@ getcreativedata <- function(category, brands.to_keep, max.distance = 0.2){
 getcreativemix <- function(creatives){
 
     ## Average age per cID, number of new creatives, average number of creatives
-    creatives[,cIDavgage:=weighted.mean(weekID-cIDfweek,dols),by=c("brand","weekID")]
+    creatives[,cIDavgage:=stats::weighted.mean(weekID-cIDfweek,dols),by=c("brand","weekID")]
     ## Total spent per brand for a given week
     creatives[,totalspent := sum(dols),by=c("brand","weekID")]
     creatives[,cIDfracspent := sum(dols/totalspent),by=c("cID","brand","weekID")]
-    
+
     ## when a creative was introduced, and how many per week were introduced
     .a <- creatives[cIDfweek == weekID,list(nnc=uniqueN(cID)),by=c("brand","weekID")]
     setkey(.a,brand,weekID)
@@ -392,19 +392,19 @@ getcreativemix <- function(creatives){
     .a <- data.table(na.approx(dcast(creatives, weekID ~ brand, value.var = "cID", fun = uniqueN, fill = NA)))
     setkey(.a, weekID)
     creativemix[[2]] <- .a[.(min(weekID):max(weekID)), roll=TRUE]
-    
+
     ## 4. Creative mix element 3: Concentration (similar to Herfindahl index) being total spent on advertising for
     ##    each brand, and share by each creative for that week
     .c <- creatives[,list(fracspent = sum(ifelse(totalspent>0, dols/totalspent, 0))), by=c("cID","brand","weekID")]
     .c[,sum_fracspent_squared := sum(fracspent^2),by=c("brand","weekID")]
-    
+
     .a <- dcast(.c, weekID ~ brand, value.var = "sum_fracspent_squared", fun=max, fill = 0)
     setkey(.a, weekID)
     creativemix[[3]] <- .a[.(min(weekID):max(weekID)), roll=TRUE]
-    
+
     ## This component is to measure ownadnnc weighted by expenditure share, and E.lag variables
     ##  This is for the share weighted values of new cIDs
- 
+
     .a <- creatives[cIDfweek == weekID,list(cIDfracspent = min(cIDfracspent)),by=c("brand","cID","weekID")] ## collapse first
     .a <- .a[,list(nnc.fracspent = sum(cIDfracspent)),by=c("brand","weekID")] ## now collapse by brand
     setkey(.a,brand,weekID)
@@ -426,7 +426,7 @@ getcreativemix <- function(creatives){
 
     ownadnnc.fracspent.l1 <- dcast(.c[,list(nnc.fracspent.l1 = max(nnc.fracspent.l1)),by=c("brand","weekID")], weekID ~ brand, value.var = "nnc.fracspent.l1", fun=max, fill=0)
     ## done, now returning what we came up with
-    
+
     return(list(ownadnnc = ownadnnc, ownadnnc.fracspent = ownadnnc.fracspent, ownadnnc.fracspent.l1 = ownadnnc.fracspent.l1, creativemix = creativemix))
 }
 
@@ -439,9 +439,9 @@ getcreativemix <- function(creatives){
 ##'
 ##' @return Something
 getcreativesummary <- function(category, brands){
-    
+
     cf <- paste0("./nobuild/data-raw/",category,"creatives.txt")
-    
+
     ## convert brand names
     ## Note that firstdateshown/firstweekshown refers to original ad, which are later collapsed
     creatives <- fread(cf,col.names= c('brand','program','progtype','tvcreative','property','media','avg30','avg30d','dols','sec','dtime','firstdateshown','weekID','firstweekshown'))
@@ -449,31 +449,31 @@ getcreativesummary <- function(category, brands){
     creatives[,brand:=toupper(brand)]
     creatives <- creatives[brand %in% brands,]
     creatives[,dols:=as.numeric(dols)]
-    
+
     ## remove any unknown brands
     creatives <- creatives[!like(toupper(tvcreative),"CREATIVE UNKNOWN"),]
     ## collect brands that advertised being a subset of brands
     brands.adv <- creatives[,unique(brand)]
-    
+
     Jb = length(brands.adv)
     ## delete any brands not advertised in list - just in case..
     creatives <- creatives[brand %in% brands.adv,]
-    
+
     ## pattern match creatives that are similar and assign cID to them
     setcreativeID(creatives)
-    
+
     ## amount spent by a brand in a given week (this should be separated into what happened over the life of the ad,
     ## and what happened in the first week.
     ## cIDfweek and cIDlweek are introduced to refer to individual collapsed creatives (identified by cID)
     creatives[,brandadspend := sum(dols),by=c("brand","weekID")]
     csum <- creatives[,list(cIDfweek = min(cIDfweek), totalspent = sum(dols), dols.first.week = sum(ifelse(cIDfweek==firstweekshown,dols,0)), fracspent.first.week = sum(ifelse(cIDfweek==weekID,dols/brandadspend,0)), cIDlweek = max(weekID), nbrands=creatives[,uniqueN(brand)],nprogtype=uniqueN(progtype),nprograms=uniqueN(program),
     nproperty=uniqueN(property),nmedia=creatives[,uniqueN(media)], time.mins = sum(sec/60)),by=c("cID","brand")]
-    
+
     csum[is.na(fracspent.first.week), fracspent.first.week:=0]
     ## duration of each cID creative, rounded down
     csum[,time1 := cIDlweek - cIDfweek]
     csum[,categoryname := category]
-    
+
     ## calculate
     return(csum)
 }
