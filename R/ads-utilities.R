@@ -30,11 +30,13 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 #' @param N Integer value for number of markets to include (constructs from market_list being an alphabetic list)
 #' @param fweek Integer value for first week to start analysis
 #' @param aggregated (Defaults to FALSE) Boolean flag to indicate generation of aggregated (all US) versus city level data
+#' @param brands.advertised If NULL, the code just tries to guess from the dataset provided for ads.
+#' @param ads.from.tns TRUE or FALSE, if TRUE then extracts data for advertising from a separate TNS data set
 #' @return mcmod object being a list with the following elements: list(dimensions=dimensions,Y = Y,CM = CMl, E = El, A = Al, X = Xl, F1 = F1l, F2 = F2)
 #' @examples
 #' mcmod() - Runs default with "dpp"
 #' mcmod(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PL'), covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE)
-mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PRIVATE LABEL'), covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE, max.distance = 0.2, summary.only=FALSE) {
+mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PRIVATE LABEL'), ads.from.tns = FALSE, brands.advertised = NULL, covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE, max.distance = 0.2, summary.only=FALSE) {
 
     J = length(brands.to_keep)
     P <- J * length(covv)          # total number of time varying covariates at city level
@@ -87,6 +89,8 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
         DT[is.na(natdols),natdols:=0]
         XAdv <- dcast.data.table(DT, week ~ brand, value.var = "natdols", subset = .(week >= fweek), fill = 0, fun = mean, na.rm = TRUE)
         XAdv <- XAdv[,brands.to_keep,with=FALSE]			# reorder columns to correspond to list
+
+        if(ads.from.tns) dfname <- sprintf("")
 
         # create covariates from list, X being not time varying, and X2 being time varying
 
