@@ -22,9 +22,10 @@ library(doParallel)
 registerDoParallel(cores=5)
 
 dfv <- c("dpp","tti","ptw","fti","lld")
+dfv <- c("dpp")
 
-foreach(i = 1:5) %dopar% {
-
+#foreach(i = 1:1) %dopar% {
+i <- 1
 ###### run for each category
 
 data.name <- dfv[i]
@@ -64,7 +65,7 @@ nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
 
-save.file <- paste0("./nobuild/results/mode_V0_endogAE_Ef",data.name,".Rdata")
+save.file <- paste0("./nobuild/results/mode_test_E",data.name,".Rdata")
 ##save.file <- paste0("./nobuild/results/mode_test_",data.name,".Rdata")
 
 get.f <- function(P, ...) return(cl$get.f(P))
@@ -100,10 +101,8 @@ if (flags$use.cr.pars) {
 ##    CMcol <- 2
 ##    CM <- llply(mcmod$CM[1:T], function(x) return(x[,CMcol,drop=FALSE]))
 ##    for(t in 1:T) CM[[t]] <- mcmod$Ef[[t]] + mcmod$Efl1[[t]]
-    for(t in 1:T) CM[[t]] <- mcmod$Ef[[t]]/flags$E.scale
+    for(t in 1:T) CM[[t]] <- mcmod$E[[t]]/flags$E.scale
 }
-
-
 
 if (flags$include.X) {
   X <- mcmod$X[1:T]
@@ -119,6 +118,7 @@ if (flags$include.X) {
 
 data <- list(X=X, Y=Y, F1=F1, F2=F2,
              A=A, CM=CM) # E=E)
+
 
 dim.V1 <- N
 dim.V2 <- N*(1+P)
@@ -151,13 +151,8 @@ if (flags$W1.LKJ & nfact.W1>0) stop("Using LKJ prior on W1.  Set nfact.W1 to 0")
 
 M20 <- matrix(0,1+P+Jb,J)
 M20[1,] <- 10
-M20[2:(Jb+1),] <- 0
-M20[(Jb+2):(1+P+Jb),] <- 0
 for (j in 1:J) {
     M20[Jb+1+j,j] <- -2
-}
-for (j in 1:Jb) {
-    M20[j+1,j] <-  0
 }
 
 if (flags$estimate.M20) {
@@ -698,4 +693,4 @@ if(!flags$endog.A) {
 
 save(sol, se.sol, opt, DL, varnames,
      gr, hs, data, parcheck, ba, M2a, file=save.file)
-}       ## finished foreach
+#}       ## finished foreach
