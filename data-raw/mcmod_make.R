@@ -1,13 +1,22 @@
 ## Script to regenerate mcmod files
-categories <- c("dpp","ptw","fti","tti","lld")
-#categories <- c("ptw")
+## set path to IRI root
+library(data.table)
+library(lubridate)
+
+rm(list=ls())
+gc()
+
+#categories <- c("dpp","ptw","fti","tti","lld")
+reload.data <- TRUE
+categories <- c("ptw")
 T <- 226
 N <- 42
 fweek <- 1200
 max.distance = 0.1
 
-covv <- c("avprc")
-covnv <- c("fracfnp","fracdnp","fracdist","numproducts")
+covv <- c("avgprc")
+#covnv <- c("fracfnp","fracdnp","fracdist","numproducts")
+covnv <- c("feature","display","priceoff","fracwdist","numproducts")
 
 brands.to_keep <- list()
 brands.to_keep[["lld"]] 	<- c('TIDE','ALL','GAIN',
@@ -17,18 +26,20 @@ brands.to_keep[["tti"]] 	<- c('CHARMIN','QUILTED NORTHERN',
 brands.to_keep[["fti"]] 	<- c('KLEENEX','PUFFS','PRIVATE LABEL') # 93.0% of share
 
 brands.to_keep[["dpp"]]		<- c('HUGGIES','PAMPERS','LUVS','PRIVATE LABEL')  # 98.2% of share
-#brands.to_keep[['ptw']] 	<- c('BOUNTY','BRAWNY','SCOTT','SPARKLE','VIVA','PRIVATE LABEL') # 94.2% of share
-brands.to_keep[['ptw']] 	<- c('BOUNTY','BRAWNY','SCOTT','PRIVATE LABEL') # xx% of share but more stable
+brands.to_keep[["ptw"]] 	<- c('BOUNTY','BRAWNY','SCOTT','SPARKLE','KlEENEX VIVA','PRIVATE LABEL') # 94.2% of share
+#brands.to_keep[['ptw']] 	<- c('BOUNTY','BRAWNY','SCOTT','PRIVATE LABEL') # xx% of share but more stable
 
-for(category in categories) {
-    cat("category: ",category,"\n")
+for(data.name in categories) {
+    brandlist <- brands.to_keep[[data.name]]
+    if(reload.data) source("./data-raw/read.data.R")
+    cat("category: ", data.name,"\n")
 
-    mcmod <- mcmodf(data.name = category,
-                    brands.to_keep = brands.to_keep[[category]],
+    mcmod <- mcmodf(data.name,
+                    brands.to_keep = brands.to_keep[[data.name]],
                     covv = covv, covnv = covnv, T = T,
-                    N = N, fweek = fweek, aggregated = FALSE,max.distance=max.distance, ads.from.tns = TRUE, minadv=1.0e7)
+                    N = N, fweek = fweek, aggregated = FALSE,max.distance=max.distance, ads.from.tns = TRUE, minadv=1.0e7, use.iri = TRUE)
     
-    file.name <- paste0("mcmod",category)
+    file.name <- paste0("mcmod",data.name)
     dn1 <- paste0(file.name,"<- mcmod")
     eval(parse(text=dn1))
     dn2 <- paste0("devtools::use_data(",file.name,", overwrite=TRUE)")

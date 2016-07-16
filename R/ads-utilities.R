@@ -36,8 +36,7 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 #' @examples
 #' mcmod() - Runs default with "dpp"
 #' mcmod(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PL'), covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE)
-mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PRIVATE LABEL'), ads.from.tns = FALSE, brands.advertised = NULL, covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE, max.distance = 0.2, minadv = 1.0e6, summary.only=FALSE) {
-
+mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PRIVATE LABEL'), ads.from.tns = FALSE, use.iri = FALSE, brands.advertised = NULL, covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE, max.distance = 0.2, minadv = 1.0e6, summary.only=FALSE) {
 
     J = length(brands.to_keep)
     P <- J * length(covv)          # total number of time varying covariates at city level
@@ -47,23 +46,21 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     category <- data.name
 
     ###### read in data file required and make any transforms needed
-    if(aggregated) cf <- paste(category,'agg',sep="") else cf <- category
-    dfname <- sprintf('nobuild/data-raw/%siritns.txt',cf)
-
-    ## Trim characters, just in case
-    DT <- fread(dfname)
-    DT <- trim_characters(DT)
+    if(use.iri) {
+       DT <- readRDS(paste0("nobuild/data-raw/",data.name,"iri.RDS"))
+       setkey(DT,market_name,week,brand)
+    } else {
+        dfname <- sprintf('nobuild/data-raw/%siritns.txt',data.name)
     
+        ## Trim characters, just in case
+        DT <- fread(dfname)
+        DT <- trim_characters(DT)
+    }
+
     market_list <- unique(DT$market_name)
 
-    ## not sure if this next feature is working.
-        if(any(brands.to_keep == "OTHER"))
-    DT <- rbind(DT, DT[!brand %in% brands.to_keep[-which(brands.to_keep == "OTHER")] ,list(brand="OTHER",volume=sum(volume),units=sum(units),dollars=sum(dollars),lavgprc = mean(lavgprc), sumfeature=mean(sumfeature),sumdisplay=mean(sumdisplay),sumfnp=mean(sumfnp),sumdnp=mean(sumdnp),numproducts=mean(numproducts),numoutlets=mean(numoutlets),totalnumstores=min(totalnumstores),est_acv=mean(est_acv),tot_acv=min(tot_acv),fvol=sum(fvol),dvol=sum(dvol),pvol=sum(pvol),spotadsecs=sum(spotadsecs,na.rm=TRUE),spotaddols=sum(spotaddols,na.rm=TRUE),spotadunits=sum(spotadunits,na.rm=TRUE),natsecs=sum(natsecs,na.rm=TRUE),natdols=sum(natdols,na.rm=TRUE),natunits=sum(natunits,na.rm=TRUE),networkadsecs=sum(networkadsecs,na.rm=TRUE),networkaddols=sum(networkaddols,na.rm=TRUE),networkadunits=sum(networkadunits,na.rm=TRUE),syndicationadsecs=sum(syndicationadsecs,na.rm=TRUE),syndicationaddols=sum(syndicationaddols,na.rm=TRUE),syndicationadunits=sum(syndicationadunits,na.rm=TRUE),cableadsecs=sum(cableadsecs,na.rm=TRUE),cableaddols=sum(cableaddols,na.rm=TRUE),cableadunits=sum(cableadunits,na.rm=TRUE),SLNadsecs=sum(SLNadsecs,na.rm=TRUE),SLNaddols=sum(SLNaddols,na.rm=TRUE), SLNadunits=sum(SLNadunits,na.rm=TRUE),avprc=mean(avprc),fracdnp=mean(fracdnp),fracfnp=mean(fracfnp),fracdist=mean(fracdist)),by=c("market_name","week")])
-
-
-
     # keep only brands focused on here, and subset of weeks and markets
-    DT <- DT[brand %in% brands.to_keep & week < fweek + T & week >= fweek & market_name %in% market_list[1:N]]
+    DT <- DT[brand %in% brands.to_keep & week < fweek + T & week >= fweek & market_name %in% market_list[1:N],]
 
     if(summary.only) return(DT)
     
@@ -71,10 +68,6 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
     if(any(dcast.data.table(DT, week ~ market_name, value.var="volume", subset = .(week < fweek+T & week >= fweek & market_name %in% market_list[1:N]), fun = length) < J)) {
         warning("Warning: Cannot do analysis on brands with unbalanced data: reduce brands in brands.to_keep, or choose a subset of markets. Step unable to complete for analysis, but ok for summary data (use DT)")
     } else {
-        # create new or transformed variables here, if required
-        #DT[,sumdnp := log(1+DT$sumdnp)]
-        #DT$sumdnp<-log(1+DT$sumdnp)
-        #DT$sumfnp<-log(1+DT$sumfnp)
 
         # create outcome variable (Y)
         Y <- structure(rep(0,T*N*J), dim=c(T,N,J))
@@ -85,21 +78,20 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
         }
         rm(.a)
 
-
-        # create advertising variable (XAdv), national only here (using mean, therefore)
-        DT[is.na(natdols),natdols:=0]
-        XAdv <- dcast.data.table(DT, week ~ brand, value.var = "natdols", subset = .(week >= fweek), fill = 0, fun = mean, na.rm = TRUE)
-        XAdv <- XAdv[,brands.to_keep,with=FALSE]			# reorder columns to correspond to list
-
         # this next one just pulls the ads directly from a TNS file, and does not care about order so much
         # TNS file having rows by IRI week
         if(ads.from.tns) {
             TNSdt <- readRDS(paste0("nobuild/data-raw/", data.name, "TNS.RDS"))
-            .a <- dcast(TNSdt, weekID ~ brand, value.var="dols", subset= .(media %in% c("Cable TV", "SLN TV", "Network TV", "Syndication") & weekID >= fweek), fill=0, fun=sum)
+            .a <- dcast(TNSdt, weekID ~ brand, value.var="dols", subset= .(media %in% c("Cable TV", "SLN TV", "Network TV", "Syndication","Spot TV") & weekID >= fweek), fill=0, fun=sum)
             
             brands_advertised <- names(sort(colSums(.a)[-1],decreasing=TRUE))
             .ai <- which(colSums(.a[,brands_advertised,with=F]) > minadv)
             XAdv <- .a[,brands_advertised[.ai],with=F]
+        } else {
+            # create advertising variable (XAdv), national only here (using mean, therefore)
+            DT[is.na(natdols),natdols:=0]
+            XAdv <- dcast.data.table(DT, week ~ brand, value.var = "natdols", subset = .(week >= fweek), fill = 0, fun = mean, na.rm = TRUE)
+            XAdv <- XAdv[,brands.to_keep,with=FALSE]			# reorder columns to correspond to list
         }
         
         # create covariates from list, X being not time varying, and X2 being time varying
@@ -217,7 +209,7 @@ mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LU
         Yl[[t]] <- Y[t,,]
     }
 
-    dimensions <- list(N = N, T= T, J=J, R = R, Jb = Jb, JbE = JbE, K = ncol(Xl[[1]]), P = P)
+    dimensions <- list(N = N, T= T, J=J, R = R, Jb = Jb, JbE = JbE, K = ncol(Xl[[1]]), P = P, brands_advertised = brands_advertised, brands_sold = brands.to_keep)
     mcmod <- list(dimensions=dimensions,Y = Yl, CM = CMl, E = El, Ef = Efl, Efl1 = Efl1l, A = Al, X = Xl, F1 = F1l, F2 = F2)
     return(mcmod)
 }
