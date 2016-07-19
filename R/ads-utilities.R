@@ -36,7 +36,7 @@ rmvMN <- function(ndraws, M = rep(0, nrow(S) * ncol(C)), C, S) {
 #' @examples
 #' mcmod() - Runs default with "dpp"
 #' mcmod(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PL'), covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE)
-mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PRIVATE LABEL'), ads.from.tns = FALSE, use.iri = FALSE, brands.advertised = NULL, covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE, max.distance = 0.2, minadv = 1.0e6, summary.only=FALSE) {
+mcmodf <- function(data.name = "dpp", brands.to_keep = c('HUGGIES','PAMPERS','LUVS','PRIVATE LABEL'), ads.from.tns = FALSE, use.iri = FALSE, brands.advertised = NULL, covv = c("avprc"), covnv = c("fracfnp","fracdnp","fracdist","numproducts"), T = 226,  N = 42, fweek = 1200, aggregated = FALSE, max.distance = 0.2, minadv = 0.25e6, summary.only=FALSE) {
 
     J = length(brands.to_keep)
     P <- J * length(covv)          # total number of time varying covariates at city level
