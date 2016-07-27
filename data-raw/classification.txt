@@ -1,0 +1,11 @@
+bmd.data.name | iricatname | tnssubcat | tnsmiccat
+dpp | diapers | Childrens Diapers & Training Pants (Cat) | Childrens Diapers & Training Pants (Cat)
+ptw | paptowl | Paper Towels (Cat) | Paper Towels (Cat)
+tti | toitisu | Bathroom Tissue (Cat) | Bathroom Tissue (Cat) 
+fti | factiss | Facial Tissues (Cat) | Facial Tissues (Cat)
+lld | laundet | Laundry Detergents, Liquid | NULL 
+lld | laundet | Laundry Detergents Corporate Promotion/Sponsorship | NULL
+lld | laundet | Laundry Detergents General Promotion | NULL
+lld | laundet | Laundry Detergents General Promotion | NULL
+ber | beer | Light & Low Carb Beers | Domestic Light & Low Carb Beers
+ber | beer | Light & Low Carb Beers | Imported Light & Low Carb Beers
