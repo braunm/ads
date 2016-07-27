@@ -19,14 +19,14 @@ library(reshape2)
 
 
 library(doParallel)
-registerDoParallel(cores=4)
+registerDoParallel(cores=3)
 
 dfv <- c("dpp","tti","ptw","fti","lld")
-#dfv <- c("dpp")
+#dfv <- c("lld")
 #dfv <- c("fti","dpp")
 
 foreach(i = 1:5) %dopar% {
-    #i <- 1
+    #    i <- 1
 ###### run for each category
 
 data.name <- dfv[i]
@@ -66,7 +66,7 @@ nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
 
-save.file <- paste0("./nobuild/results/mode_test5_E",data.name,".Rdata")
+save.file <- paste0("./nobuild/results/mode_test6_E",data.name,".Rdata")
 ##save.file <- paste0("./nobuild/results/mode_test_",data.name,".Rdata")
 
 get.f <- function(P, ...) return(cl$get.f(P))
@@ -102,7 +102,7 @@ if (flags$use.cr.pars) {
 ##    CMcol <- 2
 ##    CM <- llply(mcmod$CM[1:T], function(x) return(x[,CMcol,drop=FALSE]))
 ##    for(t in 1:T) CM[[t]] <- mcmod$Ef[[t]] + mcmod$Efl1[[t]]
-    for(t in 1:T) CM[[t]] <- mcmod$Ef[[t]]/flags$E.scale
+    for(t in 1:T) CM[[t]] <- mcmod$E[[t]]/flags$E.scale
 }
 
 if (flags$include.X) {
