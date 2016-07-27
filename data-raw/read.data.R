@@ -101,7 +101,7 @@ if(!any(match(cDT[,unique(iricatname)],categories))) stop("No categories matchin
 		setkey(.t,MARKETNAME,WEEK)
 		setkey(.dtf,MARKETNAME,WEEK)
 		.tt <- .t[.dtf]
-		.tt[,list(numupc = uniqueN(UPC), dollars = sum(DOLLARS), volume = sum(UNITS*VOL_EQ), lavgprc = mean(log(price)), feature = weighted.mean(FD,EST_ACV), display = weighted.mean(DD,EST_ACV), priceoff = weighted.mean(PRD, EST_ACV), numoutlets = uniqueN(IRI_KEY), numproducts = uniqueN(UPC),
+		.tt[,list(numupc = uniqueN(UPC), dollars = sum(DOLLARS), volume = sum(UNITS*VOL_EQ), lavgprc = mean(log(price)), feature = weighted.mean(FD,EST_ACV), display = weighted.mean(DD,EST_ACV), priceoff = weighted.mean(PRD, EST_ACV), numoutlets = uniqueN(IRI_KEY), numproducts = log(uniqueN(UPC)),
 	totalnumstores = max(totalnumstores),est_acv = mean(EST_ACV), mkt_est_acv = min(MKT_EST_ACV), fracwdist = min(SE/MKT_EST_ACV)), by = c("MARKETNAME","WEEK","BRAND")]
 	}
 
@@ -161,13 +161,14 @@ TNSdata <- TNSdata[!TNSBRAND %in% "Brand Not Identified",]
 ## note that any brands that are common across the subcategories will also be combined here
 .tDT <- TNSdata[SUBCATEGORY %in% cDT[,tnssubcat] & MICROCATEGORY %in% cDT[,tnsmiccat],]
 rm(TNSdata)
+
 .tDT[,DATE := ymd_hms(DTIME)]
-.tDT[,WEEK := as.integer((DATE-ymd("1979-08-27"))/7)]
+.tDT[,WEEK := as.integer((DATE-ymd_hms("1979-08-27 00:00:00.000"))/7)]
 
 brands.advertised <- .tDT[,unique(TNSBRAND)]
 
 .tDT[,FIRSTDATESHOWN := min(DATE),by = c("TNSBRAND","TVCREATIVE")]
-.tDT[,FIRSTWEEKSHOWN := as.integer((FIRSTDATESHOWN - ymd("1979-08-27"))/7)]
+.tDT[,FIRSTWEEKSHOWN := as.integer((FIRSTDATESHOWN - ymd_hms("1979-08-27 00:00:00.000"))/7)]
 TNS <- .tDT[,list(BRAND=TNSBRAND,PROGRAM,PROGTYPE,TVCREATIVE,PROPERTY,MEDIA,AVG30,AVG30D,DOLS,SEC,DTIME,FIRSTDATESHOWN,WEEKID=WEEK,FIRSTWEEKSHOWN)]
 colnames(TNS) <- tolower(colnames(TNS))
 setnames(TNS,"weekid","weekID")

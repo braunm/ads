@@ -7,10 +7,8 @@ rm(list=ls())
 gc()
 
 categories <- c("dpp","ptw","fti","tti","lld")
-categories <- "lld"
 
 reload.data <- TRUE
-#categories <- c("lld")
 T <- 226
 N <- 50
 fweek <- 1200
@@ -23,7 +21,7 @@ covnv <- c("feature","display","priceoff","fracwdist","numproducts")
 
 brands.to_keep <- list()
 brands.to_keep[["lld"]] 	<- c('TIDE','ALL','GAIN',
-'CHEER','PUREX','WISK','DREFT','ARM & HAMMER','PRIVATE LABEL','COMPOSITEBRAND')  # 91.7% share
+'CHEER','PUREX','WISK','DREFT','ARM & HAMMER','PRIVATE LABEL')  # 91.7% share
 brands.to_keep[["tti"]] 	<- c('KLEENEX','CHARMIN','QUILTED NORTHERN',
 'SCOTT','PRIVATE LABEL') # (including Kleenex) 93.0% of share
 brands.to_keep[["fti"]] 	<- c('KLEENEX','PUFFS','PRIVATE LABEL') # 93.0% of share
