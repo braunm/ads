@@ -25,7 +25,7 @@ dfv <- c("dpp","tti","ptw","fti","lld")
 #dfv <- c("lld")
 #dfv <- c("fti","dpp")
 
-foreach(i = 1:5) %dopar% {
+foreach(i = 1:length(dfv)) %dopar% {
     #        i <- 1
 ###### run for each category
 
@@ -66,7 +66,7 @@ nfact.V2 <- 0
 nfact.W1 <- 0
 nfact.W2 <- 0
 
-save.file <- paste0("./nobuild/results/mode_test7_E",data.name,".Rdata")
+save.file <- paste0("./nobuild/results/mode_test8_E",data.name,".Rdata")
 ##save.file <- paste0("./nobuild/results/mode_test_",data.name,".Rdata")
 
 get.f <- function(P, ...) return(cl$get.f(P))

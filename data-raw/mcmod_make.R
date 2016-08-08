@@ -17,7 +17,7 @@ select.markets.from.file <- FALSE          ## to get market list from market_lis
 
 covv <- c("avgprc")
 #covnv <- c("fracfnp","fracdnp","fracdist","numproducts")
-covnv <- c("feature","display","priceoff","fracwdist","numproducts")
+covnv <- c("feature","display","priceoff","fracwdist")
 
 brands.to_keep <- list()
 brands.to_keep[["lld"]] 	<- c('TIDE','ALL','GAIN',
