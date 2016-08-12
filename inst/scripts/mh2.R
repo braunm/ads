@@ -32,7 +32,7 @@ get.hyperprior <- function(P, ...) return(cl$get.hyperprior(P))
 data.name <- "dpp"
 
 if(runmode) source("./inst/scripts/mode.R")
-mode.file <- paste0("./nobuild/results/mode_test_",data.name,".Rdata")
+mode.file <- paste0("./nobuild/results/mode_test8_E",data.name,".Rdata")
 
 ##----pre parallel constants
 
@@ -53,7 +53,7 @@ adaptList <- list(e1 = 1e-5, e2 = 1e-5, A1=1e6,
 
 
 thread.id <- 1
-save.file <- paste0("./nobuild/results/mcmc_test",data.name,"_", thread.id,".Rdata")
+save.file <- paste0("./nobuild/results/mcmc_test",data.name,"_E", thread.id,".Rdata")
 load(mode.file)
 post.mode <- opt$par
 nvars <- length(post.mode)
@@ -75,8 +75,6 @@ if ((i %% save.freq)==0) { ## interim save
          nm, iter_draw, sampler_pars,
          file=save.file)
 }
-
-
 
 
     ## save at end
